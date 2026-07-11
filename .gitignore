@@ -1,4 +1,4 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
 build/
@@ -8,18 +8,39 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
 
 # Coverage
 .coverage
 htmlcov/
 
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
 # Data and profiling
 data/
-graphify-out/
-serena/
 *.npz
+*.npy
+!src/**/tests/**/*.npy
 memray-*.bin
 memray-*.html
+*.bin
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Graphify
+graphify-out/
+tests/graphify-out/
+src/graphify-out/
+.graphifyignore
+
+# Serena
+serena/
 
 # P4 artifacts
 p4_dataset/
@@ -27,8 +48,10 @@ p4_*.pt
 p4_results.png
 p4_train_results.json
 
-# Trash
+# Large binaries (also enforced by pre-commit hook)
 plate-main.zip
 plate-main/
-tests/graphify-out/
-src/graphify-out/
+
+# OS junk
+.DS_Store
+Thumbs.db
