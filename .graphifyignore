@@ -1,0 +1,12 @@
+.coverage_html/
+graphify/
+plate-main/
+graphify-out/
+serena/
+.mypy_cache/
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.ruff_cache/
+memray_*

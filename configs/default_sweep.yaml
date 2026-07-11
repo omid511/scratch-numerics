@@ -1,0 +1,56 @@
+name: "default_sweep"
+schema_version: 1
+seed: 42
+
+solver:
+  M: 15
+  N: 15
+  basis: "legendre"
+  grid: [64, 64]
+
+plate:
+  L1: 0.3
+  L2: 0.3
+  boundary:
+    left: "clamped"
+    right: "clamped"
+    top: "clamped"
+    bottom: "clamped"
+
+sweep:
+  method: "latin_hypercube"
+  n_samples: 10000
+  checkpoint_interval: 1000
+  store_mode_shapes: true
+  max_workers: 0  # 0 = auto (min(cpu_count, 3))
+  parameters:
+    face_thickness:
+      range: [0.0005, 0.003]
+      log_scale: false
+    core_thickness:
+      range: [0.004, 0.020]
+      log_scale: false
+    k_stiffness:
+      range: [1.0e8, 1.0e14]
+      log_scale: true
+    L1:
+      range: [0.15, 0.6]
+      log_scale: false
+    L2:
+      range: [0.15, 0.6]
+      log_scale: false
+    M:
+      range: [8, 20]
+      log_scale: false
+    N:
+      range: [8, 20]
+      log_scale: false
+  sensitivity:
+    enabled: false
+    method: "sobol"
+    n_base_samples: 64
+    fixed_params: {}
+
+output:
+  format: "numpy"
+  path: "./data/sweep_output"

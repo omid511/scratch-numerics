@@ -1,0 +1,34 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Coverage
+.coverage
+htmlcov/
+
+# Data and profiling
+data/
+graphify-out/
+serena/
+*.npz
+memray-*.bin
+memray-*.html
+
+# P4 artifacts
+p4_dataset/
+p4_*.pt
+p4_results.png
+p4_train_results.json
+
+# Trash
+plate-main.zip
+plate-main/
+tests/graphify-out/
+src/graphify-out/
