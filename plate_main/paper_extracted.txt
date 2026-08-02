@@ -1,0 +1,1806 @@
+Composite Structures 305 (2023) 116504
+Available online 25 November 2022
+0263-8223/© 2022 Elsevier Ltd. All rights reserved.Aeroelastic modeling and analysis of honeycomb plates in high-speed 
+airflow with acoustic load and general boundary conditions 
+Zhen Nia,*, Danwang Lia, Liang Jia, Kai Zhoub 
+aAECC Commercial Aircraft Engine CO., LTD, Shanghai 200241, China 
+bState Key Laboratory of Mechanical System and Vibration, Shanghai Jiao Tong University, Shanghai 200240, China   
+ARTICLE INFO  
+Keywords: 
+Honeycomb plate 
+First-order shear deformation theory 
+Shear correction factor 
+Panel flutter ABSTRACT  
+This paper investigates the modeling and aeroelastic properties of laminated plates with honeycomb core by a 
+semi-analytical approach, where both acoustic load and general boundary conditions are considered. The 
+equivalent material properties of the honeycomb structures are determined by the corrected Gibson ’s formula. 
+The energy functional of the plate is derived based on the first-order shear deformation theory (FSDT) and the 
+effect of aerodynamic pressure is taken into account by introducing the supersonic piston theory. A modified 
+shear correction factor is adopted in this study to improve the accuracy of the method. The Hamilton ’s principle 
+is employed to formulate the governing equations of the system, and the solutions of the problem with both 
+classical and elastic boundary conditions are solved by a modified Ritz approach. The results obtained by the 
+proposed method show good agreement with those by the finite element method and in open literature. Finally, 
+parametric studies on the aeroelastic behaviors of the plate concerning the boundary conditions, layer thickness 
+and honeycomb geometry are carried out.   
+1.Introduction 
+Sandwich plates with honeycomb core have been extensively used in 
+aerospace, automobile, naval and many other fields where strength-to- 
+weight ratio is a concern. It is known that structures in aerospace ap-
+plications are usually exposed to severe aerodynamic and acoustic loads 
+during cruise, which significantly affects their dynamic behaviors and 
+may result in large structure response and panel flutter. When the flutter 
+phenomenon occurs, the structure becomes unstable and keeps gath-
+ering energy from the airflow, which may cause fatigue failure and 
+finally leads to catastrophic consequence. Thus, it is highly desirable to 
+investigate the aeroelastic characteristics of honeycomb plates. 
+Panel flutter is a kind of self-excited vibration phenomenon where 
+thin plates are subjected to supersonic flow directed parallel to their 
+surfaces [1]. This phenomenon was first observed in 1940s [2] and 
+gained much attention for causing structural failures in rockets and 
+airplanes in the 1950s [3]. Since then, panel flutter has been extensively 
+studied and a comprehensive review of the early studies on the panel 
+flutter and aeroelastic stability of plates and shells was given by Dowell 
+[4]. For panel flutter at supersonic speeds, both analytical and numerical 
+methods are widely used to study its dynamic behaviors [5]. For several special cases, the exact closed-form solutions were derived analytically 
+by Sun and Xing [6]. For more general cases, semi-analytical methods 
+are preferred due to their higher flexibility. One of the well-known 
+methods in flutter analysis is the assumed mode method (AMM). By 
+adopting AMM, Barai and Durvasula [7] analyzed the flutter of a 3D 
+hybrid laminated panel and found that aerodynamic damping is 
+important in determining the aeroelastic stability boundaries. Song and 
+Li [8,9] studied the aero-elastic and aero-thermo-elastic flutter behav -
+iors of composite laminated plates in supersonic flow and corresponding 
+control strategies were proposed. Later, they successfully investigated 
+the flutter properties of plates with classical and elastic boundary con-
+ditions using AMM [10]. However, it should be mentioned that despite 
+its high convergence speed, the results may be unreliable for typical 
+boundary conditions when using AMM [10]. To obtain more accurate 
+results, the Ritz/Galerkin method is adopted to study the flutter char-
+acteristics of plates. Dowell [11,12] used Galerkin method for investi -
+gating the aero-elastic stability characteristics of a plate at supersonic 
+speed, and he concluded that four to six modes should be used to obtain 
+accurate results. Navazi and Haddadpour [13] studied the nonlinear 
+aero-thermo-elastic behaviors of functionally graded plates in super -
+sonic airflow. Shitov and Vedeneev [14] investigated the structural 
+*Corresponding author. 
+E-mail address: z.ni@hotmail.com (Z. Ni).  
+Contents lists available at ScienceDirect 
+Composite Structures 
+u{�~zkw! s{yo| kro>! ÐÐÐ1ow�o�t o~1m{y2w{m k�o2m{y|�� ~�m�!
+https://doi.org/10.1016/j.compstruct.2022.116504 
+Received 29 August 2021; Received in revised form 18 October 2022; Accepted 20 November 2022   
+
+Composite Structures 305 (2023) 116504
+2stability of simply supported plates at low supersonic speeds by using the 
+Bubnov –Galerkin method. For plates with aerodynamic load on both 
+surfaces, the stability was studied by Wang et al [15] using the Galerkin 
+method. By using the Ritz approach, Huang et al [16] studied the flutter 
+characteristics of graphene nanoplatelet reinforced laminated composite 
+quadrilateral plates with simply supported boundaries. Iterative 
+enriched Ritz method was developed by Cunha-Filho et al [17] to deal 
+with aeroviscoelastic panel flutter problems with both free and fixed 
+boundaries. Muc and Flis [18] investigated the flutter characteristics of 
+functionally graded porous plates with different boundary conditions 
+using the Rayleigh-Ritz method. The same method is also adopted by 
+Guimar ~aes et al [19] to study the post-flutter behaviors of multibay 
+composite panels and they found that multibay arrangements may affect 
+the jump phenomenon in the Hopf bifurcation diagram. Although it is 
+known that the traditional Ritz method has difficulty dealing with 
+elastic boundaries, an improved form has been widely used to handle 
+general boundaries by using the penalty method. By using the modified 
+Ritz method with special treated admissible functions, Zhou et al [20] 
+performed aero-thermo-elastic coupled flutter analysis on supersonic 
+moderately thick orthotropic plates. It should be mentioned that this 
+method is not limited to a single rectangular plate, but can deal with 
+more complex structures as well [21,22] . The finite element method 
+(FEM) is also a powerful tool in panel flutter analysis [23–25]. The FEM 
+was first introduced by Olson [26] to deal with panel flutter problems, 
+and can be used for many types of structures such as rectangular plates 
+[27,28] , curved plates [29–32] and stiffened plates [32–34]. By 
+comparing with AMM, Song and Li [10] found that the results from the 
+FEM are more precise than those of AMM. 
+As can be seen from the aforementioned literature, although various 
+numerical methods have been developed to deal with panel flutter, a 
+reliable plate model is always necessary for modeling panel structures. A 
+comprehensive review on the modeling of plate structures can be found 
+in Refs. [35–37]. Modeling of plate structures is actually a three- 
+dimensional (3D) problem. However, the 3D elastic solution for lami-
+nated plates is usually very complex and difficult to obtain. To simplify 
+the problem, researchers make some simplifications and reduce the 
+problem from 3D to two-dimensional (2D) with reasonable accuracy. 
+According to Carrera [38], the 2D assumptions of multilayered struc-
+tures includes the Equivalent Single Layer (ESL) model and layer-wise 
+(LW) model. According to the ESL theory, the displacement field of 
+the plate is the expansion of its displacement parameters in the middle 
+surface. Thus, the number of unknown variables is independent of the 
+number of layers, which significantly simplifies the modeling and 
+analysis of laminated plates. While in the LW theory, all layers are 
+modeled as independent shell structures, thus the detailed response of 
+individual layers can be obtained. Although adopting the LW theory 
+usually leads to more accurate results, the solution procedure would 
+become much more complex. Despite the differences between ESL and 
+LW models, many researchers devoted themselves into finding unified 
+solutions for laminated plates. The most well-known work is contributed 
+by Carrera and known as Carrera Unified Formulation (CUF) [38,39] , 
+which provides a simple and elegant form for laminated structures. It is 
+worthwhile to mention that CUF applies to not only laminated panels, 
+but also beams and shells. Interested readers may refer to Hu et al [40] 
+for a review and Refs. [41–45] for the latest developments. 
+For plates with honeycomb core, the honeycomb layer can be 
+modeled as homogenous elastic solid with equivalent material proper -
+ties. The most widely used approach for obtaining equivalent material 
+properties of honeycomb structures was firstly introduced by Gibson and 
+Ashby [46] and improved by Fu and Yin [47]. Since their method can be 
+written in an analytical form, many researchers have adopted this 
+approach in their studies [48–52]. Although this approach is widely 
+accepted in many practical applications, it should be noted that the 
+intricate microarchitecture-dependent mechanical characteristics of the 
+honeycomb structures cannot be captured by this approach [53]. 
+Recently, different higher-order continuum theories such as strain gradient theory [53,54] and micropolar theory [55–57] have been 
+developed to accurately model the deformation of lattice structures. 
+However, as the constitutive parameters can hardly be written in an 
+analytical form, numerical procedure is still necessary for determining 
+these parameters when higher-order continuum theories are adopted. 
+To obtain a semi-analytical solution, the honeycomb core is modeled 
+by equivalent material property in this paper. Thus, laminated plate 
+theory can be adopted for the plate. There are mainly-three kinds of 
+models widely used for laminated plates, namely, the classical plate 
+theory (CPT), the first-order shell deformation theory (FSDT) and the 
+higher-order shear deformation theory (HSDT). CPT is mainly used for 
+plate structures when their thickness is considerably small compared 
+with other dimensions. However, as CPT neglects the shear effect and 
+rotary inertia, it becomes inaccurate when the thickness of the plate 
+increases [58]. To overcome this limitation, FSDT is proposed and it has 
+been proved to be accurate for moderately thick plates. Many re-
+searchers try to use FSDT for studying the dynamics of honeycomb 
+plates. For example, Park and Mongeaub [59] studied the vibration and 
+sound radiation of a sandwich honeycomb panel using the FSDT. Duc et 
+al [60–62] investigated the vibration and nonlinear response of hon-
+eycomb shells with negative Poisson ’s ratio. However, in benchmark 
+results given by Madhukar and Singha [63], the natural frequencies 
+predicted by FSDT and HSDT agree well only when the plate is very thin. 
+Yu and Cleghorn [50] compared the results of the free vibration of 
+symmetric honeycomb panels by using CPT, FSDT and HSDT, and 
+pointed out that both CPT and FSDT are not adequate for the flexural 
+vibration analysis of honeycomb panels. In their study, the natural fre-
+quencies of the honeycomb panel predicted by FSDT is much higher than 
+those by HSDT unless the plate is extremely thin. Similar phenomenon is 
+observed by Madhukar and Singha [64], which indicates FSDT cannot be 
+directly used for moderately thick plates if accuracy is a concern. Thus, 
+instead of FSDT, researches prefer HSDT when analyzing the dynamics 
+of honeycomb plates. Zhang et al [65] used Reddy ’s third-order shear 
+deformation theory to solve the free vibrations and nonlinear responses 
+of a honeycomb sandwich plate. Kheirikhah and Akhavan-Rad [66] 
+studied the free vibration of a composite-faced honeycomb plate using a 
+high-order theory. Khare et al [67] presented a facet shell element based 
+on higher-order theory for solving the dynamics of sandwich shells. Li 
+and Zhu [68] introduced an iterative formulation based on Reddy ’s 
+third-order plate theory and solved the free flexural vibration of multi -
+layered honeycomb plates. Ansari et al [69] used HSDT along with von- 
+Karman nonlinear kinematic relations to solve the nonlinear vibration of 
+honeycomb plates with functionally graded carbon nanotube-reinforced 
+composite face sheets. Nevertheless, although HSDT is more accurate for 
+honeycomb plates, it leads to a much more complex formulation. 
+The reason FSDT is not appropriate for honeycomb plates is that the 
+FSDT does not satisfy the zero shear stress condition on the upper and 
+lower surfaces of a plate. For isotropic plates, a constant shear correction 
+factor 5/6 can be used to correct the shear stress. But for honeycomb 
+plates, since the equivalent material properties of the honeycomb is 
+quite soft compared with those of the face sheets, the FSDT would pre-
+dict a much higher shear stress in the plate. Liu and Zhao [70] noticed 
+that both FSDT and HSDT can obtain accurate results for honeycomb 
+sandwich plates by simply neglecting the shear effects of the face sheets. 
+Although their study is limited to sandwich plates where the shear 
+modulus of face sheets is much higher than that of the core, and the 
+thickness of the face sheets is much smaller than that of the core, it in-
+dicates that FSDT can still be accurate for honeycomb plates if the shear 
+effect is carefully treated. However, obtaining accurate results for gen-
+eral honeycomb plates by FSDT still remains a challenge. 
+In this paper, a semi-analytical solution for the dynamics of a hon-
+eycomb plate is developed. The energy functional of the plate is derived 
+based on FSDT and a modified shear correction factor is used to properly 
+treat the shear effects. The aerodynamic pressure is modeled by the 
+supersonic piston theory and the Hamilton ’s principle is employed to 
+formulate the governing equations of the system. A modified Ritz Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+3approach is used to solve the free and forced vibration of the plate with 
+general boundary conditions. Numerical verifications are conducted to 
+show the accuracy of the proposed method. Parametric studies are also 
+carried out to study the effect of some key parameters on the aero-
+dynamic behaviors of the plate. 
+The remainder of the paper is arranged as follows. The governing 
+equations of the laminated honeycomb plate with acoustic load in su-
+personic airflow and the corresponding solutions are presented in Sec-
+tion 2. Numerical studies and discussions are conducted in Section 3, 
+and conclusions are drawn in Section 4. 
+2.Problem formulation 
+2.1. Model description 
+The structure of an acoustically loaded plate with honeycomb core 
+layer and arbitrary boundary conditions is shown in Fig. 1. As shown in 
+the figure, a Cartesian coordinate system is established to describe the 
+geometry and deformation of the plate. The geometry of the plate can be 
+defined by length L1, width L2 and thickness h. 
+2.2. Kinematic relations and stress resultants 
+Based on the FSDT, the displacement field of the plate takes the 
+following form [71] 
+uxCyCzCtu0xCyCtzϕxxCyCt
+vxCyCzCtv0xCyCtzϕyxCyCt
+wxCyCzCtw0xCyCt (1)  
+where u0, v0 and w0 denote the displacements on the reference surface of 
+the plate in the x, y and z directions, ϕx and ϕy denote the rotations of 
+transverse normal with respect to y and x axis. 
+Thus, based on the linear elastic theory, the strain –displacement 
+relations of the plate can be obtained [71] 
+ε1ε0
+1z⋅ε1
+1  
+ε2ε0
+2z⋅ε1
+2  
+ε4ε0
+4  
+ε5ε0
+5  
+ε6ε0
+6z⋅ε1
+6 (2)  
+where ε0
+1∂u0
+∂xCε0
+2∂v0
+∂yCε0
+4∂wo
+∂yϕy
+ε0
+5∂wo
+∂xϕxCε0
+6∂u0
+∂y∂v0
+∂x  
+ε1
+1∂ϕx
+∂xCε1
+2∂ϕy
+∂y
+ε1
+6∂ϕx
+∂y∂ϕy
+∂x(3) 
+The normal and shear stresses of the laminated plate can be 
+expressed by the generalized Hooke ’s law [71] 
+⎢
+⨀⨀⨀⨀⨀⨀⨀⨀⨀∮σk
+1
+σk
+2
+σk
+4
+σk
+5
+σk
+6⎥
+⨁⨁⨁⨁⨁⨁⨁⨁⨁⨀⎢
+⨀⨀⨀⨀⨀⨀⨀⨀⨀∮Qk
+11Qk
+12 0 0 Qk
+16
+Qk
+12Qk
+22 0 0 Qk
+26
+0 0 Qk
+44Qk
+45 0
+0 0 Qk
+45Qk
+55 0
+Qk
+16Qk
+26 0 0 Qk
+66⎥
+⨁⨁⨁⨁⨁⨁⨁⨁⨁⨀⎢
+⨀⨀⨀⨀⨀⨀⨀⨀⨀∮εk
+1
+εk
+2
+εk
+4
+εk
+5
+εk
+6⎥
+⨁⨁⨁⨁⨁⨁⨁⨁⨁⨀(4)  
+where σk
+1 and σk
+2 are the normal stresses of the k-th layer, σk
+4, σk
+5 and σk
+6 
+are the corresponding shear stresses, and Qk
+ij denotes the elastic stiffness 
+of the k-th layer. The expressions of Qk
+ij are [71] 
+Qk
+11Qk
+11cos4θk2 
+Qk
+122Qk
+66)
+sin2θkcos2θkQk
+22sin4θk  
+Qk
+12 
+Qk
+11Qk
+22 4Qk
+66)
+sin2θkcos2θkQk
+12 
+sin4θkcos4θk)
+Qk
+22Qk
+11sin4θk2 
+Qk
+122Qk
+66)
+sin2θkcos2θkQk
+22cos4θk  
+Qk
+16 
+Qk
+11 Qk
+12 2Qk
+66)
+sinθkcos3θk 
+Qk
+12 Qk
+222Qk
+66)
+sin3θkcosθk  
+Qk
+26 
+Qk
+11 Qk
+12 2Qk
+66)
+sin3θkcosθk 
+Qk
+12 Qk
+222Qk
+66)
+sinθkcos3θk  
+Qk
+66 
+Qk
+11Qk
+22 2Qk
+12 2Qk
+66)
+sin2θkcos2θkQk
+66 
+sin4θkcos4θk)
+Qk
+44Qk
+44cos2θkQk
+55sin2θk  
+Qk
+45 
+Qk
+55 Qk
+44)
+cosθksinθk  
+Qk
+55Qk
+55cos2θkQk
+44sin2θk (5)  
+where θk denotes the orientation angle between the principal direction 
+of the k-th layer and the x-axis, and the elastic stiffness coefficients Qk
+ij 
+are given by [71] 
+Qk
+11Ek
+1
+1 νk
+12νk
+21
+Qk
+12νk
+21Ek
+1
+1 νk
+12νk
+21
+Qk
+22Ek
+2
+1 νk
+12νk
+21  
+Qk
+44Gk
+23CQk
+55Gk
+13CQk
+66Gk
+12 (6)  
+where Ek
+1, Ek
+2, Gk
+23, Gk
+13, Gk
+12, νk
+12 and νk
+21 are the Young ’s moduli, the shear 
+moduli and the Poisson ’s ratios of the k-th layer, respectively. It should 
+be noted that the Poisson ’s ratios satisfy the following equation 
+νk
+12
+Ek
+1νk
+21
+Ek
+2(7) 
+Fig. 1.Geometry and coordinate system of the laminated plate with honey -
+comb core. Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+4For the honeycomb layer, the material properties cannot be used 
+directly and equivalent elastic properties should be used instead. The 
+expressions of the equivalent material properties depend on both the 
+material and the shape of the honeycomb structure. Hexagonal honey -
+comb is the most widely used in practice and the geometry of its cell is 
+shown in Fig. 2. The honeycomb structure is made of isotropic material 
+with Young ’s modulus Ec, shear modulus Gc and density ρc. Thus, the 
+equivalent material properties can be calculated by the corrected Gib-
+son’s formula [46,47] 
+Ek
+1Ecη3
+21
+tan2θcη2
+2η1sinθccosθc  
+Ek
+2Ecη3
+2η1sinθc 
+cos2θc η1sin2θc)η2
+2)
+cosθc  
+νk
+12 
+1 η2
+2)
+sinθc
+tan2θcη2
+2η1sinθc
+νk
+21 
+1 η2
+2)
+η1sinθcsinθc
+1η1sec2θctan2θcη2
+2cos2θc  
+Gk
+23Gcη2
+2cosθc[η1sinθc
+12η1η12sin2θc
+2η1sinθc]
+Gk
+13Gcη2cosθc
+η1sinθc  
+Gk
+12Ecη3
+2η1sinθc
+η2
+112η1cosθc  
+ρkρcη21η1
+η1sinθccosθc(8)  
+where θc is the cell angle, η1l2cEl1c is the aspect ratio and η2tcEl1c is 
+the non-dimensional thickness of cell walls. It should be mentioned that 
+the shear modulus Gk
+23 is the average of the upper and lower bounds 
+given by Ref. [46]. 
+The in-plane force resultants N11CN22CN12T and moment resultants 
+M11CM22CM12T can thus be obtained by integrating the normal and shear stresses along the thickness direction of the plate 
+⎢
+∮N11
+N22
+N12⎥
+⨀̂
+k̃
+zk⎢
+⨀⨀∮σk
+1
+σk
+2
+σk
+6⎥
+⨁⨁⨀dzC⎢
+∮M11
+M22
+M12⎥
+⨀̂
+k̃
+zk⎢
+⨀⨀∮σk
+1
+σk
+2
+σk
+6⎥
+⨁⨁⨀zdz (9) 
+According to FSDT, the out-of-plane transverse shear stresses σ4 and 
+σ5 are assumed to be constant throughout the thickness direction of the 
+plate, which would lead to a decrease of accuracy. This problem is 
+solved by multiplying the transverse stress by a shear correction factor. 
+For homogeneous plate, the shear correction factor κ is typically taken as 
+5/6 as given by Ref. [37,63] . Nevertheless, for typical sandwich struc-
+tures with soft cores, directly using κ 5/6 results in a relatively large 
+error [50,63,64] . This is due to the fact that considering the zero shear 
+stress condition, the out-of-plane shear stresses in the face layers are 
+actually small and letting κ 5/6 over estimates the shear effect, which 
+finally results in a much higher natural frequency. To overcome the 
+problem, a practical workaround is to neglect the shear effects of the 
+face sheets when they are relatively thin [70]. Another solution to the 
+problem is using a modified version of HSDT instead of FSDT to get more 
+accurate solutions for plates with a honeycomb cores [68]. However, 
+using HSDT leads to a much more complex formulation than using FSDT. 
+To overcome the problem, a more accurate shear correction factor is 
+introduced to eliminate the inaccuracy induced by the shear effect of the 
+face layers. Thus, a simpler and more accurate solution to the vibration 
+of the plate can be obtained by FSDT. 
+By introducing the shear correction factor, shear force resultants can 
+be expressed as 
+[
+Q1
+Q2]
+[
+κ10
+0κ2]̂
+k̃
+zk[σ4
+σ5]
+dz (10)  
+in which κ1 and κ2 are shear correction factors given by [72] 
+καR2
+α
+dαJαCα1C2 (11)  
+where 
+Rα̂
+k̃
+zkQααz znα2dz  
+dα̂
+k̃
+zkQ6 α3dz  
+Iα̂
+k̃
+zkg2
+αz
+Q6 α3dz  
+gαz ̃z
+z0Qααz znαdz  
+znα⋃
+k⨄
+zkQααzdz
+⋃
+k⨄
+zkQααdz(12) 
+It is not difficult to find out that for homogeneous plate, κ1κ2
+5E6, which falls back to the traditional case. 
+The aerodynamic pressure induced by supersonic airflow can be 
+estimated by the first-order piston theory [20] 
+Δpρ∞U2
+∞⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪
+M2
+∞ 1̅[M2
+∞ 2
+M2
+∞ 11
+U∞∂w
+∂t∂w
+∂xcosθa∂w
+∂ysinθa]
+(13)  
+where ρ∞, U∞ and M∞ denote the air density, velocity and Mach number 
+of the free stream, respectively. 
+For the sake of brevity in the following analysis, the non-dimensional 
+aerodynamic pressure λ is adopted [20] 
+Fig. 2.Geometry of the hexagonal honeycomb cell.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+5λρ∞U2
+∞L3
+1
+D1
+1⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪
+M2
+∞ 1̅ (14) 
+In the expression, D1
+1E1
+1h3E121 ν1
+12ν1
+21, where E1
+1, ν1
+12 and ν1
+21 
+are the elastic parameters of the first layer of the plate. 
+Substituting Eq. (2) and Eq. (4) into Eq. (9) leads to 
+⎢
+⨀⨀⨀⨀⨀⨀∮N11
+N22
+N12
+M11
+M22
+M12⎥
+⨁⨁⨁⨁⨁⨁⨀⎢
+⨀⨀⨀⨀⨀⨀∮A11A12A16B11B12B16
+A12A22A26B12B22B26
+A16A26A66B16B26B66
+B11B12B16D11D12D16
+B12B22B26D12D22D26
+B16B26B66D16D26D66⎥
+⨁⨁⨁⨁⨁⨁⨀⎢
+⨀⨀⨀⨀⨀⨀⨀⨀⨀⨀⨀⨀∮ε0
+1
+ε0
+2
+ε0
+6
+ε1
+1
+ε1
+2
+ε1
+6⎥
+⨁⨁⨁⨁⨁⨁⨁⨁⨁⨁⨁⨁⨀(15)  
+where 
+AijBijDij̂
+k̃
+zkQk
+ij[
+1zz2]
+dz (16) 
+Similarly, substituting Eq. (2) and Eq. (4) into Eq. (10) leads to 
+[
+Q1
+Q2]
+[
+κ10
+0κ2][
+A44A45
+A45A55]⌊
+ε0
+4
+ε0
+5⌋
+(17)  
+2.3. Energy expressions 
+The virtual strain energy of the laminated plate is expressed as [71]  
+The virtual elastic energy stored in the boundary springs are given by 
+[73] 
+δUBC̃̃
+Ω 
+k1u0δu0k2v0δv0k3w0δw0k4ϕxδϕxk5ϕyδϕy)
+dΩ (19)  
+where k1, k2, k3, k4,k5 are the stiffness coefficients for the five degrees of 
+freedom (DOF), respectively. Eq. (19) integrates the virtual energy over 
+the whole plate, which is the virtual energy for elastic foundations [74]. 
+To account for the virtual energy of the boundary conditions of the four 
+edges of the plate, the integral should be evaluated along the four edges. 
+δUBC̃
+∂Ω 
+k1u0δu0k2v0δv0k3w0δw0k4ϕxδϕxk5ϕyδϕy)
+dl (20) 
+And for isolated spring located at  
+x0Cy0)
+, the virtual energy term for 
+boundary conditions is 
+δUBC 
+k1u0δu0k2v0δv0k3w0δw0k4ϕxδϕxk5ϕyδϕy)⃦⃦
+xx0Cyy0
+(21) 
+The virtual kinetic energy of the plate is [71] 
+δK̃̃
+ΩI0[
+lu0δlu0lv0δlv0lw0δlw0]
+I1[
+lu0δlϕxlϕxδlu0lv0δlϕylϕyδlv0]
+I2[
+lϕxδlϕxlϕyδlϕy]
+dΩ
+(22)  
+where I0, I1 and I2 are the mass moments of inertia, and can be expressed 
+as I0I1I2̂
+k̃
+zkρk[
+1zz2]
+dz (23) 
+Acoustic load can be treated as stochastic excitation psxCyCt
+perpendicularly exerted on the plate surface. Thus, the virtual work of 
+the acoustic load can be written as [75] 
+δW s̃
+ΩpsδwdΩ (24) 
+And the virtual work done by the airflow is [75] 
+δW a̃
+ΩΔpδwdΩ (25)  
+2.4. Solutions 
+By adopting the Hamilton ’s principle, the following equation can be 
+obtained 
+̃t1
+t0δK δUe δUBCδW sδW adt0 (26) 
+Substituting the detailed expressions of the energy functionals into 
+Eq. (26), the dynamics of the plate can be expressed by an equation 
+concerning u0, v0, w0, ϕx and ϕy. The explicit forms of the governing 
+equations and the corresponding boundary conditions can also be ob-
+tained by integrating Eq. (26) by parts and are given in Appendix A. 
+In order to obtain an accurate solution for the dynamics of the plate, 
+a set of admissible functions should be selected to express the 
+displacement of the plate 
+u0xCyCt̂M
+m0̂N
+n0Umntφm[x
+L1]
+φny
+L2
+v0xCyCt̂M
+m0̂N
+n0Vmntφm[x
+L1]
+φny
+L2
+w0xCyCt̂M
+m0̂N
+n0Wmntφm[x
+L1]
+φny
+L2
+ϕ1xCyCt̂M
+m0̂N
+n0Φ1mntφm[x
+L1]
+φny
+L2
+ϕ2xCyCt̂M
+m0̂N
+n0Φ2mntφm[x
+L1]
+φny
+L2 (27)  
+where Umnt, Vmnt, Wmnt, Φ1mntand Φ2mntare the generalized 
+coordinates, φkxis the corresponding admissible function. The ad-
+missible functions need to be linearly independent when using the Ritz 
+approach. In many cases, Fourier series is the most widely used admis -
+sible function set due to its orthogonality. However, it is reported that 
+using the Fourier series may lead to a poor convergence behavior [76]. 
+Thus, in order to improve convergence, the Legendre polynomials are 
+used instead in this study 
+φkx1
+k%dk
+dxk( 
+x2 x)k)
+(28) 
+It should be noted that the Legendre polynomials have infinite terms δUe̃̃
+Ω 
+N11δε0
+1N22δε0
+2N66δε0
+6M11δε1
+1M22δε1
+2M66δε1
+6Q1δε0
+4Q2δε0
+5)
+dΩ (18)   Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+6as expressed in Eq. (28), and should be truncated in practical calcula -
+tion. In this case, the orders of the Legendre polynomials are uniformly 
+truncated to M and N, respectively. 
+Eq. (27) can be written in a more compact form by using vector 
+products 
+u0xCyCtUT
+0tΨxCy
+v0xCyCtVT
+0tΨxCy
+w0xCyCtWT
+0tΨxCy
+ϕ1xCyCtΦT
+1tΨxCy
+ϕ2xCyCtΦT
+2tΨxCy (29)  
+where U0t, V0t, W0t, Φ1t, Φ2tand ΨxCyare column vectors of 
+length M×N containing Umnt, Vmnt, Wmnt, Φ1mnt, Φ2mntand 
+φmxEL1⋅φnyEL2, respectively. 
+Substituting Eq. (29) into Eq. (26), the equations of motion of the 
+plate can be obtained in the matrix form 
+MsqCalqKsKBCKaqFa (30)  
+where Ms is the mass matrix, Ca is the damping matrix, Ks, KBC and Ka are the stiffness matrixes for the plate structure, boundary conditions 
+and aerodynamic pressure respectively, Fa is the force vector and q 
+UT
+0CVT
+0CWT
+0CΦT
+1CΦT
+2)
+is the generalized displacement vector to be solved. 
+The detailed expressions of the matrixes are given in Appendix B. 
+Thus, the equations of motion of the plate in the frequency domain 
+can be written in the following form 
+ ω2MsqωjCaqKsKBCKaqFa (31)  
+where j⎪⎪⎪⎪⎪⎪⎪
+ 1♠
+is the imaginary unit. 
+Solving the free vibration problem requires calculating the non- 
+trivial solution of Eq. (30) when the external force vector Fa0. Lett-
+ing q0q, q1lq, the following matrix equation can be obtained 
+⎢
+∮lq0
+lq1⎥
+⨀⌊
+0 I
+ M 1
+sKsKBCKa M 1
+sCa⌋[
+q0
+q1]
+(32) 
+Eq. (32) transfers Eq. (30) into the standard form of dynamical sys-
+tems. Thus, the natural frequencies and mode shapes of the plate can be 
+obtained by solving the eigenvalue and eigenvectors of Eq. (32). 
+3.Results and discussion 
+3.1. Convergence and validation study 
+Based on the proposed formulations, a corresponding computer 
+program is developed using Python. The convergence study concerning 
+the truncation of the admissible functions is discussed first. In this study, 
+a laminated sandwich plate with honeycomb core is considered. The 
+plate is made of aluminum, and the material properties are: E70 GPa, 
+ν0.33 and ρ 2710 kg/m3. The length L1 and width L2 of the plate are 
+both 0.3 m and the thicknesses of the two face layers are h1 h3 1 mm, 
+while the thickness of the honeycomb core is h2 8 mm. The geometric 
+parameters of the honeycombs are: tc 0.2 mm, l1c l2c 3 mm, θc 
+30•, and the orientation angle of the honeycomb layer is θ20•. All 
+four edges of the plate are clamped in this case. By adopting Eq. (8) and 
+(11), the equivalent material properties of the honeycomb core and the 
+shear correction factors can be calculated and are listed in Table 1. It can 
+be found from the table that the honeycomb layer is almost isotropic in 
+this case. 
+In order to find a suitable truncation number for the Legendre 
+polynomials, the first ten natural frequencies of the plate with different Table 1 
+Equivalent material properties and shear correction factors.  
+E2
+1 E2
+2 G2
+23 G2
+13 G2
+12 ν12 ν21 κ1 κ1 
+47.26 MPa 47.55 MPa 1.013GPa 1.013GPa 1.197GPa  0.9825  0.9882  0.1688  0.1687  
+Fig. 3.Finite element model of the shell.  
+Table 2 
+Natural frequencies of the plate with different numbers of admissible functions.  
+Mode Natural frequencies (Hz) 
+MN 10 MN 11 MN 12 MN 13 MN 14 MN 15 FEM Error * 
+1  1172.2  1172.2  1172.2  1172.2  1172.2  1172.2 1217.9  3.8 % 
+2  2224.7  2224.7  2224.7  2224.7  2224.7  2224.7 2312.6  3.8 % 
+3  2224.8  2224.8  2224.7  2224.7  2224.7  2224.7 2313.8  3.8 % 
+4  3110.6  3110.5  3110.5  3110.5  3110.5  3110.5 3236.1  3.9 % 
+5  3655.3  3654.6  3654.6  3654.6  3654.6  3654.6 3803.4  3.9 % 
+6  3689.5  3688.7  3688.7  3688.7  3688.7  3688.7 3838.7  3.9 % 
+7  4415.3  4414.8  4414.7  4414.7  4414.7  4414.7 4594.7  3.9 % 
+8  4415.4  4414.9  4414.8  4414.8  4414.8  4414.8 4597.6  4.0 % 
+9  5366.9  5361.2  5357.5  5357.3  5357.3  5357.3 5575.4  3.9 % 
+10  5367.1  5361.4  5357.6  5357.5  5357.5  5357.5 5584.7  4.1 % 
+Time (s)  0.092  0.125  0.14  0.166  0.223  0.304 1898 /  
+*Denoting the frequencies by the proposed method with M N 15 as fe and those by FEM as fa, the error is defined as Errorfe faEfa×100%.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+7numbers of admissible functions are calculated using the proposed 
+method. To verify the results, a corresponding finite element model is 
+also established by using commercial software ABAQUS as shown in 
+Fig. 3. In the finite element model, two face layers of the plate and the 
+internal structures of the honeycomb core are built by shell elements and 
+a total of 422,013 elements are used. 
+Table 2 lists the natural frequencies of the plate obtained by the 
+proposed method and the FEM results along with the computational 
+time. It shows that the results of the proposed method match well with those of the FEM, and the convergence shows that M N 15 is suf-
+ficient for the analysis. An interesting discovery is that the natural fre-
+quencies obtained by the proposed method is about 4 % lower than those 
+by FEM. This finding agrees with the results given by Karttunen et al 
+[55], which also shows that classical theory underestimates the natural 
+frequencies of lattice panels. This is due to the fact that classical theory 
+ignores the microstructure-dependent behaviors of lattice structures 
+such as antisymmetric shear effect and local bending deformations [55]. 
+To overcome these limitations, the strain gradient theory [53,54] and 
+micropolar theory [55–57] can be adopted to get a more accurate 
+solution. 
+In the present study, the boundary conditions are implemented by 
+adding their potential energy term to the total energy functional. Thus, it 
+is possible to take general boundary conditions into consideration by 
+setting proper boundary stiffness parameters ki. For example, the 
+clamped boundary condition can be obtained by setting all boundary 
+stiffness parameters to a sufficient large value while the free boundary 
+condition can be obtained by setting them to 0. The effect of the stiffness 
+of the boundary springs on the natural frequencies of the plate is shown 
+in Fig. 4. In this study, the values of the boundary stiffnesses are changed 
+simultaneously from 100 to 1021, and the first two natural frequencies of 
+the plate are calculated by the proposed method. It is clearly observed 
+that the natural frequencies of the plate remain constant when the 
+values of stiffness exceed 1010. However, when the values of stiffness 
+continue increasing and reach 1019, the results become unstable due to 
+the ill-conditioning problem [77]. Thus, to get correct results, a proper 
+stiffness value should be chosen for fixed boundaries. Although the most 
+appropriate value for fixed boundaries depends on the specific problem 
+and the computational environment, it is usually acceptable to choose 
+values between 1012 to 1015 for this kind of problem. 
+Next, another example is given to validate the natural frequencies of 
+plates under aerodynamic load by comparing the results of the present 
+study with those in open literature. In this example, an isotropic panel is 
+considered and its geometric and material properties are given in 
+Fig. 4.The variation of the first two natural frequencies with different stiffness 
+values of the boundary springs. 
+Table 3 
+Geometric and material properties of the plate given by Ref. [10].  
+L1(m) L2(m) h(m) E(GPa) ρ(kg/m3) ν  
+0.1  0.1  0.001 210 7930  0.33  
+Fig. 5.Comparisons of natural frequencies of the plate with different aerodynamic pressure: (a) S-S-S-S, (b) S-C-S-C, (c) S-F-S-F, (d) S-Se-S-Se.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+8Table 3. Four cases with different boundary conditions are considered. 
+As is shown in Fig. 5, the first three cases study the natural frequencies of 
+the plate with classical boundary conditions, where “S”, “C” and “F” 
+denote simply supported, clamped and free boundary conditions, 
+respectively. In the last case, two edges are clamped and the other two 
+edges are elastically supported in the z direction, which is denoted by 
+“Se”. The natural frequencies of the four cases are compared with those 
+in Ref. [10] and the results are shown in Fig. 5, where the non- 
+dimensional parameter D is defined as DEh3E121 ν2. From 
+the figures, excellent match can be observed between the obtained re-
+sults and those from literature, which indicates the proposed method can 
+accurately evaluate the flutter behaviors of plates with various boundary conditions. 
+Finally, the results for the stochastic vibration of the plate induced by 
+stationary random load are compared with the benchmark results given 
+by Ref. [78]. The geometric and material properties of the plate are 
+given in Table 4. The plate is subjected to a band-limited white noise 
+base excitation of acceleration with PSD 0.5 g2/Hz within [20, 2000] 
+Hz. In the calculation, the modal damping is set to 0.05 and the results of 
+the acceleration response PSD at the central point are compared with 
+those from Ref. [78]. Fig. 6 shows the comparison of the PSD functions 
+with different boundary conditions and a good agreement can be 
+observed between the obtained results and those from literature. 
+3.2. Numerical study and discussion 
+With the proposed method and computer program verified above, 
+numerical studies are further carried out to study the flutter character -
+istics and the response of sandwich plates with honeycomb core under 
+acoustic excitation. The plate is the same as that used for convergence Table 4 
+Geometric and material properties of the plate given by Ref. [78].  
+L1(m) L2(m) h(m) E(GPa) ρ(kg/m3) ν  
+0.4  0.2  0.002 70 2700  0.33  
+Fig. 6.Comparisons of acceleration response PSD with different boundary conditions: (a) S-S-S-S, (b) S-C-S-C, (c) S-F-S-F, (d) S-C-S-F.  
+Fig. 7.Variatons of the eigenvalues with aerodynamic pressure: (a) real part, (b) imaginary part.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+9study in the previous subsection. 
+3.2.1. Stability and forced response 
+The aeroelastic characteristics of the plate under aerodynamic load is 
+studied first by solving its eigenvalue problem. It is known that the plate 
+is stable when the real parts of all its eigenvalues are negative, and the 
+plate becomes unstable when positive real part appears. Fig. 7(a) shows 
+the real part of the eigenvalues. From the figure, it can be observed that 
+the real parts of the eigenvalues are negative and almost constant and 
+when λ is small. However, as λ keeps increasing and reaches the non- 
+dimensional critical flutter aerodynamic pressure (CFAP) λcr 308.5, 
+the real parts of its first two eigenvalues split into two branches, one of 
+which goes down and the other one quickly increases and becomes 
+positive, which implies the system becomes unstable. Fig. 7(b) shows the 
+imaginary part of the eigenvalues, which is in proportion to its natural 
+frequency by a factor of 2π. The figure shows that when λDλcr, the first 
+natural frequency increases while the second natural frequency de-
+creases, and they would coalesce near λcr. Thus, finding the intersection 
+point of the natural frequencies provides another way for determining 
+the flutter boundaries. The mode shapes of the plate without aero-
+dynamic load and at CFAP are respectively shown in Fig. 8 and Fig. 9.It 
+is obvious that the mode shapes change significantly when aerodynamic 
+load is applied to the plate. The symmetry of the second and third mode 
+shape of the plate, which is a result of the isotropy of the material 
+property of the honeycomb layer, is also broken by the aerodynamic 
+load. Another interesting finding is that the first two modes coincides 
+when the aerodynamic pressure is equal to CFAP, and these two modes 
+evolve from the first two modes of the plate without aerodynamic 
+pressure. It should be kept in mind that although these two modes share 
+the same mode shape, the stabilities of these two modes are different as 
+explained above. 
+The response of the plate under acoustic load is also studied. The 
+RMS response of the plate under unit acoustic load is shown in Fig. 10. It 
+should be mentioned that in this study, an additional structural damping 
+η 0.01 is applied to the plate to ensure finite response. From the figure, 
+it is obvious that the maximum response of the plate at CFAP is much 
+larger than that without airflow. Another finding is that the symmetric 
+modes do not contribute to the forced response of the plate at first, but 
+they would appear when aerodynamic pressure is applied to the plate. 
+This is because aerodynamic load would break the symmetry of the 
+modes as discussed before. 
+3.2.2. Boundary conditions 
+In this study, numerical studies on different boundaries conditions 
+are carried out. As shown in Fig. 11, the plate has two opposite edges 
+clamped and the one of the five DOFs of the other two edges are con-
+strained by a pair of elastic supports ki, which is defined in Eq. (20). The 
+nature frequencies of the plate with different ki (i 1,2,3,4,5) are 
+respectively shown in Fig. 12. Fig. 12 (a) and Fig. 12 (b) show that the 
+variation of in-plane translational stiffness k1 and k2 do not affect the 
+natural frequencies of the plate. This is because the in-plane deformation 
+of such plates only occurs at very high frequencies. Thus, the in-plane 
+Fig. 8.Mode shapes of the plate without aerodynamic load.  
+Fig. 9.Mode shapes of the plate when λλcr.  
+Fig. 10.RMS response of the plate with different aerodynamic pressure under 
+acoustic load. 
+Fig. 11.Boundary conditions of the honeycomb plate.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+10stiffness has little effect on the lower modes of the plate. However, as can 
+be seem from Fig. 12 (c), when the out-of-plane translational stiffness k3 
+increases, the natural frequencies of the plate go up rapidly as expected. 
+Similar behaviors can be observed that with the increase of k4 and k5, 
+the natural frequencies of the plate also tend to increase. However, it can 
+be found from Fig. 12(d) that the first and fourth natural frequencies 
+remain constant when k4 increases. To explain this behavior, the mode 
+shapes of the plate should be studied first. Fig. 13 shows the first four 
+mode shapes of the plate with C-F-C-F boundaries, which is just the case 
+when k4 0. It can be observed that for the first and fourth mode shape, 
+the normal of the plate on the two free edges does not rotate about the 
+y-axis, which means ϕx always equals to zero and increasing of k4 will 
+not contribute to the energy functional given by Eq. (20). Thus, modi -
+fying k4 has no effect on these two modes. 
+3.2.3. Layer thickness 
+Layer thickness is one of the key parameters for sandwich honey -
+comb plates. In practical engineering, the total thickness of the plate is 
+Fig. 12.Natural frequencies of the honeycomb plate with different boundary stiffness.  
+Fig. 13.Mode shapes of the honeycomb plate with C-F-C-F bound -
+ary conditions. Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+11usually strictly restricted, and only the thickness ratio of the honeycomb 
+core and two face sheets can be adjusted. Thus, in this study, the 
+thicknesses of two face layers are assumed to be equal and the total 
+thickness h of the plate is kept constant. By defining thickness ratio α
+h2Eh, the thicknesses of the two face layers can be represented as h1
+h31 αhE2. The effect of thickness ratio on the first four natural 
+frequencies of the plate is shown in Fig. 14. From the figure, it can be 
+found that when α increases, the natural frequencies decrease first and 
+then increase when α is not very large. However, when α is close to 1, the 
+natural frequencies of the plate decrease rapidly. It is worthwhile to 
+mention that in this study, the shear correction factor is defined by Eqs. 
+(10)-(12), which is different from the conventional definition κ 5/6. 
+Fig. 14 compares the natural frequencies predicted by different shear 
+correction factors. The results show that letting κ 5/6 leads to a large 
+error when 0 Dα D0.9. This is due to the fact that directly using κ 5/6 
+significantly overestimates the shear effect as shown in Fig. 15, which stiffens the structure and results in a higher natural frequency. Fig. 16 
+shows the variations of the natural frequencies of the plate with different 
+thickness ratio α. From the figure, it is clear that with the increase of the 
+thickness ratio, the CFAP decreases. 
+The forced response of the plate with different thickness ratio is 
+studied as well. The RMS response of the plate under unit acoustic 
+excitation without aerodynamic pressure is shown in Fig. 17(a). The 
+figure shows that the response of the plate becomes larger with the in-
+crease of the thickness ratio. Fig. 17(b) shows the response of the plate at 
+CFAP. Comparing Fig. 17(b) with Fig. 17(a), it can be found that the 
+frequencies of the peaks change and the maximum response becomes 
+much larger when the aerodynamic pressure of the plate is close to 
+CFAP. Meanwhile, the figure shows that although the CFAPs are quite 
+different, the responses of the plate under CFAPs are close to each other 
+for the three different thickness ratios. 
+Fig. 14.Natural frequencies of the plate with different thickness ratio.  
+Fig. 15.Shear correction factor with different thickness ratio.  
+ Fig. 16.First two natural frequencies of the plate with different thickness ratio 
+under aerodynamic load. Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+12In the previous study, the layers of the plate are symmetric as the 
+thickness of the two face layers are the same. In this study, however, the 
+vibration of unsymmetric layers will be investigated. Letting βh1Eh3, 
+and the thickness of the core and the total thickness of the core remain 
+constant. The natural frequencies of the plate with different β are 
+calculated and shown in Fig. 18. Obviously, the natural frequencies of 
+the plate raise monotonously and achieves its maximum value when the 
+two face layers are of equal thickness. Fig. 19 shows the variations of the 
+natural frequencies of the plate with four different values of β. The result 
+indicates that λcr quickly goes up when β increases and converges to its maximum value when β equals 1, that is, CFAP reaches its maximum 
+value when the thickness values of two face layers of the plate are 
+identical. 
+3.2.4. Honeycomb geometry 
+The influence of the honeycomb parameters on the dynamics of the 
+plate is investigated. From Eq. (8), it can be found that the equivalent 
+material parameters of the honeycomb core depend on the non- 
+dimensional parameters η1, η2 and the cell angle θc. The influence of 
+these parameters on the natural frequencies of the plate is shown in 
+Fig. 20. It can be seen from the figure that with the increase of η1, the 
+natural frequencies of the plate quickly increase at first. But when the 
+value of η1 keeps increasing, the natural frequencies would go down. 
+Another phenomenon is that when the value of η1 is far away from 1, the 
+natural frequencies of the second and third modes are no longer coin-
+cident. Since η1l2c/l1c denotes the ratio of hexagon edge length, the 
+results show that changing the shape of the hexagons would break the 
+isotropy of the honeycomb. The effect of non-dimensional cell wall 
+thickness η2 on the free vibration of the plate is given in Fig. 20(b). 
+Similarly, the natural frequencies of the plate firstly go up and then 
+decrease. The natural frequencies of a structure depend on its mass and 
+stiffness, larger wall thickness would increase the stiffness of the core 
+layer, which leads to a higher natural frequency. However, when the 
+wall thickness keeps increasing, more extra mass is added to the plate 
+and finally lowers the natural frequencies of the plate. The influence of 
+cell angle θc is also studied and shown in Fig. 20(c). From the figure, the 
+natural frequencies of the honeycomb plate remain almost constant 
+when θc is not vary large. However, the natural frequencies drop quickly 
+after θc reaches 60•. 
+To further study the effect of the honeycomb geometry parameters 
+on the flutter behaviors of the plate, the variations of the CFAP are 
+calculated and shown in Fig. 21. It can be seen from the figure that 
+despite the changes of the natural frequencies, CFAP decreases with η1 
+and increases with η2 monotonously. And with the increase of cell angle 
+θc, CFAP decreases when θc is smaller that 10•or larger than 75•, and 
+increases in other circumstances. 
+3.2.5. Honeycomb orientation angle 
+The effect of the honeycomb orientation angle θ2 on the natural 
+frequencies of the plate is investigated. From Fig. 22, it could be found 
+that the natural frequencies of the plate remain constant when θc 30•. 
+This is due to the fact that the equivalent material properties of the core 
+layer are almost isotropic when θc 30•. However, when θc 0•or 60•, 
+the material becomes anisotropic and the natural frequencies of the 
+plate begin to change with θ2. From the figures, it is obvious that the 
+natural frequencies of the plate achieve its maximum value when θ2 
+45•. But in these two cases, even though at θ2 45•, their natural fre-
+quencies are lower than those of the case when θc 30•. Another finding 
+Fig. 17.RMS response of the plate with different thickness ratio: (a) without aerodynamic pressure, (b) at CFAP.  
+Fig. 18.First four natural frequencies of the plate with different β.  
+Fig. 19.First two natural frequencies of the plate with different β under 
+aerodynamic load. Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+13is that the natural frequencies are symmetric about θ2 45•, as the plate 
+itself is symmetric about the x- and y- axis. To deeper look into the 
+phenomenon, the variations of the natural frequencies of the plate with 
+non-dimensional aerodynamic pressure λ 200 are shown in Fig. 23. 
+From the figure, although the natural frequencies at θc 30•still remain 
+constant due to its isotropic material properties, the other curves are no 
+longer symmetric, which shows the natural frequencies of the plate is 
+sensitive to θ2 when θc does not equal to 30•. The variations of the CFAP 
+with θ2 for the three cases are also calculated and shown in Fig. 24. As 
+explained above, the CFAP is not sensitive to θ2 when θc 30•due to its 
+isotropy, but changes significantly when θc equals 0•or 60•. 
+4.Conclusion 
+In this paper, the modeling and aeroelastic properties of laminated 
+plates with honeycomb core is investigated. By adopting the corrected 
+Gibson ’s formula, the honeycomb layer is modeled by its equivalent 
+material properties. Based on the FSDT, the energy functionals of the plate with general boundary conditions and acoustic load are formu -
+lated, and the aerodynamic pressure is taken into consideration by using 
+the supersonic piston theory. To ensure accuracy for plates with soft 
+cores, a modified shear correction factor is adopted in this study to 
+accurately model the out-of-plane shear stresses of the plate. The 
+Hamilton ’s principle is employed to formulate the governing equations 
+and the equations are solved by a modified Ritz approach. 
+To show the reliability of the proposed method, a computer program 
+is developed and the results are compared with those from FEM and 
+other studies. A good agreement is observed from the results and the 
+developed computer program shows to be much more efficient than the 
+FEM. Finally, the influences of some key parameters of sandwich hon-
+eycomb plates on the vibration and aeroelastic characteristics are 
+analyzed. It is found that for sandwich plates with soft core, modified 
+shear correction factor should be used to get accurate results if the plate 
+has moderate thick face layers. Moreover, numerical studies show that 
+proper modification of the honeycomb cell geometry may break the 
+symmetry of the equivalent material properties and leads to changes of 
+Fig. 20.Variations of the first four natural frequencies with different honeycomb parameters: (a) aspect ratio η1, (b) non-dimensional cell wall thickness η2, (c) cell 
+angle θc. 
+Fig. 21.Variations of the CFAP with different honeycomb parameters: (a) aspect ratio η1, (b) non-dimensional cell wall thickness η2, (c) cell angle θc.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+14
+Fig. 22.Variations of the first four natural frequencies with different θ2 without airflow.  
+Fig. 23.Variations of the first four natural frequencies with different θ2 with λ 200.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+15the aeroelastic behaviors of the whole structure. 
+5.Data availability statement 
+The data in this study will be available on request from the corre -
+sponding author. CRediT authorship contribution statement 
+Zhen Ni: Conceptualization, Software, Formal analysis, Writing – 
+original draft. Danwang Li: Data curation, Validation, Resources. Liang 
+Ji: Supervision, Project administration, Funding acquisition. Kai Zhou: 
+Methodology, Investigation, Writing – review & editing. 
+Declaration of Competing Interest 
+The authors declare that they have no known competing financial 
+interests or personal relationships that could have appeared to influence 
+the work reported in this paper. 
+Data availability 
+Data will be made available on request. 
+Acknowledgement 
+The authors gratefully acknowledge the support from the National 
+Science and Technology Major Project of China under Grant No. J2019- 
+II-0006-0026 for this work.  
+Appendix A 
+The governing equations of the plate can be obtained from Eq. (26) by setting the coefficients of δu0, δv0, δw0, δϕx and δϕy to zero separately. The 
+governing equations of a plate with four edges elastically supported are 
+A11∂2u0
+∂x2A12∂2v0
+∂x∂yA16[
+2∂2u0
+∂x∂y∂2v0
+∂x2]
+A26∂2v0
+∂y2A66[∂2u0
+∂y2∂2v0
+∂x∂y]
+B11∂2ϕx
+∂x2B12∂2ϕy
+∂x∂yB16⌊
+2∂2ϕx
+∂x∂y∂2ϕy
+∂x2⌋
+B26∂2ϕy
+∂y2B66⌊
+∂2ϕx
+∂y2∂2ϕy
+∂y∂x⌋
+I0u0I1ϕx (A-1)  
+A12∂2u0
+∂y∂xA16∂2u0
+∂x2A26[∂2u0
+∂y2∂2v0
+∂x∂y]
+A66[∂2u0
+∂x∂y∂2v0
+∂x2]
+A22∂2v0
+∂y2B12∂2ϕx
+∂x∂yB16∂2ϕx
+∂x2B22∂2ϕy
+∂y2B26⌊
+∂2ϕx
+∂y22∂2ϕy
+∂x∂y⌋
+B66⌊
+∂2ϕy
+∂x2∂2ϕx
+∂x∂y⌋
+I0v0I1ϕy (A-2)  
+A44[
+κ1∂2w0
+∂y2κ1∂ϕy
+∂y]
+A45[
+κ1∂ϕx
+∂yκ1∂2w0
+∂x∂yκ2∂2w0
+∂x∂yκ2∂ϕy
+∂x]
+A55[
+κ2∂2w0
+∂x2κ2∂ϕx
+∂x]
+ρ∞U2
+∞⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪
+M2
+∞ 1̅[M2
+∞ 2
+M2
+∞ 11
+U∞lw∂w
+∂xcosθa∂w
+∂ysinθa]
+psI0w0
+(A-3)  
+ A45[
+κ2ϕyκ2∂w0
+∂y]
+ A55[
+κ2ϕxκ2∂w0
+∂x]
+B11∂2u0
+∂x2B12∂2v0
+∂x∂yB16[∂2v0
+∂x22∂2u0
+∂x∂y]
+B26∂2v0
+∂y2B66[∂2u0
+∂y2∂2v0
+∂x∂y]
+D11∂2ϕx
+∂x2D12∂2ϕy
+∂x∂y
+D16⌊
+∂2ϕy
+∂x22∂2ϕx
+∂x∂y⌋
+D26∂2ϕy
+∂y2D66⌊
+∂2ϕx
+∂y2∂2ϕy
+∂x∂y⌋
+I1u0I2ϕx(A-4)  
+ A44[
+κ1ϕyκ1∂w0
+∂y]
+ A45[
+κ1ϕxκ1∂w0
+∂x]
+B12∂2u0
+∂x∂yB16∂2u0
+∂x2B22∂2v0
+∂y2B26[∂2u0
+∂y22∂2v0
+∂y∂x]
+B66[∂2v0
+∂x2∂2u0
+∂x∂y]
+D12∂2ϕx
+∂x∂yD16∂2ϕx
+∂x2D22∂2ϕy
+∂y2
+D26⌊
+∂2ϕx
+∂y22∂2ϕy
+∂x∂y⌋
+D66⌊
+∂2ϕy
+∂x2∂2ϕx
+∂x∂y⌋
+I1v0I2ϕy
+(A-5) 
+The corresponding boundary conditions along the x-axis are 
+A16∂u0
+∂xA26∂v0
+∂yA66∂u0
+∂y∂v0
+∂xB16∂ϕx
+∂xB26∂ϕy
+∂yB66[∂ϕx
+∂y∂ϕy
+∂x]
+k1u00 (A-6)  
+A12∂u0
+∂xA22∂v0
+∂yA26[∂u0
+∂y∂v0
+∂x]
+B12∂ϕx
+∂xB22∂ϕy
+∂yB26[∂ϕx
+∂y∂ϕy
+∂x]
+k2v00 (A-7)  
+A44[
+κ1ϕyκ1∂w0
+∂y]
+A45[
+κ1ϕxκ1∂w0
+∂x]
+k3w00 (A-8) 
+Fig. 24.Variations of the CFAP with different θ2.  Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+16B16∂u0
+∂xB26∂v0
+∂yB66[∂u0
+∂y∂v0
+∂x]
+D16∂ϕx
+∂xD26∂ϕy
+∂yD66[∂ϕx
+∂y∂ϕy
+∂x]
+k4ϕx0 (A-9)  
+B12∂u0
+∂xB22∂v0
+∂yB26[∂u0
+∂y∂v0
+∂x]
+D12∂ϕx
+∂xD22∂ϕy
+∂yD26[∂ϕx
+∂y∂ϕy
+∂x]
+k5ϕy0 (A-10) 
+And the boundary conditions along the y-axis are 
+A11∂u0
+∂xA12∂v0
+∂yA16[∂u0
+∂y∂v0
+∂x]
+B11∂ϕx
+∂xB12∂ϕy
+∂yB16[∂ϕx
+∂y∂ϕy
+∂x]
+k1u00 (A-11)  
+A16∂u0
+∂xA26∂v0
+∂yA66[∂u0
+∂y∂v0
+∂x]
+B16∂ϕx
+∂xB26∂ϕy
+∂yB66[∂ϕx
+∂y∂ϕy
+∂x]
+k2v00 (A-12)  
+A45[
+κ2ϕyκ2∂w0
+∂y]
+A55[
+κ2ϕxκ2∂w0
+∂x]
+k3w00 (A-13)  
+B11∂u0
+∂xB12∂v0
+∂yB16[∂u0
+∂y∂v0
+∂x]
+D11∂ϕx
+∂xD12∂ϕy
+∂yD16[∂ϕx
+∂y∂ϕy
+∂x]
+k4ϕx0 (A-14)  
+B16∂u0
+∂xB26∂v0
+∂yB66[∂u0
+∂y∂v0
+∂x]
+D16∂ϕx
+∂xD26∂ϕy
+∂yD66[∂ϕx
+∂y∂ϕy
+∂x]
+k5ϕy0 (A-15)  
+Appendix B 
+The detailed expression of the mass matrix Ms for the plate is 
+Ms⎢
+⨀⨀⨀⨀∮M00 0 M10
+0 M00 0 M1
+0 0 M00 0
+M10 0 M20
+0 M10 0 M2⎥
+⨁⨁⨁⨁⨀(B-1)  
+where 
+Mi̃
+ΩIiΨΨTdΩ (B-2) 
+The detailed expression of the stiffness matrix Ks for the plate is 
+Ks⎢
+⨀⨀⨀⨀⨀⨀⨀⨀∮K11K12 0 K14K15
+KT
+12K22 0 K24K25
+0 0 K33K34K35
+KT
+14KT
+24KT
+34K44K45
+KT
+15KT
+25KT
+35KT
+45K55⎥
+⨁⨁⨁⨁⨁⨁⨁⨁⨀(B-3)  
+where 
+Kij̃
+Ω[
+Ψ∂Ψ
+∂x∂Ψ
+∂x]
+Rij⎢
+⨀⨀⨀⨀⨀⨀∮ΨT
+∂ΨT
+∂x
+∂ΨT
+∂y⎥
+⨁⨁⨁⨁⨁⨁⨀dΩ (B-4)  
+and the expressions for Rij are 
+R11⎢
+∮0 0 0
+0A11A16
+0A16A66⎥
+⨀CR12⎢
+∮0 0 0
+0A16A12
+0A66A26⎥
+⨀CR14⎢
+∮0 0 0
+0B11B16
+0B16B66⎥
+⨀C
+R15RT
+24⎢
+∮0 0 0
+0B16B12
+0B66B26⎥
+⨀CR22⎢
+∮0 0 0
+0A66A26
+0A26A22⎥
+⨀CR25⎢
+∮0 0 0
+0B66B26
+0B26B22⎥
+⨀CZ. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+17R33⎢
+∮0 0 0
+0A55A45
+0A45A44⎥
+⨀CR34⎢
+∮0 00
+A5500
+A4500⎥
+⨀CR35⎢
+∮0 00
+A4500
+A4400⎥
+⨀
+R44⎢
+∮A55 0 0
+0 D11D16
+0 D16D66⎥
+⨀CR45⎢
+∮A45 0 0
+0 D16D12
+0 D66D26⎥
+⨀CR55⎢
+∮A44 0 0
+0 D66D26
+0 D26D22⎥
+⨀ (B-5) 
+The expression of the stiffness matrix KBC for the boundary conditions is 
+KBC̃
+ΩΨDkΨTdΩ (B-6)  
+where DkdiagK1CK2CK3CK4CK5and KikiIMN and IMN is the identity matrix with size MN×MN. 
+The expression of the aerodynamic stiffness matrix Ka is 
+Kadiag⎢
+⨀∮0C0Cρ∞U2
+∞⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪
+M2
+∞ 1̅[
+cosθaΨ∂ΨT
+∂xsinθaΨ∂ΨT
+∂y]
+C0C0⎥
+⨁⨀ (B-7) 
+The expression of the aerodynamic damping matrix Ca is 
+Cadiag⎢
+⨀∮0C0Cρ∞U2
+∞⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪⎪
+M2
+∞ 1̅M2
+∞ 2
+M2
+∞ 11
+U∞ΨΨTC0C0⎥
+⨁⨀ (B-8)  
+References 
+[1]Bolotin VV, Grishko AA, Kounadis AN, Gantes CJ. Non-linear panel flutter in 
+remote post-critical domains. Int J Non Linear Mech 1998;33:753 –64. https://doi. 
+org/10.1016/s0020-7462(97)00048-6 . 
+[2]Garrick IE, Reed WH. Historical development of aircraft flutter. J Aircr 1981;18 
+(11):897 –912. 
+[3]Qian YJ, Yang XD, Zhang W, Liang F, Yang TZ, Ren Y. Flutter Mechanism of 
+Timoshenko Beams in Supersonic Flow. J Aerosp Eng 2019;32:2 –9. https://doi. 
+org/10.1061/(ASCE)AS.1943-5525.0001025 . 
+[4]Dowell EH. Panel flutter - A review of the aeroelastic stability of plates and shells. 
+AIAA J 1970;8:385 –99. https://doi.org/10.2514/3.5680 . 
+[5]Mei C, Abdel-Motagaly K, Chen R. Review of nonlinear panel flutter at supersonic 
+and hypersonic speeds. Appl Mech Rev 1999;52:321 –32. https://doi.org/10.1115/ 
+1.3098919 . 
+[6]Sun Q, Xing Y. Exact eigensolutions for flutter of two-dimensional symmetric cross- 
+ply composite laminates at high supersonic speeds. Compos Struct 2018;183: 
+358–70. https://doi.org/10.1016/j.compstruct.2017.03.085 . 
+[7]Barai A, Durvasula S. Flutter of Hybrid Laminated Flat Panels with Simply 
+Supported Edges in Supersonic Flow. J Sound Vib 1994;169:373 –86. https://doi. 
+org/10.1006/jsvi.1994.1023 . 
+[8]Song ZG, Li FM. Active aeroelastic flutter analysis and vibration control of 
+supersonic composite laminated plate. Compos Struct 2012;94:702 –13. https:// 
+doi.org/10.1016/j.compstruct.2011.09.005 . 
+[9]Li FM, Song ZG. Flutter and thermal buckling control for composite laminated 
+panels in supersonic flow. J Sound Vib 2013;332:5678 –95. https://doi.org/ 
+10.1016/j.jsv.2013.05.032 . 
+[10] Song ZG, Li FM. Investigations on the flutter properties of supersonic panels with 
+different boundary conditions. Int J Dyn Control 2014;2:346 –53. https://doi.org/ 
+10.1007/s40435-013-0038-5 . 
+[11] Dowell EH. Nonlinear oscillations of a fluttering plate. AIAA J 1966;4:1267 –75. 
+https://doi.org/10.2514/3.3658 . 
+[12] Dowell EH. Nonlinear oscillations of a fluttering plate. II. AIAA J 1967;5:1856 –62. 
+https://doi.org/10.2514/3.4316 . 
+[13] Navazi HM, Haddadpour H. Nonlinear aero-thermoelastic analysis of homogeneous 
+and functionally graded plates in supersonic airflow using coupled models. Compos 
+Struct 2011;93:2554 –65. https://doi.org/10.1016/j.compstruct.2011.04.018 . 
+[14] Shitov S, Vedeneev V. Flutter of rectangular simply supported plates at low 
+supersonic speeds. J Fluids Struct 2017;69:154 –73. https://doi.org/10.1016/j. 
+jfluidstructs.2016.11.014 . 
+[15] Wang X, Yang Z, Wang W, Tian W. Nonlinear viscoelastic heated panel flutter with 
+aerodynamic loading exerted on both surfaces. J Sound Vib 2017;409:306 –17. 
+https://doi.org/10.1016/j.jsv.2017.07.033 . 
+[16] Huang K, Guo H, Qin Z, Cao S, Chen Y. Flutter analysis of laminated composite 
+quadrilateral plates reinforced with graphene nanoplatelets using the element-free 
+IMLS-Ritz method. Aerosp Sci Technol 2020;103:105915. https://doi.org/ 
+10.1016/j.ast.2020.105915 . 
+[17] Cunha-Filho AG, Briend YPJ, de Lima AMG, Donadon MV. An efficient iterative 
+model reduction method for aeroviscoelastic panel flutter analysis in the supersonic regime. Mech Syst Signal Process 2018;104:575 –88. https://doi.org/ 
+10.1016/j.ymssp.2017.11.018 . 
+[18] Muc A, Flis J. Flutter characteristics and free vibrations of rectangular functionally 
+graded porous plates. Compos Struct 2021;261:113301. https://doi.org/10.1016/j. 
+compstruct.2020.113301 . 
+[19] Guimar ~aes TAM, Marques FD, Ferreira AJM. On the modeling of nonlinear 
+supersonic flutter of multibay composite panels. Compos Struct 2020;232:111522. 
+https://doi.org/10.1016/j.compstruct.2019.111522 . 
+[20] Zhou K, Su J, Hua H. Aero-thermo-elastic flutter analysis of supersonic moderately 
+thick orthotropic plates with general boundary conditions. Int J Mech Sci 2018; 
+141:46 –57. https://doi.org/10.1016/j.ijmecsci.2018.03.026 . 
+[21] Zhou K, Huang X, Zhang Z, Hua H. Aero-thermo-elastic flutter analysis of coupled 
+plate structures in supersonic flow with general boundary conditions. J Sound Vib 
+2018;430:36 –58. https://doi.org/10.1016/j.jsv.2018.05.035 . 
+[22] Zhou K, Hu Z, Hua H. Investigations on the aero-thermo-elastic characteristics of 
+arbitrary polygon built-up structures in supersonic airflow. Int J Mech Sci 2021; 
+196:106300. https://doi.org/10.1016/j.ijmecsci.2021.106300 . 
+[23] Bismarck-Nasr MN. Finite element analysis of aeroelasticity of plates and shells. 
+Appl Mech Rev 1992;45:461 –82. https://doi.org/10.1115/1.3119783 . 
+[24] Bismarck-Nasr MN. Finite elements in aeroelasticity of plates and shells. Appl Mech 
+Rev 1996;49:S17 –24. https://doi.org/10.1115/1.3101970 . 
+[25] He H, Tang H, Yu K, Li J, Yang N, Zhang X. Nonlinear aeroelastic analysis of the 
+folding fin with freeplay under thermal environment. Chinese J Aeronaut 2020;33: 
+2357 –71. https://doi.org/10.1016/j.cja.2020.05.005 . 
+[26] Olson MD. Finite elements applied to panel flutter. AIAA J 1967;5:2267 –70. 
+https://doi.org/10.2514/3.4422 . 
+[27] Grover N, Maiti DK, Singh BN. Flutter Characteristics of Laminated Composite 
+Plates Subjected to Yawed Supersonic Flow Using Inverse Hyperbolic Shear 
+Deformation Theory. J Aerosp Eng 2016;29:04015038. https://doi.org/10.1061/ 
+(asce)as.1943-5525.0000522 . 
+[28] Bahrami-Torabi H, Kerboua Y, Lakis AA. Finite element model to investigate the 
+dynamic instability of rectangular plates subjected to supersonic airflow. J Fluids 
+Struct 2021;103:103267. https://doi.org/10.1016/j.jfluidstructs.2021.103267 . 
+[29] Ghoman SS, Azzouz MS. Supersonic aerothermoelastic nonlinear flutter study of 
+curved panels: Frequency domain. J Aircr 2012;49:1075 –90. https://doi.org/ 
+10.2514/1.C031575 . 
+[30] Yang C, Li GS, Wan ZQ. Aerothermal-aeroelastic two-way coupling method for 
+hypersonic curved panel flutter. Sci China Technol Sci 2012;55:831 –40. https:// 
+doi.org/10.1007/s11431-011-4722-4 . 
+[31] Mei G, Zhang J, Kang C. Analysis of curved panel flutter in supersonic and 
+transonic airflows using a fluid-structure coupling algorithm. J Vib Acoust Trans 
+ASME 2017;139:1 –13. https://doi.org/10.1115/1.4036103 . 
+[32] Castro SGP, Guimar ~aes TAM, Rade DA, Donadon MV. Flutter of stiffened composite 
+panels considering the stiffener ’s base as a structural element. Compos Struct 2016; 
+140:36 –43. https://doi.org/10.1016/j.compstruct.2015.12.056 . 
+[33] Marques FD, Natarajan S, Ferreira AJM. Evolutionary-based aeroelastic tailoring of 
+stiffened laminate composite panels in supersonic flow regime. Compos Struct 
+2017;167:30 –7. https://doi.org/10.1016/j.compstruct.2017.01.062 . 
+[34] Pacheco DRQ, Ferreira AJM, Marques FD. On the effects of structural coupling on 
+the supersonic flutter and limit cycle oscillations of transversely reinforced panels. Z. Ni et al.                                                                                                                                                                                                                                        
+
+Composite Structures 305 (2023) 116504
+18J Fluids Struct 2018;79:158–70. https://doi.org/10.1016/j. 
+jfluidstructs.2018.01.013. 
+[35] Qatu MS. Recent research advances in the dynamic behavior of shells: 1989–2000, 
+Part 1: Laminated composite shells. Appl Mech Rev 2002;55:325. https://doi.org/ 
+10.1115/1.1483079. 
+[36] Qatu MS. Recent research advances in the dynamic behavior of shells: 1989–2000, 
+Part 2: Homogeneous shells. Appl Mech Rev 2002;55:415–34. https://doi.org/ 
+10.1115/1.1483078. 
+[37] Qatu MS, Sullivan RW, Wang W. Recent research advances on the dynamic analysis 
+of composite shells: 2000–2009. Compos Struct 2010;93:14–31. https://doi.org/ 
+10.1016/j.compstruct.2010.05.014. 
+[38] Carrera E. Theories and finite elements for multilayered, anisotropic, composite 
+plates and shells 2002;9. https://doi.org/10.1007/BF02736649. 
+[39] Carrera E. Theories and finite elements for multilayered plates and shells: a unified 
+compact formulation with numerical assessment and benchmarking. Arch Comput 
+Methods Eng 2003;10:215–96. https://doi.org/10.1007/BF02736224. 
+[40] Hu H, Belouettar S, Potier-Ferry M, Daya EM. Review and assessment of various 
+theories for modeling sandwich composites. Compos Struct 2008;84:282–92. 
+https://doi.org/10.1016/j.compstruct.2007.08.007. 
+[41] Cinefra M, Valvano S. A variable kinematic doubly-curved MITC9 shell element for 
+the analysis of laminated composites. Mech Adv Mater Struct 2016;23:1312–25. 
+https://doi.org/10.1080/15376494.2015.1070304. 
+[42] Carrera E, Valvano S, Filippi M. Higher-order shell element for the static and free- 
+vibration analysis of sandwich structures. ASME Int Mech Eng Congr Expo Proc 
+2018;1:V001T03A030. https://doi.org/10.1115/IMECE2018-86784. 
+[43] Hui Y, Giunta G, De Pietro G, Belouettar S, Carrera E, Huang Q, et al. 
+A geometrically nonlinear analysis through hierarchical one-dimensional 
+modelling of sandwich beam structures. Acta Mech 2022. https://doi.org/ 
+10.1007/s00707-022-03194-7. 
+[44] Hui Y, Xu R, Giunta G, De Pietro G, Hu H, Belouettar S, et al. Multiscale CUF-FE2 
+nonlinear analysis of composite beam structures. Comput Struct 2019;221:28–43. 
+[45] Hui Y, Giunta G, Belouettar S, Huang Q, Hu H, Carrera E. A free vibration analysis 
+of three-dimensional sandwich beams using hierarchical one-dimensional finite 
+elements. Compos Part B Eng 2017;110:7–19. https://doi.org/10.1016/j. 
+compositesb.2016.10.065. 
+[46] Gibson LJ, Ashby MF, J GL, F. AM. Cellular solids: structure and properties. vol. 
+123. Cambridge university press; 1999. 
+[47] Fu M, Yin J. Equivalent elastic parameters of the honeycomb core. Acta Mech Sin 
+1999;1:113–8. 
+[48] Harkati A, Boutagouga D, Harkati E, Bezazi A, Scarpa F, Ouisse M. In-plane elastic 
+constants of a new curved cell walls honeycomb concept. Thin-Walled Struct 2020; 
+149:106613. https://doi.org/10.1016/j.tws.2020.106613. 
+[49] Tauhiduzzaman M, Carlsson LA. Influence of constraints on the effective inplane 
+extensional properties of honeycomb core. Compos Struct 2019;209:616–24. 
+https://doi.org/10.1016/j.compstruct.2018.10.080. 
+[50] Yu SD, Cleghorn WL. Free flexural vibration analysis of symmetric honeycomb 
+panels. J Sound Vib 2005;284:189–204. https://doi.org/10.1016/j. 
+jsv.2004.06.028. 
+[51] Li Y, Yao W, Wang T. Free flexural vibration of thin-walled honeycomb sandwich 
+cylindrical shells. Thin-Walled Struct 2020;157:107032. https://doi.org/10.1016/ 
+j.tws.2020.107032. 
+[52] Eipakchi H, Mahboubi NF. Vibrational behavior of composite cylindrical shells 
+with auxetic honeycombs core layer subjected to a moving pressure. Compos Struct 
+2020;254:112847. https://doi.org/10.1016/j.compstruct.2020.112847. 
+[53] Torabi J, Niiranen J. Microarchitecture-dependent nonlinear bending analysis for 
+cellular plates with prismatic corrugated cores via an anisotropic strain gradient 
+plate theory of first-order shear deformation. Eng Struct 2021;236:112117. 
+https://doi.org/10.1016/j.engstruct.2021.112117. 
+[54] Khakalo S, Niiranen J. Anisotropic strain gradient thermoelasticity for cellular 
+structures: Plate models, homogenization and isogeometric analysis. J Mech Phys 
+Solids 2020:134. https://doi.org/10.1016/j.jmps.2019.103728. 
+[55] Karttunen AT, Reddy JN, Romanoff J. Two-scale micropolar plate model for web- 
+core sandwich panels. Int J Solids Struct 2019;170:82–94. https://doi.org/ 
+10.1016/j.ijsolstr.2019.04.026. 
+[56] Karttunen AT, Reddy JN, Romanoff J. Two-scale constitutive modeling of a lattice 
+core sandwich beam. Compos Part B Eng 2019;160:66–75. https://doi.org/ 
+10.1016/j.compositesb.2018.09.098. [57] Karttunen AT, Reddy JN, Romanoff J. Micropolar modeling approach for periodic 
+sandwich beams. Compos Struct 2018;185:656–64. https://doi.org/10.1016/j. 
+compstruct.2017.11.064. 
+[58] Liew KM, Lim CW. A Ritz vibration analysis of doubly-curved rectangular shallow 
+shells using a refined first-order theory. Comput Methods Appl Mech Eng 1995; 
+127:145–62. https://doi.org/10.1016/0045-7825(95)00837-1. 
+[59] Park J, Mongeau L. Vibration and sound radiation of viscoelastically supported 
+Mindlin plates. J Sound Vib 2008;318:1230–49. https://doi.org/10.1016/j. 
+jsv.2008.04.045. 
+[60] Duc ND, Seung-Eock K, Cong PH, Anh NT, Khoa ND. Dynamic response and 
+vibration of composite double curved shallow shells with negative Poisson’s ratio 
+in auxetic honeycombs core layer on elastic foundations subjected to blast and 
+damping loads. Int J Mech Sci 2017;133:504–12. https://doi.org/10.1016/j. 
+ijmecsci.2017.09.009. 
+[61] Duc ND, Seung-Eock K, Tuan ND, Tran P, Khoa ND. New approach to study 
+nonlinear dynamic response and vibration of sandwich composite cylindrical 
+panels with auxetic honeycomb core layer. Aerosp Sci Technol 2017;70:396–404. 
+https://doi.org/10.1016/j.ast.2017.08.023. 
+[62] Nguyen DD, Pham CH. Nonlinear dynamic response and vibration of sandwich 
+composite plates with negative Poisson’s ratio in auxetic honeycombs. J Sandw 
+Struct Mater 2018;20:692–717. https://doi.org/10.1177/1099636216674729. 
+[63] Kant T, Swaminathan K. Analytical solutions for free vibration of laminated 
+composite and sandwich plates based on a higher-order refined theory. Compos 
+Struct 2001;53:73–85. https://doi.org/10.1016/S0263-8223(00)00180-X. 
+[64] Madhukar S, Singha MK. Geometrically nonlinear finite element analysis of 
+sandwich plates using normal deformation theory. Compos Struct 2013;97:84–90. 
+https://doi.org/10.1016/j.compstruct.2012.10.034. 
+[65] Zhang J, Yang X, Zhang W. Free Vibrations and Nonlinear Responses for a 
+Cantilever Honeycomb Sandwich Plate. Adv Mater Sci Eng 2018;2018:1–12. 
+https://doi.org/10.1155/2018/8162873. 
+[66] Kheirikhah MM, Akhavan-Rad B. Free Vibration Analysis of Composite-Faced Soft- 
+Core Sandwich Plates Using a High-Order Theory. J Aerosp Eng 2019;32: 
+04019092. https://doi.org/10.1061/(asce)as.1943-5525.0001091. 
+[67] Khare RK, Kant T, Garg AK. Free vibration of composite and sandwich laminates 
+with a higher-order facet shell element. Compos Struct 2004;65:405–18. https:// 
+doi.org/10.1016/j.compstruct.2003.12.003. 
+[68] Li Y, Zhu D. Free flexural vibration analysis of symmetric rectangular honeycomb 
+panels using the improved Reddy’s third-order plate theory. Compos Struct 2009; 
+88:33–9. https://doi.org/10.1016/j.compstruct.2008.03.033. 
+[69] Ansari R, Torabi J, Hasrati E. Axisymmetric nonlinear vibration analysis of 
+sandwich annular plates with FG-CNTRC face sheets based on the higher-order 
+shear deformation plate theory. Aerosp Sci Technol 2018;77:306–19. https://doi. 
+org/10.1016/j.ast.2018.01.010. 
+[70] Liu Q, Zhao Y. Effect of soft honeycomb core on flexural vibration of sandwich 
+panel using low order and high order shear deformation models. J Sandw Struct 
+Mater 2007;9:95–108. https://doi.org/10.1177/1099636207070588. 
+[71] Reddy JN. Mechanics of Laminated Composite Plates and Shells. CRC Press; 2004. 
+[72] Vlachoutsis S. Shear correction factors for plates and shells. Int J Numer Methods 
+Eng 1992;33:1537–52. https://doi.org/10.1002/nme.1620330712. 
+[73] Ni Z, Zhou K, Huang X, Hua H. Free vibration of stiffened laminated shells of 
+revolution with a free-form meridian and general boundary conditions. Int J Mech 
+Sci 2019;157–158:561–73. https://doi.org/10.1016/j.ijmecsci.2019.03.040. 
+[74] Zhou K, Su J, Hua H. Free and forced vibration analysis of moderately thick 
+orthotropic plates in thermal environment and resting on elastic supports. Arch 
+Appl Mech 2018;88:855–73. https://doi.org/10.1007/s00419-018-1346-1. 
+[75] Zhou K, Ni Z, Huang X, Hua H. Stationary/nonstationary stochastic response 
+analysis of composite laminated plates with aerodynamic and thermal loads. Int J 
+Mech Sci 2020;173:105461. https://doi.org/10.1016/j.ijmecsci.2020.105461. 
+[76] Jin G, Ye T, Su Z, editors. Structural Vibration. Berlin, Heidelberg: Springer Berlin 
+Heidelberg; 2015. https://doi.org/10.1007/978-3-662-46364-2. 
+[77] Monterrubio LE. Free vibration of shallow shells using the Rayleigh-Ritz method 
+and penalty parameters. Proc Inst Mech Eng Part C J Mech Eng Sci 2009;223: 
+2263–72. https://doi.org/10.1243/09544062JMES1442. 
+[78] Chen G, Zhou J, Yang D. Benchmark solutions of stationary random vibration for 
+rectangular thin plate based on discrete analytical method. Probabilistic Eng Mech 
+2017;50:17–24. https://doi.org/10.1016/j.probengmech.2017.10.006. Z. Ni et al.                                                                                                                                                                                                                                        
+
