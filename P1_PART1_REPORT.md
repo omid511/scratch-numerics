@@ -44,7 +44,8 @@ FEM values of **~0.49%** at this setting, while refining to ~179k elements
 (`hauto = 1`) shifts frequencies by <0.02% — so discretization error is two
 orders of magnitude below the FSDT-vs-COMSOL discrepancy being modeled.
 Mesh choice is therefore not a meaningful contributor to the correction
-signal; solve cost roughly halves versus the finest converged mesh.
+signal; solve cost is ~37% lower than the finest converged mesh (119 s vs
+190 s per eigenfrequency solve).
 
 ## REQUIRED caveats
 

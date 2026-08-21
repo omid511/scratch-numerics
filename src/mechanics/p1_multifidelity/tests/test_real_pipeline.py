@@ -11,6 +11,8 @@ import pytest
 from mechanics.p1_multifidelity.real_pipeline import (
     RealPipelineConfig,
     _fit_on,
+    _fit_on_modeconditioned,
+    _mode_onehot_gp_inputs,
     _frequency_gp_on_arrays,
     _loo_cv_on_arrays,
     _split_run_indices,
@@ -201,3 +203,72 @@ class TestFrequencyErrorGP:
             noise_entry["loo_rmse_pct"]
             <= 3.0 * noise_entry["baseline_rmse_pct"] + 1e-9
         )
+
+
+class TestModeConditioned:
+    def test_gp_input_shape_and_split_by_run(self):
+        """(a) GP inputs are (n_train_samples, d_theta + n_modes);
+        (b) held-out runs never leak into the GP training rows."""
+        theta, fields = _make_synthetic_fields(n_runs=6, n_modes=3, seed=31)
+        d_theta = theta.shape[1]
+        config = RealPipelineConfig(d_z=4, seed=2)
+        train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+        result = _fit_on_modeconditioned(theta, fields, train_idx, test_idx, config)
+
+        gp_inputs = result["models"]["gp"]._theta_train
+        assert gp_inputs.shape == (len(train_idx) * 3, d_theta + 3)
+        # One-hot blocks: last n_modes columns are exactly a one-hot per row.
+        onehot = gp_inputs[:, d_theta:]
+        assert np.all(onehot.sum(axis=1) == 1.0)
+        assert set(np.unique(onehot.argmax(axis=1))) == {0, 1, 2}
+
+        # Split-by-run: every distinct theta row in GP inputs is a STANDARDIZED
+        # TRAIN run theta (pipeline z-scores theta with train stats before
+        # building GP inputs), and no held-out run's standardized theta leaks in.
+        mu = theta[train_idx].mean(axis=0)
+        sd = theta[train_idx].std(axis=0)
+        sd = np.where(sd > 0, sd, 1.0)
+        train_thetas = {tuple(np.round(row, 9)) for row in (theta[train_idx] - mu) / sd}
+        test_thetas = {tuple(np.round((theta[i] - mu) / sd, 9)) for i in test_idx}
+        input_thetas = {tuple(np.round(row, 9)) for row in np.unique(gp_inputs[:, :d_theta], axis=0)}
+        assert input_thetas == train_thetas
+        for held_out in test_thetas:
+            assert all(
+                not np.allclose(held_out, row, atol=1e-6) for row in train_thetas
+            )
+
+        metrics = result["metrics"]
+        assert "zero_baseline_mse" in metrics and "skill_vs_zero" in metrics
+        assert metrics["reconstruction_mse"] <= metrics["zero_baseline_mse"]
+
+    def test_noncontiguous_split_row_ordering(self):
+        """With non-adjacent held-out runs, z_test_pred_mean rows must align
+        with theta[test_idx] / field-sample order (run-major, modes contiguous)."""
+        theta, fields = _make_synthetic_fields(n_runs=6, n_modes=3, seed=41)
+        d_theta = theta.shape[1]
+        config = RealPipelineConfig(d_z=4, seed=8)
+        train_idx = np.array([0, 2, 4])
+        test_idx = np.array([1, 3, 5])  # interleaved, non-contiguous
+        result = _fit_on_modeconditioned(theta, fields, train_idx, test_idx, config)
+
+        mu = theta[train_idx].mean(axis=0)
+        sd = np.where(theta[train_idx].std(axis=0) > 0, theta[train_idx].std(axis=0), 1.0)
+        gp_X_expected = _mode_onehot_gp_inputs(
+            np.repeat((theta[test_idx] - mu) / sd, 3, axis=0), 3
+        )
+        z_mean_rebuilt, _ = result["models"]["gp"].predict(gp_X_expected)
+        assert np.allclose(result["arrays"]["z_test_pred_mean"], z_mean_rebuilt)
+
+        # Rows of different held-out runs must be distinguishable.
+        per_run = result["arrays"]["z_test_pred_mean"].reshape(3, 3, -1)
+        assert not np.allclose(per_run[0], per_run[1])
+        assert not np.allclose(per_run[1], per_run[2])
+
+
+
+    def test_overlapping_splits_rejected(self):
+        theta, fields = _make_synthetic_fields()
+        with pytest.raises(ValueError):
+            _fit_on_modeconditioned(
+                theta, fields, np.arange(4), np.arange(3, 6), RealPipelineConfig()
+            )
