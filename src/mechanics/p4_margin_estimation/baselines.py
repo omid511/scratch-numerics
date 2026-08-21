@@ -1,10 +1,17 @@
 """Baseline models for P4 aeroelastic margin estimation."""
 from __future__ import annotations
 
+from typing import Protocol, runtime_checkable
+
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
+
+
+@runtime_checkable
+class MarginPredictor(Protocol):
+    def predict(self, clips) -> np.ndarray: ...
 
 
 class ConstantMedianBaseline:
@@ -145,7 +152,14 @@ class GrowthRateBaseline:
         self.growth_threshold = growth_threshold
         self.max_rate_ = None
 
-    def growth_rate(self, signals, fs=1024.0):
+    def predict_growth_rate(self, clips) -> np.ndarray:
+        """Compute mean amplitude growth rate across sensors for each clip."""
+        return np.asarray(
+            [self._growth_rate(c.sensor_signals) for c in clips],
+            dtype=float,
+        )
+
+    def _growth_rate(self, signals, fs=1024.0):
         """Compute mean amplitude growth rate across sensors."""
         n_sensors, n_t = signals.shape
         t = np.arange(n_t) / fs
@@ -159,20 +173,23 @@ class GrowthRateBaseline:
         return np.mean(slopes)
 
     def fit(self, clips):
-        rates = np.array([self.growth_rate(c.sensor_signals) for c in clips])
+        rates = self.predict_growth_rate(clips)
         self.max_rate_ = np.max(np.abs(rates)) + 1e-8
 
-    def predict_margin(self, clips, u_crit_default=1462.7):
+    def predict_margin(self, clips) -> np.ndarray:
         """Convert growth rate to margin estimate."""
         if self.max_rate_ is None:
             self.fit(clips)
-        rates = np.array([self.growth_rate(c.sensor_signals) for c in clips])
+        rates = self.predict_growth_rate(clips)
         margins = 1.0 - np.abs(rates) / self.max_rate_
         return np.clip(margins, 0.0, 1.0)
 
+    def predict(self, clips) -> np.ndarray:
+        return self.predict_margin(clips)
+
 
 class GRUMarginModel(nn.Module):
-    """GRU backbone + global mean pooling + linear head.
+    """GRU backbone + final hidden state + linear head.
     Parameter count matched to TCN (~25k params)."""
 
     def __init__(self, n_channels=8, hidden_dim=86, n_layers=1, dropout=0.1):
@@ -184,10 +201,10 @@ class GRUMarginModel(nn.Module):
         self.head = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
-        # x: (B, C, T) → (B, T, C)
-        out, _ = self.gru(x.transpose(1, 2))
-        feat = out.mean(dim=1)  # global average
-        return self.head(feat)
+        x = x.transpose(1, 2)  # (B, T, C)
+        _, hidden = self.gru(x)
+        final_hidden = hidden[-1]
+        return self.head(final_hidden)
 
 
 def train_gru(
@@ -208,7 +225,6 @@ def train_gru(
 
     # Build tensors
     X_list, y_list = [], []
-    valid_vels = []
     for i, c in enumerate(clips):
         if np.isnan(c.margin):
             continue
@@ -217,8 +233,6 @@ def train_gru(
             continue
         X_list.append(sig)
         y_list.append(c.margin)
-        if velocities is not None and i < len(velocities):
-            valid_vels.append(velocities[i])
 
     if not X_list:
         raise ValueError("No valid clips (all margins NaN)")
@@ -227,10 +241,11 @@ def train_gru(
     y = torch.tensor(y_list, dtype=torch.float32)
 
     # Grouped split (same as train.py)
-    if valid_vels and len(valid_vels) == len(y):
+    valid_clips = [c for c in clips if not np.isnan(c.margin) and not torch.isnan(torch.tensor(c.sensor_signals, dtype=torch.float32)).any()]
+    if valid_clips:
         from .train import _grouped_3way_split
         train_idx, val_idx, _ = _grouped_3way_split(
-            clips, valid_vels, val_split=val_split, test_split=0.0, seed=seed)
+            valid_clips, val_split=val_split, test_split=0.0, seed=seed)
     else:
         n = len(y)
         n_val = max(1, int(n * val_split))

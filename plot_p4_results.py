@@ -24,17 +24,20 @@ P = lambda *a, **kw: print(*a, **kw, flush=True)
 def retrain_models(clips, velocities, n_sensors=8, epochs=50):
     models, histories, test_data = {}, {}, {}
     P("  Training Huber...")
-    models["huber"], histories["huber"], test_data["huber"] = train_huber(
+    models["huber"], histories["huber"], tc, tv = train_huber(
         clips, n_channels=n_sensors, hidden_dim=32, n_layers=4,
         epochs=epochs, lr=1e-3, velocities=velocities)
+    test_data["huber"] = (tc, tv)
     P("  Training Median...")
-    models["median"], histories["median"], test_data["median"] = train_median(
+    models["median"], histories["median"], tc, tv = train_median(
         clips, n_channels=n_sensors, hidden_dim=32, n_layers=4,
         epochs=epochs, lr=1e-3, velocities=velocities)
+    test_data["median"] = (tc, tv)
     P("  Training Quantile...")
-    models["quantile"], histories["quantile"], test_data["quantile"] = train(
+    models["quantile"], histories["quantile"], tc, tv = train(
         clips, n_channels=n_sensors, hidden_dim=32, n_layers=4,
         epochs=epochs, lr=1e-3, velocities=velocities)
+    test_data["quantile"] = (tc, tv)
     return models, histories, test_data
 
 
@@ -470,7 +473,8 @@ if __name__ == "__main__":
     P("2. Finding flutter boundary...")
     t0 = time.time()
     u_crit = solver.find_flutter_velocity(
-        v_lower=680.0, v_upper=3000.0, n_scan=20, tol=1.0, n_modes=8)
+        rho=1.2, c_sound=SOUND_SPEED, zeta=0.0,
+        v_lower=680.0, v_upper=3000.0, n_scan=20, velocity_tol=1.0, n_modes=8)
     P(f"   u_crit={u_crit:.1f} m/s (Mach {u_crit/SOUND_SPEED:.2f}) ({time.time()-t0:.1f}s)")
 
     if u_crit is None:

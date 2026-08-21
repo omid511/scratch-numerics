@@ -3,28 +3,35 @@
 Given an FSDT solver and a flight velocity, reconstructs the time-domain
 transient displacement at selected sensor locations.
 
-Uses the complete eigenvalue decomposition with well-conditioned modes
-(no `.real` truncation of individual modes).  Causal normalization
-avoids future information leakage.
+Uses the shared eigenanalysis module for consistent eigensolving and filtering.
 """
 from __future__ import annotations
 
 import logging
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
 from scipy import linalg
+
+from mechanics.eigenanalysis import solve_eigenproblem, EigenFilter, TRANSIENT_FILTER
 
 logger = logging.getLogger(__name__)
 
 _u_crit_cache: dict[int, float | None] = {}
 
 
-def _get_u_crit(solver, v_lower=680.0, v_upper=3000.0) -> float | None:
+def _get_u_crit(solver, rho, c_sound, zeta,
+                v_lower=None, v_upper=3000.0) -> float | None:
     """Cache flutter velocity by solver identity."""
+    if v_lower is None:
+        v_lower = 2.0 * c_sound * 1.01  # M >= 2.0 lower bound
     key = id(solver)
     if key not in _u_crit_cache:
         _u_crit_cache[key] = solver.find_flutter_velocity(
-            v_lower=v_lower, v_upper=v_upper, n_scan=10, tol=5.0)
+            rho=rho, c_sound=c_sound, zeta=zeta,
+            v_lower=v_lower, v_upper=v_upper,
+            n_scan=10, velocity_tol=5.0,
+        )
     return _u_crit_cache[key]
 
 
@@ -45,6 +52,10 @@ class Eigendecomposition:
     vy_grid: np.ndarray
     M_eff: int
     N_eff: int
+    rho: float
+    c_sound: float
+    zeta: float
+    sensor_modes: np.ndarray | None = None  # P2-2: cached (n_sensors, n_modes) projection
 
 
 @dataclass
@@ -57,6 +68,7 @@ class TransientClip:
     margin: float                # (u_crit - velocity) / u_crit  or NaN
     eigenvalues: np.ndarray      # complex, (n_modes,)
     sensor_xy: np.ndarray        # (n_sensors, 2) — grid indices [iy, ix]
+    design_id: str = ""          # unique ID for grouped splitting
 
 
 def default_sensor_xy(ny: int, nx: int, n_sensors: int = 8) -> np.ndarray:
@@ -68,6 +80,57 @@ def default_sensor_xy(ny: int, nx: int, n_sensors: int = 8) -> np.ndarray:
     return coords
 
 
+def most_dangerous_oscillatory_mode(eigvals):
+    oscillatory = np.flatnonzero(eigvals.imag > 0.0)
+    if oscillatory.size == 0:
+        raise RuntimeError("No positive-imaginary oscillatory mode is available")
+    return int(oscillatory[np.argmax(eigvals[oscillatory].real)])
+
+
+def sample_modal_initial_conditions(eigvals, rng):
+    n_modes = eigvals.size
+    amplitudes = rng.lognormal(mean=0.0, sigma=0.5, size=n_modes)
+    phases = rng.uniform(0.0, 2.0 * np.pi, size=n_modes)
+    amplitudes /= max(np.linalg.norm(amplitudes), np.finfo(float).tiny)
+    coefficients = amplitudes * np.exp(1j * phases)
+    return amplitudes, coefficients
+
+
+def validate_sensor_indices(sensor_iy, sensor_ix, *, grid_shape):
+    pairs = list(zip(sensor_iy.tolist(), sensor_ix.tolist()))
+    if len(set(pairs)) != len(pairs):
+        raise ValueError(f"Duplicate sensor grid locations: {pairs}")
+    ny, nx = grid_shape
+    for iy, ix in pairs:
+        if not (0 <= iy < ny and 0 <= ix < nx):
+            raise ValueError(f"Sensor index out of bounds: {(iy, ix)}")
+
+
+def causal_calibration_normalize(signals, calibration_samples=64, eps=1e-8):
+    if signals.ndim != 2:
+        raise ValueError(f"Expected (channels, time), got {signals.shape}")
+    if not 1 <= calibration_samples <= signals.shape[1]:
+        raise ValueError("Invalid calibration_samples")
+    calibration = signals[:, :calibration_samples]
+    offset = calibration.mean(axis=1, keepdims=True)
+    scale = np.sqrt(np.mean((calibration - offset) ** 2, axis=1, keepdims=True))
+    scale = np.maximum(scale, eps)
+    return (signals - offset) / scale
+
+
+def modal_exponentials(eigvals, time, *, max_real_exponent=50.0):
+    exponents = eigvals[:, None] * time[None, :]
+    maximum = float(np.max(exponents.real))
+    if maximum > max_real_exponent:
+        raise FloatingPointError(
+            f"Transient exceeds configured dynamic range: max Re(lambda*t)={maximum:.3f}"
+        )
+    values = np.exp(exponents)
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("Non-finite modal exponential")
+    return values
+
+
 def compute_eigendecomposition(
     solver,
     velocity: float,
@@ -76,81 +139,108 @@ def compute_eigendecomposition(
     sensor_xy: np.ndarray | None = None,
     t_span: tuple = (0.0, 0.5),
     n_timesteps: int = 512,
+    rho: float = 1.2,
+    c_sound: float = 340.0,
+    zeta: float = 0.0,
+    filt: EigenFilter = TRANSIENT_FILTER,
+    min_modes: int = 2,
+    nyquist_strict: bool = True,
 ) -> Eigendecomposition:
     """Solve the eigenvalue problem once and cache the result.
 
-    Filters to well-conditioned physical modes using frequency range,
-    transverse participation (eta_w), and eigenpair residual (r_k).
+    Uses the shared solve_eigenproblem for consistent filtering.
+    Raises RuntimeError if fewer than min_modes modes pass filtering.
     """
-    from mechanics.piston_theory import AIR_DENSITY, SOUND_SPEED, validate_mach
+    from mechanics.piston_theory import validate_mach
 
-    M_inf = velocity / SOUND_SPEED
+    M_inf = velocity / c_sound
     validate_mach(M_inf, strict_high_mach=True, min_mach=2.0)
 
-    M_mat, K_base, _ = solver._base_matrices()
-    K_air, C_air = solver.assemble_aerodynamic(velocity, 0.0, AIR_DENSITY, SOUND_SPEED)
-    size = M_mat.shape[0]
-    MN_eff = size // 5
-    Z = np.zeros((size, size))
-    I_mat = np.eye(size)
+    M_mat, K_total, C_total = solver.assemble_aeroelastic_system(
+        velocity, rho, c_sound, zeta,
+    )
 
-    A_comp = np.block([
-        [Z,                  I_mat],
-        [-(K_base + K_air),  -C_air],
-    ])
-    B_comp = np.block([
-        [I_mat, Z],
-        [Z,     M_mat],
-    ])
+    # Modes above Nyquist (π/dt) will alias in the sampled output.
+    # Hard-fail if retained modes exceed Nyquist — oversampling is the remedy.
+    t0, t1 = map(float, t_span)
+    if t1 <= t0:
+        raise ValueError(f"Invalid t_span: {t_span}")
+    if n_timesteps < 2:
+        raise ValueError("n_timesteps must be at least 2")
+    dt = (t1 - t0) / n_timesteps
+    nyquist_omega = np.pi / dt
 
-    eigvals_all, eigvecs_all = linalg.eig(A_comp, B_comp)
-    finite = np.isfinite(eigvals_all)
-    eigvals_all = eigvals_all[finite]
-    eigvecs_all = eigvecs_all[:, finite]
+    result = solve_eigenproblem(
+        M_mat, K_total, C_total,
+        filt=filt,
+        require_positive_imag=True,
+        n_modes=0,
+    )
 
-    K_total = K_base + K_air
-    C_total = C_air
-    w_start = 2 * MN_eff
-    w_end = 3 * MN_eff
+    # Nyquist filter: reject modes that cannot be represented
+    omega = np.abs(result.eigvals.imag)
+    representable = omega <= 0.90 * nyquist_omega
 
-    n_total = len(eigvals_all)
-    eigvecs_phys = eigvecs_all[:size, :]
-    freqs = np.abs(eigvals_all.imag)
+    filtered_eigvals = result.eigvals[representable]
+    filtered_eigvecs = result.eigvecs[:, representable]
 
-    # Anti-alias filter: compute Nyquist from sample rate
-    fs = n_timesteps / (t_span[1] - t_span[0])  # sample rate in Hz
-    f_nyquist = 0.4 * fs  # conservative Nyquist cutoff (Hz)
-    freq_max_rad = f_nyquist * 2 * np.pi  # convert to rad/s
+    if filtered_eigvals.size == 0:
+        msg = (
+            f"No modes below 90% of Nyquist ({nyquist_omega:.1f} rad/s) at V={velocity:.1f}; "
+            f"increase n_timesteps or reduce t_span"
+        )
+        if nyquist_strict:
+            raise ValueError(msg)
+        else:
+            # P0-9: result.eigvals was post-TRANSIENT_FILTER which already killed
+            # them. Fall back to eigvals_all but apply minimal physical filtering:
+            # positive imaginary part, basic residual, and relaxed Nyquist bound.
+            logger.warning("%s — falling back to all finite eigenvalues (may alias)", msg)
+            phys_mask = result.eigvals_all.imag > 0
+            phys_mask &= result.residuals_all < 0.1 if hasattr(result, 'residuals_all') else True
+            if phys_mask.sum() == 0:
+                raise RuntimeError(msg)
+            filtered_eigvals = result.eigvals_all[phys_mask]
+            filtered_eigvecs = result.eigvecs_all[:, phys_mask]
 
-    is_physical = np.zeros(n_total, dtype=bool)
-    for k in range(n_total):
-        if freqs[k] < 10 or freqs[k] > freq_max_rad:
-            continue
-        if eigvals_all.imag[k] <= 0:
-            continue
-        q = eigvecs_phys[:, k]
-        w_block = q[w_start:w_end]
-        q_norm = np.abs(q).sum() + 1e-30
-        eta_w = np.abs(w_block).sum() / q_norm
-        if eta_w <= 0.001:
-            continue
-        s = eigvals_all[k]
-        Mq = M_mat @ q
-        Kq = K_total @ q
-        Cq = C_total @ q
-        numer = np.linalg.norm(s**2 * Mq + s * Cq + Kq)
-        denom = abs(s)**2 * np.linalg.norm(Mq) + abs(s) * np.linalg.norm(Cq) + np.linalg.norm(Kq)
-        r_k = numer / (denom + 1e-30)
-        if r_k >= 0.1:
-            continue
-        is_physical[k] = True
+    if filtered_eigvals.size < n_modes:
+        logger.warning(
+            "Only %d modes below Nyquist (requested %d); using all %d",
+            filtered_eigvals.size, n_modes, filtered_eigvals.size,
+        )
+        n_modes = filtered_eigvals.size
 
-    good_idx = np.where(is_physical)[0]
-    good_idx = good_idx[np.argsort(eigvals_all[good_idx].imag)]
-    good_idx = good_idx[:n_modes]
+    # Ensure the critical flutter mode is always included
+    n_phys = len(filtered_eigvals)
+    if n_phys == 0:
+        raise RuntimeError(
+            f"No physical modes found at V={velocity:.1f}"
+        )
 
-    eigvals = eigvals_all[good_idx]
-    eigvecs = eigvecs_all[:, good_idx]
+    # Sort by frequency for the main set
+    freq_order = np.argsort(filtered_eigvals.imag)
+
+    # Identify the most dangerous oscillatory mode
+    critical_idx = most_dangerous_oscillatory_mode(filtered_eigvals)
+
+    # Build keep list: critical mode first, then fill by frequency
+    keep = [critical_idx]
+    for idx in freq_order:
+        if idx not in keep:
+            keep.append(idx)
+        if len(keep) >= n_modes or len(keep) >= n_phys:
+            break
+
+    keep = np.array(keep[:n_modes])
+
+    eigvals = filtered_eigvals[keep]
+    eigvecs = filtered_eigvecs[:, keep]
+
+    if len(eigvals) < min_modes:
+        raise RuntimeError(
+            f"Only {len(eigvals)} physical modes found at V={velocity:.1f} "
+            f"(need {min_modes})"
+        )
 
     # Sensor locations
     ny = solver.grid[1]
@@ -163,11 +253,30 @@ def compute_eigendecomposition(
         sensor_iy = coords[:, 0]
         sensor_ix = coords[:, 1]
 
+    validate_sensor_indices(sensor_iy, sensor_ix, grid_shape=(ny, nx))
+
+    # P2-2: Precompute sensor-mode projection matrix
+    # Project basis-space w-DOF eigenvectors to sensor locations using basis evaluation
+    n_sensors_actual = len(sensor_iy)
+    n_phys = len(eigvals)
+    M_eff = solver._vx_grid.shape[0]
+    N_eff = solver._vy_grid.shape[0]
+    w_start_phys = 2 * result.MN_eff
+    sensor_modes = np.zeros((n_sensors_actual, n_phys), dtype=complex)
+    # w-DOFs are in basis space: (MN_eff, n_phys) -> (M_eff, N_eff, n_phys)
+    w_vecs = eigvecs[w_start_phys:w_start_phys + result.MN_eff, :]
+    w_3d = w_vecs.reshape(M_eff, N_eff, n_phys)
+    for s_idx in range(n_sensors_actual):
+        iy, ix = sensor_iy[s_idx], sensor_ix[s_idx]
+        proj_vx = solver._vx_grid[:, ix]  # (M_eff,)
+        proj_vy = solver._vy_grid[:, iy]  # (N_eff,)
+        sensor_modes[s_idx] = np.einsum('i,ijk,j->k', proj_vx, w_3d, proj_vy)
+
     return Eigendecomposition(
         eigvals=eigvals,
         eigvecs=eigvecs,
-        size=size,
-        MN_eff=MN_eff,
+        size=result.size,
+        MN_eff=result.MN_eff,
         velocity=velocity,
         M_mat=M_mat,
         K_total=K_total,
@@ -178,6 +287,10 @@ def compute_eigendecomposition(
         vy_grid=solver._vy_grid,
         M_eff=solver._vx_grid.shape[0],
         N_eff=solver._vy_grid.shape[0],
+        rho=rho,
+        c_sound=c_sound,
+        zeta=zeta,
+        sensor_modes=sensor_modes,
     )
 
 
@@ -192,8 +305,7 @@ def generate_clip_from_eigendecomposition(
     """Generate one clip from cached eigendecomposition with random ICs.
 
     Uses log-normal modal amplitudes so all modes receive meaningful
-    excitation, with the flutter pair (2 least-stable modes) guaranteed
-    at least 20% of total initial amplitude.
+    excitation with independent random initial conditions.
     """
     eigvals = eigs.eigvals
     eigvecs = eigs.eigvecs
@@ -203,93 +315,60 @@ def generate_clip_from_eigendecomposition(
 
     n_phys = len(eigvals)
 
-    # Identify flutter pair (2 least-stable modes: highest Re eigenvalue)
-    re_parts = eigvals.real
-    flutter_pair_idx = np.argsort(re_parts)[-2:]
+    # Independent random modal amplitudes (no stability-informed boosting)
+    amplitudes, coeffs_modal = sample_modal_initial_conditions(eigvals, rng)
 
-    # Random modal amplitudes (log-normal to ensure all modes get excitation)
-    amplitudes = rng.lognormal(0, 0.5, size=n_phys)
-    # Ensure flutter pair gets meaningful excitation: at least 20% of total
-    amp_median = np.median(amplitudes)
-    amplitudes[flutter_pair_idx] = np.maximum(
-        amplitudes[flutter_pair_idx], 0.2 * amp_median
-    )
+    t = np.linspace(t_span[0], t_span[1], n_timesteps, endpoint=False)
 
-    # Random phases
-    phases = rng.uniform(0, 2 * np.pi, size=n_phys)
-
-    # Build modal coefficients: amplitude * exp(i*phase)
-    coeffs_modal = amplitudes * np.exp(1j * phases)
-
-    # Build initial state from modal combination: x0 = V_re @ c
-    # where c = coeffs_modal expressed in real-valued coordinates
-    x0 = np.zeros(2 * size)
-    for k in range(n_phys):
-        lam_k = eigvals[k]
-        v_k = eigvecs[:size, k]
-        c_k = coeffs_modal[k]
-        # Conjugate pair contribution to initial state
-        x0[:size] += (c_k * v_k).real
-        # Velocity half: s * x contribution
-        x0[size:] += (c_k * lam_k * v_k).real
-
-    # Propagate using conjugate-pair real decomposition
-    t = np.linspace(t_span[0], t_span[1], n_timesteps)
+    # Propagate using positive-imaginary eigenvalues only
+    # Each selected mode has Im(s) > 0, contribution is 2*Re[c_k * v_k * exp(s_k * t)]
+    # P1-15: Overflow control for unstable exponentials
+    modal_exponentials(eigvals, t, max_real_exponent=1000.0)
     w_all = np.zeros((MN_eff, n_timesteps))
-    seen = set()
 
     for k in range(n_phys):
-        if k in seen:
-            continue
         lam_k = eigvals[k]
         v_k = eigvecs[:size, k]
         c_k = coeffs_modal[k]
 
-        conj_k = None
-        for j in range(k + 1, n_phys):
-            if j not in seen and np.abs(eigvals[j] - np.conj(lam_k)) < 1e-8 * max(1, np.abs(lam_k)):
-                conj_k = j
-                break
+        exp_t = np.exp(lam_k.real * t)
+        cos_t = np.cos(lam_k.imag * t)
+        sin_t = np.sin(lam_k.imag * t)
+        w_v_real = v_k[w_start:w_start + MN_eff].real
+        w_v_imag = v_k[w_start:w_start + MN_eff].imag
+        c_real = c_k.real
+        c_imag = c_k.imag
+        real_part = c_real * w_v_real - c_imag * w_v_imag
+        imag_part = -c_imag * w_v_real - c_real * w_v_imag
+        contrib = 2.0 * (np.outer(real_part, cos_t * exp_t) + np.outer(imag_part, sin_t * exp_t))
+        w_all += contrib
 
-        if conj_k is not None:
-            seen.add(k)
-            seen.add(conj_k)
-            exp_t = np.exp(lam_k.real * t)
-            cos_t = np.cos(lam_k.imag * t)
-            sin_t = np.sin(lam_k.imag * t)
-            w_v_real = v_k[w_start:w_start + MN_eff].real
-            w_v_imag = v_k[w_start:w_start + MN_eff].imag
-            c_real = c_k.real
-            c_imag = c_k.imag
-            real_part = c_real * w_v_real - c_imag * w_v_imag
-            imag_part = -c_imag * w_v_real - c_real * w_v_imag
-            contrib = 2.0 * (np.outer(real_part, cos_t * exp_t) + np.outer(imag_part, sin_t * exp_t))
-            w_all += contrib
-        else:
-            seen.add(k)
-            w_v = v_k[w_start:w_start + MN_eff]
-            modal_coeff = c_k * w_v
-            exp_all = np.exp(lam_k.real * t)
-            phase = np.exp(1j * lam_k.imag * t)
-            contrib = np.real(modal_coeff[:, None] * (exp_all * phase)[None, :])
-            w_all += contrib
-
-    # Map w-DOFs to grid at sensor locations
+    # Map w-DOFs to grid at sensor locations (P2-2: use cached sensor_modes)
     n_sensors = len(eigs.sensor_iy)
-    n_sensors_actual = n_sensors
-    sensor_signals = np.zeros((n_sensors_actual, n_timesteps))
-    w_3d = w_all.reshape(eigs.M_eff, eigs.N_eff, n_timesteps)
-    for s_idx in range(n_sensors):
-        iy, ix = eigs.sensor_iy[s_idx], eigs.sensor_ix[s_idx]
-        proj_vy = eigs.vy_grid[:, iy]
-        proj_vx = eigs.vx_grid[:, ix]
-        sensor_signals[s_idx] = np.einsum('i,ijt,j->t', proj_vx, w_3d, proj_vy)
+    if eigs.sensor_modes is not None:
+        # Use cached projection: signals = sensor_modes @ modal_response
+        modal_response = coeffs_modal[:, None] * np.exp(eigvals[:, None] * t[None, :])  # (n_phys, n_t)
+        sensor_signals = 2.0 * np.real(eigs.sensor_modes @ modal_response)
+    else:
+        sensor_signals = np.zeros((n_sensors, n_timesteps))
+        w_3d = w_all.reshape(eigs.M_eff, eigs.N_eff, n_timesteps)
+        for s_idx in range(n_sensors):
+            iy, ix = eigs.sensor_iy[s_idx], eigs.sensor_ix[s_idx]
+            proj_vy = eigs.vy_grid[:, iy]
+            proj_vx = eigs.vx_grid[:, ix]
+            sensor_signals[s_idx] = np.einsum('i,ijt,j->t', proj_vx, w_3d, proj_vy)
 
-    # Causal normalization: initial-window RMS
-    n_init = max(1, int(n_timesteps * normalize_window_frac))
-    init_window = sensor_signals[:, :n_init]
-    s0 = np.sqrt(np.mean(init_window**2) + 1e-12)
-    sensor_signals = sensor_signals / s0
+    # Causal normalization using fixed calibration window
+    calibration_samples = max(1, int(n_timesteps * normalize_window_frac))
+    sensor_signals = causal_calibration_normalize(sensor_signals, calibration_samples=calibration_samples)
+
+    # Reject non-finite clips
+    if not np.isfinite(sensor_signals).all():
+        raise RuntimeError("Non-finite sensor signal after propagation")
+
+    # Reject all-zero clips
+    if np.all(sensor_signals == 0):
+        raise RuntimeError("All-zero sensor signal after propagation")
 
     # Margin
     margin = float("nan")
@@ -304,6 +383,7 @@ def generate_clip_from_eigendecomposition(
         margin=margin,
         eigenvalues=eigvals,
         sensor_xy=np.column_stack([eigs.sensor_iy, eigs.sensor_ix]),
+        design_id=f"v{eigs.velocity:.0f}",
     )
 
 
@@ -319,13 +399,22 @@ def generate_transient_clips_batch(
     normalize_window_frac: float = 0.1,
     sensor_xy: np.ndarray | None = None,
     u_crit: float | None = None,
+    rho: float = 1.2,
+    c_sound: float = 340.0,
+    zeta: float = 0.0,
+    nyquist_strict: bool = True,
 ) -> list[TransientClip]:
     """Generate multiple clips at the same velocity with different random ICs.
 
-    Calls solve_complex_modal ONCE (expensive) and reuses the
+    Calls compute_eigendecomposition ONCE (expensive) and reuses the
     eigendecomposition for all realizations.
     """
-    eigs = compute_eigendecomposition(solver, velocity, n_modes, n_sensors, sensor_xy)
+    eigs = compute_eigendecomposition(
+        solver, velocity, n_modes, n_sensors, sensor_xy,
+        t_span=t_span, n_timesteps=n_timesteps,
+        rho=rho, c_sound=c_sound, zeta=zeta,
+        nyquist_strict=nyquist_strict,
+    )
     rng = np.random.default_rng(seed)
     clips = []
     for _ in range(n_realizations):
@@ -347,12 +436,12 @@ def generate_transient_clip(
     normalize_window_frac: float = 0.1,
     sensor_xy: np.ndarray | None = None,
     u_crit: float | None = None,
+    rho: float = 1.2,
+    c_sound: float = 340.0,
+    zeta: float = 0.0,
+    nyquist_strict: bool = True,
 ) -> TransientClip:
     """Generate a single transient clip via full state-space propagation.
-
-    Uses all eigenpairs from the generalized companion pencil, filters
-    to well-conditioned modes, and propagates x(t) = V_re V_re⁻¹ x₀
-    where V_re contains real-part projections of conjugate pairs.
 
     Parameters
     ----------
@@ -361,10 +450,13 @@ def generate_transient_clip(
     t_span : (t_start, t_end) seconds
     n_timesteps : number of time samples
     n_sensors : how many grid points to sample
-    n_modes : modes to keep from eigen-solve (for eigenvalue storage)
+    n_modes : modes to keep from eigen-solve
     rng : random generator for reproducibility
     normalize_window_frac : fraction of clip used for causal normalization
     sensor_xy : optional (n_sensors, 2) array of [iy, ix] grid indices
+    rho : air density (kg/m^3)
+    c_sound : speed of sound (m/s)
+    zeta : structural damping ratio
 
     Returns
     -------
@@ -373,214 +465,15 @@ def generate_transient_clip(
     if rng is None:
         rng = np.random.default_rng()
 
-    from mechanics.piston_theory import AIR_DENSITY, SOUND_SPEED, validate_mach
+    eigs = compute_eigendecomposition(
+        solver, velocity, n_modes, n_sensors, sensor_xy,
+        t_span=t_span, n_timesteps=n_timesteps,
+        rho=rho, c_sound=c_sound, zeta=zeta,
+        nyquist_strict=nyquist_strict,
+    )
 
-    M_inf = velocity / SOUND_SPEED
-    validate_mach(M_inf, strict_high_mach=True, min_mach=2.0)
-
-    result = solver.solve_complex_modal(velocity, n_modes=n_modes)
-    eigenvalues = result.eigenvalues          # complex, (n_modes,)
-    mode_shapes = result.mode_shapes          # (n_modes, ny, nx)
-    ny, nx = mode_shapes.shape[1], mode_shapes.shape[2]
-
-    # Pick sensor locations on the grid
-    if sensor_xy is not None:
-        sensor_iy = sensor_xy[:, 0]
-        sensor_ix = sensor_xy[:, 1]
-        n_sensors = len(sensor_iy)
-    else:
-        # Fixed interior sensors: avoid boundary nodes
-        coords = default_sensor_xy(ny, nx, n_sensors)
-        sensor_iy = coords[:, 0]
-        sensor_ix = coords[:, 1]
-
-    # Build full generalized companion pencil
-    M_mat, K_base, _ = solver._base_matrices()
-    K_air, C_air = solver.assemble_aerodynamic(velocity, 0.0, AIR_DENSITY, SOUND_SPEED)
-    size = M_mat.shape[0]
-    MN_eff = size // 5
-    Z = np.zeros((size, size))
-    I_mat = np.eye(size)
-
-    A_comp = np.block([
-        [Z,                  I_mat],
-        [-(K_base + K_air),  -C_air],
-    ])
-    B_comp = np.block([
-        [I_mat, Z],
-        [Z,     M_mat],
-    ])
-
-    # Solve generalized eigenvalue problem — all eigenvalues
-    eigvals_all, eigvecs_all = linalg.eig(A_comp, B_comp)
-    finite = np.isfinite(eigvals_all)
-    eigvals_all = eigvals_all[finite]
-    eigvecs_all = eigvecs_all[:, finite]
-
-    # ── Select well-conditioned conjugate pairs ──
-    # Use the SAME filtering as _max_real_eigenvalue: frequency range,
-    # transverse participation (eta_w), and eigenpair residual (r_k).
-    n_total = len(eigvals_all)
-
-    K_total = K_base + K_air
-    C_total = C_air
-    MN_eff = size // 5
-    w_start = 2 * MN_eff
-    w_end = 3 * MN_eff
-
-    # Compute transverse participation and residual for each eigenpair
-    eigvecs_phys = eigvecs_all[:size, :]  # displacement half
-    freqs = np.abs(eigvals_all.imag)  # rad/s
-
-    is_physical = np.zeros(n_total, dtype=bool)
-    for k in range(n_total):
-        # 1. Physical frequency range
-        if freqs[k] < 10 or freqs[k] > 100000:
-            continue
-        # 2. Positive imaginary part (one-sided)
-        if eigvals_all.imag[k] <= 0:
-            continue
-        # 3. Transverse participation: eta_w > 0.001
-        q = eigvecs_phys[:, k]
-        w_block = q[w_start:w_end]
-        q_norm = np.abs(q).sum() + 1e-30
-        eta_w = np.abs(w_block).sum() / q_norm
-        if eta_w <= 0.001:
-            continue
-        # 4. Eigenpair residual: r_k < 0.1
-        s = eigvals_all[k]
-        Mq = M_mat @ q
-        Kq = K_total @ q
-        Cq = C_total @ q
-        numer = np.linalg.norm(s**2 * Mq + s * Cq + Kq)
-        denom = abs(s)**2 * np.linalg.norm(Mq) + abs(s) * np.linalg.norm(Cq) + np.linalg.norm(Kq)
-        r_k = numer / (denom + 1e-30)
-        if r_k >= 0.1:
-            continue
-        is_physical[k] = True
-
-    good_idx = np.where(is_physical)[0]
-    # Sort by frequency
-    good_idx = good_idx[np.argsort(eigvals_all[good_idx].imag)]
-
-    # Take up to n_modes modes
-    good_idx = good_idx[:n_modes]
-
-    eigvals = eigvals_all[good_idx]
-    eigvecs = eigvecs_all[:, good_idx]
-
-    # Reject clip if any selected mode is unstable (Re > 0)
-    if np.any(eigvals.real > 0):
-        raise ValueError(
-            f"Unstable mode detected at V={velocity:.1f} "
-            f"(max Re={eigvals.real.max():.4f}), skipping clip"
-        )
-
-    # ── Real physical initial state ──
-    x0 = np.zeros(2 * size)
-    w_start = 2 * MN_eff
-    n_init_dofs = min(n_sensors, MN_eff)
-    init_dofs = rng.choice(MN_eff, size=n_init_dofs, replace=False)
-    x0[w_start + init_dofs] = 0.1 * rng.standard_normal(n_init_dofs)
-    x0[size:] = 0.01 * rng.standard_normal(size)
-
-    # ── Propagate using conjugate-pair real decomposition ──
-    # For each pair (λ, λ*), contribution is 2 Re[c_k v_k exp(λ_k t)]
-    # where c_k = (v_k^H x₀) / (v_k^H v_k) for right eigenvectors
-    t = np.linspace(t_span[0], t_span[1], n_timesteps)
-
-    # Compute modal coefficients via pseudoinverse (handles conditioning)
-    coeffs = np.linalg.pinv(eigvecs) @ x0  # (n_modes,)
-
-    # Build modal contribution: sum over conjugate pairs
-    w_all = np.zeros((MN_eff, n_timesteps))
-    seen = set()
-    for k in range(len(eigvals)):
-        if k in seen:
-            continue
-        lam_k = eigvals[k]
-        v_k = eigvecs[:size, k]
-
-        # Find conjugate partner (if any)
-        conj_k = None
-        for j in range(k + 1, len(eigvals)):
-            if j not in seen and np.abs(eigvals[j] - np.conj(lam_k)) < 1e-8 * max(1, np.abs(lam_k)):
-                conj_k = j
-                break
-
-        c_k = coeffs[k]
-
-        if conj_k is not None:
-            # Conjugate pair: x(t) += 2 Re[c_k v_k exp(λ_k t)]
-            seen.add(k)
-            seen.add(conj_k)
-            exp_t = np.exp(lam_k.real * t)  # (n_t,)
-            cos_t = np.cos(lam_k.imag * t)  # (n_t,)
-            sin_t = np.sin(lam_k.imag * t)  # (n_t,)
-            v_real = v_k.real  # (size,)
-            v_imag = v_k.imag
-            c_real = c_k.real
-            c_imag = c_k.imag
-            w_v_real = v_real[w_start:w_start + MN_eff]  # (MN_eff,)
-            w_v_imag = v_imag[w_start:w_start + MN_eff]  # (MN_eff,)
-            real_part = c_real * w_v_real - c_imag * w_v_imag  # (MN_eff,)
-            imag_part = -c_imag * w_v_real - c_real * w_v_imag  # (MN_eff,)
-            contrib = 2.0 * (np.outer(real_part, cos_t * exp_t) + np.outer(imag_part, sin_t * exp_t))
-            w_all += contrib
-        else:
-            # Unpaired mode (shouldn't happen for real system, but handle)
-            seen.add(k)
-            c_k = coeffs[k]
-            w_v = v_k[w_start:w_start + MN_eff]  # (MN_eff,) complex
-            modal_coeff = c_k * w_v  # (MN_eff,) complex
-            exp_all = np.exp(lam_k.real * t)  # (n_t,)
-            phase = np.exp(1j * lam_k.imag * t)  # (n_t,)
-            contrib = np.real(modal_coeff[:, None] * (exp_all * phase)[None, :])  # (MN_eff, n_t)
-            w_all += contrib
-
-    # w_all is (MN_eff, n_t)
-
-    # Map w-DOFs to grid at sensor locations
-    vx_grid = solver._vx_grid  # (M_eff, grid_nx)
-    vy_grid = solver._vy_grid  # (N_eff, grid_ny)
-    M_eff = vx_grid.shape[0]
-    N_eff = vy_grid.shape[0]
-
-    sensor_signals = np.zeros((n_sensors, n_timesteps))
-    w_3d = w_all.reshape(M_eff, N_eff, n_timesteps)
-    for s_idx in range(n_sensors):
-        iy, ix = sensor_iy[s_idx], sensor_ix[s_idx]
-        proj_vy = vy_grid[:, iy]  # (N_eff,)
-        proj_vx = vx_grid[:, ix]  # (M_eff,)
-        sensor_signals[s_idx] = np.einsum('i,ijt,j->t', proj_vx, w_3d, proj_vy)
-
-    # ── Causal normalization: initial-window RMS ──
-    n_init = max(1, int(n_timesteps * normalize_window_frac))
-    init_window = sensor_signals[:, :n_init]
-    s0 = np.sqrt(np.mean(init_window**2) + 1e-12)
-    sensor_signals = sensor_signals / s0
-
-    # Margin — use pre-computed u_crit if provided, otherwise scan
-    margin = float("nan")
-    if u_crit is not None and u_crit > 0:
-        margin = (u_crit - velocity) / u_crit
-    else:
-        try:
-            u_crit_computed = _get_u_crit(solver)
-            if u_crit_computed is not None and u_crit_computed > 0:
-                u_crit = u_crit_computed
-                margin = (u_crit - velocity) / u_crit
-        except (ValueError, AttributeError, np.linalg.LinAlgError, RuntimeError) as e:
-            logger.debug("flutter velocity scan failed at v=%.1f: %s", velocity, e)
-
-    return TransientClip(
-        sensor_signals=sensor_signals,
-        time=t,
-        velocity=velocity,
-        u_crit=u_crit,
-        margin=margin,
-        eigenvalues=eigenvalues,
-        sensor_xy=np.column_stack([sensor_iy, sensor_ix]),
+    return generate_clip_from_eigendecomposition(
+        eigs, rng, t_span, n_timesteps, normalize_window_frac, u_crit,
     )
 
 
@@ -595,6 +488,7 @@ def generate_dataset(
     seed: int = 42,
     sensor_xy: np.ndarray | None = None,
     u_crit: float | None = None,
+    nyquist_strict: bool = True,
 ) -> list[TransientClip]:
     """Generate a dataset of transient clips across random velocities.
 
@@ -607,10 +501,10 @@ def generate_dataset(
         try:
             clip = generate_transient_clip(
                 solver, float(v), t_span, n_timesteps, n_sensors, n_modes, rng=rng,
-                sensor_xy=sensor_xy, u_crit=u_crit,
+                sensor_xy=sensor_xy, u_crit=u_crit, nyquist_strict=nyquist_strict,
             )
             clips.append(clip)
-        except (ValueError, AttributeError, np.linalg.LinAlgError) as e:
+        except (ValueError, AttributeError, np.linalg.LinAlgError, RuntimeError, FloatingPointError) as e:
             logger.debug("clip generation failed at v=%.1f: %s", v, e)
             continue
     return clips

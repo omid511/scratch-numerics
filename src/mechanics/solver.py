@@ -16,6 +16,7 @@ from .basis import (
     legendre_and_derivative, trig_and_derivative,
 )
 from .result import SolverResult, AeroelasticResult
+from .eigenanalysis import solve_eigenproblem, get_max_real_eigenvalue, spectral_abscissa, SpectralAbscissaResult, EigenFilter, FLUTTER_FILTER
 
 
 # T matrix — strain-displacement transformation (constant)
@@ -33,6 +34,74 @@ _T = np.array([
 
 AIR_DENSITY = 1.2
 SOUND_SPEED = 340.0
+
+
+def compute_structural_damping(
+    M_mat: np.ndarray,
+    K_base: np.ndarray,
+    zeta: float,
+) -> np.ndarray:
+    """Compute structural damping matrix via mass-normalized modal damping.
+
+    Produces a damping matrix that gives each structural mode a damping
+    ratio of approximately zeta, using the transformation:
+
+        C_struct = M @ Phi @ diag(2*zeta*omega) @ Phi^H @ M
+
+    where Phi is the mass-normalized eigenvector matrix.
+
+    Args:
+        M_mat: Mass matrix (must be SPD)
+        K_base: Structural stiffness matrix
+        zeta: Target modal damping ratio
+
+    Returns:
+        C_struct: Structural damping matrix (same size as M_mat)
+
+    Raises:
+        ValueError: If zeta < 0 or eigendecomposition fails
+    """
+    from scipy.linalg import eigh
+
+    if zeta < 0.0:
+        raise ValueError(f"zeta must be non-negative, got {zeta}")
+    if zeta == 0.0:
+        return np.zeros_like(M_mat)
+
+    omega_sq, phi = eigh(K_base, M_mat, check_finite=True)
+    positive = omega_sq > 0.0
+    if not np.any(positive):
+        raise ValueError("No positive structural eigenvalues")
+    omega = np.sqrt(omega_sq[positive])
+    phi = phi[:, positive]
+
+    # Explicit mass-normalization
+    for i in range(phi.shape[1]):
+        modal_mass = np.real(phi[:, i].conj().T @ M_mat @ phi[:, i])
+        if modal_mass <= 0.0:
+            raise ValueError(f"Non-positive modal mass for mode {i}")
+        phi[:, i] /= np.sqrt(modal_mass)
+
+    modal_c = np.diag(2.0 * zeta * omega)
+    C = M_mat @ phi @ modal_c @ phi.conj().T @ M_mat
+    C = np.real_if_close(C)
+    C = 0.5 * (C + C.T)
+    return np.asarray(C, dtype=float)
+
+
+def validate_structural_matrices(M: np.ndarray, K: np.ndarray) -> None:
+    """Validate structural mass and stiffness matrices before aeroelastic assembly."""
+    if M.shape != K.shape or M.ndim != 2 or M.shape[0] != M.shape[1]:
+        raise ValueError(f"Incompatible matrix shapes: M={M.shape}, K={K.shape}")
+    if not np.all(np.isfinite(M)) or not np.all(np.isfinite(K)):
+        raise ValueError("Structural matrices contain non-finite values")
+    if not np.allclose(M, M.T, rtol=1e-9, atol=1e-10):
+        raise ValueError("Mass matrix is not symmetric")
+    if not np.allclose(K, K.T, rtol=1e-8, atol=1e-5):
+        raise ValueError("Structural stiffness matrix is not symmetric")
+    min_mass_eigenvalue = float(np.min(np.linalg.eigvalsh(M)))
+    if min_mass_eigenvalue <= 0.0:
+        raise ValueError(f"Mass matrix is not positive definite: lambda_min={min_mass_eigenvalue}")
 
 
 class FSDTSolver:
@@ -54,6 +123,7 @@ class FSDTSolver:
         basis_type: str = "legendre",
         grid: tuple[int, int] = (64, 64),
         k_stiffness: float = 1e14,
+        penalty_factor: float | None = None,
     ):
         self.L1 = L1
         self.L2 = L2
@@ -64,6 +134,7 @@ class FSDTSolver:
         self.basis_type = basis_type
         self.grid = grid
         self.k_stiffness = k_stiffness
+        self.penalty_factor = penalty_factor
 
         # Precompute basis integrals (material-free, done once per M,N,a,b)
         self._int_x = precompute_integrals(M, L1, basis_type)
@@ -82,6 +153,11 @@ class FSDTSolver:
                 vy = self._int_y.get(int(ii == 2), int(jj == 2))
                 self._expanded[(ii, jj)] = expand_basis(vx, vy, M, N)
 
+        # Cache for velocity-independent quantities
+        self._aero_cache: dict[str, np.ndarray] = {}
+        self._damping_cache: dict[float, np.ndarray] = {}
+        self._aero_unit_cache: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
+
         # Precompute mass expanded basis
         self._expanded_mass = expand_basis(
             self._int_x.get(0, 0), self._int_y.get(0, 0), M, N
@@ -97,7 +173,7 @@ class FSDTSolver:
 
         # Boundary springs
         self._springs: list[tuple[float, int, float | None, float | None]] = []
-        self._base_cache: tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray] | None] | None = None
+        self._base_cache = None
 
     def _eval_basis_on_grid_x(self) -> np.ndarray:
         """Evaluate x-basis on output grid. Returns (M, grid_nx)."""
@@ -145,26 +221,65 @@ class FSDTSolver:
             vals, _ = trig_and_derivative(self.N - 1, np.array([y / self.L2]))
             return vals[:, 0]
 
+    def _invalidate_caches(self):
+        """Clear all cached matrices when boundaries change."""
+        self._base_cache = None
+        self._aero_cache.clear()
+        self._damping_cache.clear()
+        self._aero_unit_cache.clear()
+
     def set_boundary(self, left: dict, right: dict, top: dict, bottom: dict):
         """Set boundary conditions from config dicts."""
         from .boundary import build_boundary_springs
         self._springs = build_boundary_springs(
             self.L1, self.L2, left, right, top, bottom, self.k_stiffness
         )
-        self._base_cache = None
+        self._invalidate_caches()
 
     def set_boundary_springs(self, springs: list):
         """Directly set spring list."""
         self._springs = list(springs)
-        self._base_cache = None
+        self._invalidate_caches()
 
     def _base_matrices(self) -> tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray] | None]:
         """Mass, structural stiffness, and (lazily) mass factorization."""
         if self._base_cache is None:
             M_mat = self.assemble_mass()
-            K_base = self.assemble_stiffness() + self.assemble_springs()
+            K_struct = self.assemble_stiffness()
+
+            # Scale penalty springs to structural matrix when penalty_factor is set
+            if self.penalty_factor is not None and self._springs:
+                from .boundary import scale_springs_to_penalty
+                scaled_springs = scale_springs_to_penalty(
+                    self._springs, K_struct, self.penalty_factor,
+                )
+                K_spring = self._assemble_springs_from_list(scaled_springs)
+            else:
+                K_spring = self.assemble_springs()
+
+            K_base = K_struct + K_spring
             self._base_cache = (M_mat, K_base, None)  # ponytail: lazy LU
         return self._base_cache
+
+    def _assemble_springs_from_list(self, springs: list) -> np.ndarray:
+        """Assemble spring stiffness matrix from an explicit spring list."""
+        MN5 = 5 * self._MN_eff
+        K_spring = np.zeros((MN5, MN5))
+        for value, dof, x, y in springs:
+            if x is None:
+                vvx = self._int_x.get(0, 0)
+            else:
+                vx = self._eval_basis_x(x)
+                vvx = np.outer(vx, vx)
+            if y is None:
+                vvy = self._int_y.get(0, 0)
+            else:
+                vy = self._eval_basis_y(y)
+                vvy = np.outer(vy, vy)
+            vv = expand_basis(vvx, vvy, self.M, self.N)
+            i0 = dof * self._MN_eff
+            K_spring[i0:i0+self._MN_eff, i0:i0+self._MN_eff] += vv * value
+        return K_spring
 
     def _get_M_lu(self) -> tuple[np.ndarray, np.ndarray]:
         """LU factorization of mass matrix, computed once on first use."""
@@ -206,12 +321,11 @@ class FSDTSolver:
         """Assemble FSDT structural stiffness matrix."""
         ABBD, As = self.laminate.ABD()
 
-        # Shear correction factors
+        # Full 2x2 shear correction matrix (preserves off-diagonal coupling)
         if hasattr(self.laminate, 'kappa'):
-            kappa = self.laminate.kappa()
-            kappa1, kappa2 = kappa[0, 0], kappa[1, 1]
+            kappa = np.asarray(self.laminate.kappa(), dtype=float)
         else:
-            kappa1, kappa2 = 5/6, 5/6
+            kappa = np.diag([5.0/6.0, 5.0/6.0])
 
         # Build 8x8 ABDAs matrix
         ABDAs = np.zeros((8, 8))
@@ -219,7 +333,7 @@ class FSDTSolver:
         ABDAs[:3, 3:6] = ABBD[:3, 3:6]
         ABDAs[3:6, :3] = ABBD[3:6, :3]
         ABDAs[3:6, 3:6] = ABBD[3:6, 3:6]
-        ABDAs[6:, 6:] = np.diag([kappa1, kappa2]) @ As
+        ABDAs[6:, 6:] = kappa @ As
 
         # R = T^T . ABDAs . T
         R = _T.T @ ABDAs @ _T
@@ -296,6 +410,39 @@ class FSDTSolver:
 
         return K_air, C_air
 
+    def assemble_aeroelastic_system(
+        self,
+        velocity: float,
+        rho: float = AIR_DENSITY,
+        c_sound: float = SOUND_SPEED,
+        zeta: float = 0.0,
+        flow_angle: float = 0.0,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Assemble full aeroelastic system matrices with structural damping.
+
+        Single entry point for both flutter detection and transient generation.
+        Caches velocity-independent quantities (M, K_base, C_struct).
+        """
+        # Cached base matrices
+        if "M" not in self._aero_cache:
+            M_mat, K_base, _ = self._base_matrices()
+            validate_structural_matrices(M_mat, K_base)
+            self._aero_cache["M"] = M_mat
+            self._aero_cache["K_base"] = K_base
+        M_mat = self._aero_cache["M"]
+        K_base = self._aero_cache["K_base"]
+
+        # Cached structural damping (depends on zeta only)
+        zeta_key = round(zeta, 8)
+        if zeta_key not in self._damping_cache:
+            self._damping_cache[zeta_key] = compute_structural_damping(M_mat, K_base, zeta)
+        C_struct = self._damping_cache[zeta_key]
+
+        K_air, C_air = self.assemble_aerodynamic(velocity, flow_angle, rho, c_sound)
+        K_total = K_base + K_air
+        C_total = C_air + C_struct
+        return M_mat, K_total, C_total
+
     def _eval_mode_on_grid(self, coeffs: np.ndarray) -> np.ndarray:
         """Evaluate transverse displacement (DOF 2) on output grid.
 
@@ -316,39 +463,45 @@ class FSDTSolver:
         """Solve undamped free vibration: K phi = omega^2 M phi.
 
         Returns SolverResult with natural frequencies and mode shapes.
+        Uses eigsh for symmetric generalized problem.
         """
         M_mat, K_total, _ = self._base_matrices()
 
-        # Solve generalized eigenvalue problem
         size = M_mat.shape[0]
         n_eigs = min(n_modes, size - 2)
-        eigenvalues, eigenvectors = slinalg.eigs(
+        eigenvalues, eigenvectors = slinalg.eigsh(
             K_total.real, n_eigs, M=M_mat.real,
             sigma=0.1, v0=np.ones(size),
         )
 
+        # Filter: finite, real, positive eigenvalues only
+        valid = (
+            np.isfinite(eigenvalues)
+            & (np.abs(eigenvalues.imag) < 0.1 * np.abs(eigenvalues.real))
+            & (eigenvalues.real > 0.0)
+        )
+        eigenvalues = eigenvalues[valid]
+        eigenvectors = eigenvectors[:, valid]
+
         # Natural frequencies in Hz
-        freq = np.sqrt(np.abs(eigenvalues)) / (2 * np.pi)
+        freq = np.sqrt(eigenvalues.real) / (2 * np.pi)
 
         # Sort by frequency
-        idx = np.argsort(freq.real)
+        idx = np.argsort(freq)
         eigenvalues = eigenvalues[idx]
         eigenvectors = eigenvectors[:, idx]
         freq = freq[idx]
 
-        # Filter out spurious modes
-        valid = np.abs(freq.imag) < 0.1 * np.abs(freq.real)
-        freq = freq[valid].real
-        eigenvalues = eigenvalues[valid]
-        eigenvectors = eigenvectors[:, valid]
-
-        # Evaluate mode shapes on grid
+        # Evaluate mode shapes on grid with phase alignment
         n_out = min(n_modes, len(freq))
         mode_shapes = np.zeros((n_out, self.grid[1], self.grid[0]))
         coeffs = np.zeros((n_out, 5 * self._MN_eff))
         for k in range(n_out):
-            coeffs[k] = eigenvectors[:, k].real
-            mode_shapes[k] = self._eval_mode_on_grid(eigenvectors[:, k].real)
+            q = eigenvectors[:, k]
+            pivot = np.argmax(np.abs(q))
+            q = q * np.exp(-1j * np.angle(q[pivot]))
+            coeffs[k] = q.real
+            mode_shapes[k] = self._eval_mode_on_grid(q.real)
 
         return SolverResult(
             frequencies=freq[:n_out],
@@ -366,6 +519,7 @@ class FSDTSolver:
         flow_angle: float = 0.0,
         rho: float = AIR_DENSITY,
         c_sound: float = SOUND_SPEED,
+        zeta: float = 0.0,
         n_modes: int = 20,
     ) -> AeroelasticResult:
         """Solve aeroelastic eigenvalue problem with airflow.
@@ -378,106 +532,48 @@ class FSDTSolver:
             flow_angle: Flow angle (radians)
             rho: Air density
             c_sound: Speed of sound
+            zeta: Structural damping ratio (0 = undamped)
             n_modes: Number of modes to return
 
         Returns:
             AeroelasticResult with complex eigenvalues and stability info
         """
-        M_mat, K_base, _ = self._base_matrices()
-        K_air, C_air = self.assemble_aerodynamic(velocity, flow_angle, rho, c_sound)
-
-        K_total = K_base + K_air
-        C_total = C_air
+        M_mat, K_total, C_total = self.assemble_aeroelastic_system(
+            velocity, rho, c_sound, zeta, flow_angle,
+        )
 
         size = M_mat.shape[0]
-        Z = np.zeros((size, size))
-        I_mat = np.eye(size)
 
-        # Generalized companion pencil: A_comp z = s B_comp z
-        # Avoids M⁻¹ and preserves conditioning
-        A_comp = np.block([
-            [Z,        I_mat],
-            [-K_total, -C_total],
-        ])
-        B_comp = np.block([
-            [I_mat, Z],
-            [Z,     M_mat],
-        ])
+        result = solve_eigenproblem(
+            M_mat, K_total, C_total,
+            filt=FLUTTER_FILTER,
+            require_positive_imag=True,
+            n_modes=n_modes,
+        )
 
-        # Solve generalized eigenvalue problem
-        all_eigvals, all_eigvecs = linalg.eig(A_comp, B_comp)
+        n_out = len(result.eigvals)
+        if n_out == 0:
+            eigvals_out = np.array([], dtype=complex)
+            return AeroelasticResult(
+                frequencies=np.array([]), mode_shapes=np.zeros((0, self.grid[1], self.grid[0])),
+                grid_x=self._gx, grid_y=self._gy, eigenvalues=eigvals_out,
+                stable=np.array([], dtype=bool), coefficients=np.zeros((0, size)),
+                L1=self.L1, L2=self.L2, M=self.M, N=self.N,
+                velocity=velocity, mach_number=velocity / c_sound, lambda_value=0.0,
+            )
 
-        # Filter finite eigenvalues
-        finite = np.isfinite(all_eigvals)
-        all_eigvals = all_eigvals[finite]
-        all_eigvecs = all_eigvecs[:, finite]
-
-        # Take onesided (positive imaginary part = positive frequency)
-        idx_pos = all_eigvals.imag >= 0
-        eigvals = all_eigvals[idx_pos]
-        eigvecs = all_eigvecs[:, idx_pos]
-
-        # Sort by imaginary part (frequency)
-        idx = np.argsort(eigvals.imag)
-        eigvals = eigvals[idx]
-        eigvecs = eigvecs[:, idx]
-
-        # Extract physical DOF eigenvectors (displacement half of state vector)
-        eigvecs_physical = eigvecs[:size, :]
-
-        # ── Mode filtering: eigenpair residual, w-participation, relative growth ──
-        # Compute norms needed for filtering
-        M_norm = M_mat @ eigvecs_physical      # (size, n_modes)
-        K_norm = K_total @ eigvecs_physical
-        C_norm = C_total @ eigvecs_physical
-
-        # Eigenpair residual: r_k = ||(s²M + sC + K)q|| / (|s|²||Mq|| + |s|||Cq|| + ||Kq||)
-        s2M = eigvals**2 * M_norm
-        sC = eigvals * C_norm
-        numer = np.abs(s2M + sC + K_norm).sum(axis=0)  # ||residual||_1 as proxy
-        denom = (np.abs(eigvals)**2 * np.abs(M_norm).sum(axis=0)
-                 + np.abs(eigvals) * np.abs(C_norm).sum(axis=0)
-                 + np.abs(K_norm).sum(axis=0))
-        denom[denom == 0] = 1.0
-        residuals = numer / denom
-
-        # Transverse participation: η_w = ||q_w||² / ||q||²
-        w_start = 2 * self._MN_eff
-        w_end = 3 * self._MN_eff
-        q_w = eigvecs_physical[w_start:w_end, :]
-        q_norm = np.abs(eigvecs_physical).sum(axis=0)
-        q_norm[q_norm == 0] = 1.0
-        eta_w = np.abs(q_w).sum(axis=0) / q_norm
-
-        # Relative growth: g = Re(s) / max(|Im(s)|, omega_min)
-        omega_min = 1.0  # minimum frequency to avoid division by zero
-        rel_growth = eigvals.real / np.maximum(np.abs(eigvals.imag), omega_min)
-
-        # Physical mode candidates: small residual, meaningful w-participation
-        # ponytail: 2e-2 tuned for 1m CFCF honeycomb; use _diagnose_eigenpair_filtering for other geometries
-        is_physical = (residuals < 2e-2) & (eta_w > 0.01)
-
-        # Evaluate mode shapes on grid
-        n_out = min(n_modes, len(eigvals))
         mode_shapes = np.zeros((n_out, self.grid[1], self.grid[0]))
         coeffs = np.zeros((n_out, size))
         stable = np.zeros(n_out, dtype=bool)
 
-        # Sort physical modes by frequency, take first n_out
-        phys_idx = np.where(is_physical)[0]
-        if len(phys_idx) < n_out:
-            # Fallback: include all modes if too few physical ones
-            phys_idx = np.arange(min(n_out, len(eigvals)))
-        phys_idx = phys_idx[:n_out]
+        for k in range(n_out):
+            stable[k] = result.eigvals[k].real < 1e-6
+            q = result.eigvecs_phys[:, k]
+            pivot = np.argmax(np.abs(q))
+            q = q * np.exp(-1j * np.angle(q[pivot]))
+            coeffs[k] = q.real
+            mode_shapes[k] = self._eval_mode_on_grid(q.real)
 
-        for k_out, k in enumerate(phys_idx):
-            stable[k_out] = eigvals[k].real < 1e-6
-            coeffs[k_out] = eigvecs_physical[:, k].real
-            mode_shapes[k_out] = self._eval_mode_on_grid(eigvecs_physical[:, k].real)
-
-        eigvals_out = eigvals[phys_idx]
-
-        # Compute non-dimensional lambda using full ABD bending stiffness
         D11 = self._compute_D11()
         from .piston_theory import non_dimensional_lambda
         lambda_val = non_dimensional_lambda(
@@ -487,13 +583,12 @@ class FSDTSolver:
         M_inf = velocity / c_sound
 
         return AeroelasticResult(
-            frequencies=eigvals_out.imag / (2 * np.pi),
+            frequencies=result.eigvals.imag / (2 * np.pi),
             mode_shapes=mode_shapes,
-            grid_x=self._gx,
-            grid_y=self._gy,
-            eigenvalues=eigvals_out,
+            grid_x=self._gx, grid_y=self._gy,
+            eigenvalues=result.eigvals,
             stable=stable,
-            coefficients=coeffs[:n_out],
+            coefficients=coeffs,
             L1=self.L1, L2=self.L2,
             M=self.M, N=self.N,
             velocity=velocity,
@@ -507,64 +602,17 @@ class FSDTSolver:
         flow_angle: float = 0.0,
         rho: float = AIR_DENSITY,
         c_sound: float = SOUND_SPEED,
-        n_modes: int = 10,
+        zeta: float = 0.0,
     ) -> float:
-        """Return the least-stable physical eigenvalue real part.
+        """Return the spectral abscissa (max Re(s)) of the aeroelastic system.
 
-        Filters out in-plane and penalty-spring modes by:
-        1. Frequency range (100–100000 rad/s for physical plate modes)
-        2. Transverse participation relative to displacement block
+        Uses the full validated spectrum via spectral_abscissa().
         """
-        M_mat, K_base, _ = self._base_matrices()
-        K_air, C_air = self.assemble_aerodynamic(velocity, flow_angle, rho, c_sound)
-        size = M_mat.shape[0]
-        MN_eff = size // 5
-
-        M_lu = linalg.lu_factor(M_mat)
-        I_mat = np.eye(size)
-        A = np.zeros((2 * size, 2 * size))
-        A[:size, size:] = I_mat
-        A[size:, :size] = -linalg.lu_solve(M_lu, K_base + K_air)
-        A[size:, size:] = -linalg.lu_solve(M_lu, C_air)
-
-        eigvals, eigvecs = linalg.eig(A)
-        finite = np.isfinite(eigvals)
-        eigvals = eigvals[finite]
-        eigvecs = eigvecs[:, finite]
-
-        # Filter: physical frequency range + transverse participation + residual
-        freqs = np.abs(eigvals.imag)
-        w_start = 2 * MN_eff
-        w_end = 3 * MN_eff
-        K_total = K_base + K_air
-        C_total = C_air
-
-        max_re = -np.inf
-        for k in range(len(eigvals)):
-            if freqs[k] < 100 or freqs[k] > 100000:
-                continue
-            v = eigvecs[:, k]
-            q = v[:size]
-            w_block = v[w_start:w_end]
-            eta_w = np.abs(w_block).sum() / (np.abs(q).sum() + 1e-30)
-            if eta_w <= 0.01:
-                continue
-            s = eigvals[k]
-            Mq = M_mat @ q
-            Kq = K_total @ q
-            Cq = C_total @ q
-            numer = np.linalg.norm(s**2 * Mq + s * Cq + Kq)
-            denom = abs(s)**2 * np.linalg.norm(Mq) + abs(s) * np.linalg.norm(Cq) + np.linalg.norm(Kq)
-            r_k = numer / (denom + 1e-30)
-            # ponytail: 2e-2 tuned for 1m CFCF honeycomb; M=8 needs ~2x more headroom than M=6
-            if r_k >= 2e-2:
-                continue
-            if eigvals[k].real > max_re:
-                max_re = eigvals[k].real
-
-        if max_re == -np.inf:
-            raise RuntimeError(f"No physical eigenvalues found at V={velocity:.1f}")
-        return float(max_re)
+        M_mat, K_total, C_total = self.assemble_aeroelastic_system(
+            velocity, rho, c_sound, zeta, flow_angle,
+        )
+        result = spectral_abscissa(M_mat, K_total, C_total)
+        return result.alpha
 
     def _diagnose_eigenpair_filtering(
         self,
@@ -572,6 +620,7 @@ class FSDTSolver:
         flow_angle: float = 0.0,
         rho: float = AIR_DENSITY,
         c_sound: float = SOUND_SPEED,
+        zeta: float = 0.0,
     ) -> dict:
         """Diagnose eigenpair filtering at a given velocity.
 
@@ -588,75 +637,82 @@ class FSDTSolver:
           - retained_residuals: list of all retained residuals
           - all_residuals: list of all computed residuals
         """
-        M_mat, K_base, _ = self._base_matrices()
-        K_air, C_air = self.assemble_aerodynamic(velocity, flow_angle, rho, c_sound)
+        M_mat, K_total, C_total = self.assemble_aeroelastic_system(
+            velocity, rho, c_sound, zeta, flow_angle,
+        )
+
+        # Solve with loose filter to get all finite eigenvalues
+        loose = EigenFilter(omega_min=0.0, omega_max=1e18, eta_w_min=0.0, residual_max=1e18)
+        result = solve_eigenproblem(
+            M_mat, K_total, C_total,
+            filt=loose,
+            require_positive_imag=False,
+        )
+
+        eigvals_all = result.eigvals_all
+        total_finite = len(eigvals_all)
+
+        # Compute residuals and eta_w for all finite eigenvalues
+        from scipy import linalg as _la
         size = M_mat.shape[0]
-        MN_eff = size // 5
+        eigvecs_phys_all = result.eigvecs_phys if hasattr(result, 'eigvecs_phys') else None
+        if eigvecs_phys_all is None:
+            # Rebuild from scratch since we need unfiltered eigenvectors
+            Z = np.zeros((size, size))
+            I_mat = np.eye(size)
+            A_comp = np.block([[Z, I_mat], [-K_total, -C_total]])
+            B_comp = np.block([[I_mat, Z], [Z, M_mat]])
+            eigvals_raw, eigvecs_raw = _la.eig(A_comp, B_comp)
+            finite_mask = np.isfinite(eigvals_raw)
+            eigvals_all = eigvals_raw[finite_mask]
+            eigvecs_phys_all = eigvecs_raw[:size, finite_mask]
 
-        M_lu = linalg.lu_factor(M_mat)
-        I_mat = np.eye(size)
-        A = np.zeros((2 * size, 2 * size))
-        A[:size, size:] = I_mat
-        A[size:, :size] = -linalg.lu_solve(M_lu, K_base + K_air)
-        A[size:, size:] = -linalg.lu_solve(M_lu, C_air)
+        # Transverse participation
+        w_start = 2 * (size // 5)
+        w_end = 3 * (size // 5)
+        q_w = eigvecs_phys_all[w_start:w_end, :]
+        q_norm = np.abs(eigvecs_phys_all).sum(axis=0) + 1e-30
+        eta_w_all = np.abs(q_w).sum(axis=0) / q_norm
 
-        eigvals, eigvecs = linalg.eig(A)
-        finite = np.isfinite(eigvals)
-        eigvals = eigvals[finite]
-        eigvecs = eigvecs[:, finite]
-        total_finite = len(eigvals)
+        # Eigenpair residual
+        Mq = M_mat @ eigvecs_phys_all
+        Kq = K_total @ eigvecs_phys_all
+        Cq = C_total @ eigvecs_phys_all
+        s2M = eigvals_all**2 * Mq
+        sC = eigvals_all * Cq
+        numer = np.linalg.norm(s2M + sC + Kq, axis=0)
+        denom = (np.abs(eigvals_all)**2 * np.linalg.norm(Mq, axis=0)
+                 + np.abs(eigvals_all) * np.linalg.norm(Cq, axis=0)
+                 + np.linalg.norm(Kq, axis=0))
+        denom[denom == 0] = 1.0
+        residuals_all = numer / denom
 
-        freqs = np.abs(eigvals.imag)
-        w_start = 2 * MN_eff
-        w_end = 3 * MN_eff
-        K_total = K_base + K_air
-        C_total = C_air
+        all_residuals = residuals_all.tolist()
 
-        n_freq_rejected = 0
-        n_imag_rejected = 0
-        n_eta_rejected = 0
-        n_residual_rejected = 0
-        n_physical = 0
-        retained_residuals = []
-        all_residuals = []
+        # Stage 1: frequency filter
+        freqs = np.abs(eigvals_all.imag)
+        after_freq = (freqs >= FLUTTER_FILTER.omega_min) & (freqs <= FLUTTER_FILTER.omega_max)
+        n_freq_rejected = total_finite - int(after_freq.sum())
+
+        # Stage 2: positive imaginary (applied on top of freq)
+        after_imag = after_freq & (eigvals_all.imag > 0)
+        n_imag_rejected = int(after_freq.sum()) - int(after_imag.sum())
+
+        # Stage 3: eta_w filter (applied on top of imag)
+        after_eta = after_imag & (eta_w_all >= FLUTTER_FILTER.eta_w_min)
+        n_eta_rejected = int(after_imag.sum()) - int(after_eta.sum())
+
+        # Stage 4: residual filter (applied on top of eta)
+        after_res = after_eta & (residuals_all < FLUTTER_FILTER.residual_max)
+        n_residual_rejected = int(after_eta.sum()) - int(after_res.sum())
+
+        n_physical = int(after_res.sum())
+        retained_residuals = residuals_all[after_res].tolist()
+
         critical_residual = None
-        max_re = -np.inf
-
-        for k in range(len(eigvals)):
-            if freqs[k] < 100 or freqs[k] > 100000:
-                n_freq_rejected += 1
-                continue
-            if eigvals[k].imag <= 0:
-                n_imag_rejected += 1
-                continue
-
-            v = eigvecs[:, k]
-            q = v[:size]
-            w_block = v[w_start:w_end]
-            eta_w = np.abs(w_block).sum() / (np.abs(q).sum() + 1e-30)
-            if eta_w <= 0.01:
-                n_eta_rejected += 1
-                continue
-
-            s = eigvals[k]
-            Mq = M_mat @ q
-            Kq = K_total @ q
-            Cq = C_total @ q
-            numer = np.linalg.norm(s**2 * Mq + s * Cq + Kq)
-            denom = abs(s)**2 * np.linalg.norm(Mq) + abs(s) * np.linalg.norm(Cq) + np.linalg.norm(Kq)
-            r_k = numer / (denom + 1e-30)
-            all_residuals.append(r_k)
-
-            if r_k >= 1e-2:
-                n_residual_rejected += 1
-                continue
-
-            n_physical += 1
-            retained_residuals.append(r_k)
-
-            if eigvals[k].real > max_re:
-                max_re = eigvals[k].real
-                critical_residual = r_k
+        if n_physical > 0:
+            best = np.argmax(eigvals_all[after_res].real)
+            critical_residual = float(residuals_all[after_res][best])
 
         return {
             "total_finite": total_finite,
@@ -690,6 +746,7 @@ class FSDTSolver:
         flow_angle: float = 0.0,
         rho: float = AIR_DENSITY,
         c_sound: float = SOUND_SPEED,
+        zeta: float = 0.0,
         stability_tol: float = 1e-4,
     ) -> float | None:
         """Find critical lambda (CFAP) via bisection.
@@ -714,7 +771,7 @@ class FSDTSolver:
 
         def is_stable(lam_val: float) -> bool:
             vel = velocity_from_lambda(lam_val, rho, self.L1, D11, c_sound)
-            return self._max_real_eigenvalue(vel, flow_angle, rho, c_sound, n_modes) < stability_tol
+            return self._max_real_eigenvalue(vel, flow_angle, rho, c_sound, zeta) < stability_tol
 
         # Scan domain
         n_scan = 20
@@ -723,13 +780,16 @@ class FSDTSolver:
         for lam_val in lam_scan:
             try:
                 stable_scan.append(is_stable(lam_val))
-            except (ValueError, np.linalg.LinAlgError):
-                stable_scan.append(False)
+            except (ValueError, np.linalg.LinAlgError, RuntimeError):
+                stable_scan.append(None)
 
-        # Find first stable→unstable transition
+        # Find first stability transition (stable→unstable or unstable→stable)
         trans_idx = None
         for i in range(len(stable_scan) - 1):
-            if stable_scan[i] and not stable_scan[i + 1]:
+            a, b = stable_scan[i], stable_scan[i + 1]
+            if a is None or b is None:
+                continue
+            if a != b:
                 trans_idx = i
                 break
 
@@ -738,15 +798,16 @@ class FSDTSolver:
 
         # Bisect in [lam_scan[trans_idx], lam_scan[trans_idx+1]]
         lo, hi = float(lam_scan[trans_idx]), float(lam_scan[trans_idx + 1])
+        lo_stable = stable_scan[trans_idx]
         for _ in range(50):
             if hi - lo < tol:
                 break
             mid = (lo + hi) / 2
             try:
                 mid_stable = is_stable(mid)
-            except (ValueError, np.linalg.LinAlgError):
-                mid_stable = False
-            if mid_stable:
+            except (ValueError, np.linalg.LinAlgError, RuntimeError) as exc:
+                raise RuntimeError(f"Flutter evaluation failed at V={mid:.6g}") from exc
+            if mid_stable == lo_stable:
                 lo = mid
             else:
                 hi = mid
@@ -755,60 +816,105 @@ class FSDTSolver:
 
     def find_flutter_velocity(
         self,
-        v_lower: float = 680.0,
-        v_upper: float = 3000.0,
-        n_scan: int = 20,
-        tol: float = 1.0,
-        n_modes: int = 10,
-        flow_angle: float = 0.0,
+        *,
         rho: float = AIR_DENSITY,
         c_sound: float = SOUND_SPEED,
-        stability_tol: float = 1e-4,
+        zeta: float = 0.0,
+        v_lower: float | None = None,
+        v_upper: float | None = None,
+        min_mach: float = 2.0,
+        max_mach: float = 9.0,
+        n_scan: int = 80,
+        alpha_tol: float = 1e-6,
+        velocity_tol: float = 0.25,
+        flow_angle: float = 0.0,
     ) -> float | None:
-        """Find critical velocity via spectral abscissa scan in velocity space.
+        """Find critical velocity via spectral abscissa scan with brentq refinement.
 
-        Unlike find_flutter_boundary (which scans lambda space with mode tracking),
-        this scans velocity directly and locates the first zero crossing of
-        alpha(V) = max_k Re(lambda_k(V)).
+        1. Validate inputs; derive v_lower/v_upper from c_sound if None.
+        2. Check system is stable at v_lower (spectral_abscissa < 0).
+        3. Scan with n_scan points to find first stable→unstable crossing.
+        4. Refine with scipy.optimize.brentq.
 
-        Returns the critical velocity (m/s) or None if no crossing found.
+        Unresolved scan points (non-finite alpha) are recorded but do not
+        abort the scan. Intervals containing unresolved points are skipped
+        when looking for crossings.
+
+        Stores the full (velocity, spectral_abscissa) scan in self._flutter_scan.
         """
-        velocities = np.linspace(v_lower, v_upper, n_scan)
-        alpha = []
-        for v in velocities:
-            try:
-                alpha.append(self._max_real_eigenvalue(
-                    v, flow_angle, rho, c_sound, n_modes))
-            except (ValueError, RuntimeError, np.linalg.LinAlgError):
-                alpha.append(np.nan)
-        alpha = np.array(alpha)
+        from scipy.optimize import brentq
 
-        # Find first stable→unstable crossing
+        if rho <= 0.0:
+            raise ValueError(f"rho must be positive, got {rho}")
+        if c_sound <= 0.0:
+            raise ValueError(f"c_sound must be positive, got {c_sound}")
+
+        if v_lower is None:
+            v_lower = min_mach * c_sound * (1.0 + 1e-6)
+        if v_upper is None:
+            v_upper = max_mach * c_sound
+
+        if not np.isfinite(v_lower) or not np.isfinite(v_upper):
+            raise ValueError("Velocity bounds must be finite")
+        if v_lower >= v_upper:
+            raise ValueError(
+                f"Invalid flutter bracket: v_lower={v_lower}, v_upper={v_upper}"
+            )
+
+        # Check system is stable at v_lower
+        try:
+            alpha_lower = self._max_real_eigenvalue(
+                v_lower, flow_angle, rho, c_sound, zeta)
+        except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
+            raise RuntimeError(f"Flutter evaluation failed at v_lower={v_lower:.6g}") from exc
+        if not np.isfinite(alpha_lower):
+            raise RuntimeError(f"Non-finite spectral abscissa at v_lower={v_lower:.6g}")
+        if alpha_lower > 0.0:
+            raise RuntimeError(
+                "System is already unstable at the lower velocity bound; "
+                "reduce v_lower or classify the design as below the modeled envelope"
+            )
+
+        # Scan
+        velocities = np.linspace(v_lower, v_upper, n_scan)
+        alpha = np.empty(n_scan)
+        alpha[0] = alpha_lower
+        for i in range(1, n_scan):
+            try:
+                alpha[i] = self._max_real_eigenvalue(
+                    velocities[i], flow_angle, rho, c_sound, zeta)
+            except (ValueError, RuntimeError, np.linalg.LinAlgError):
+                alpha[i] = np.nan
+
+        # Store scan for auditability
+        self._flutter_scan = (velocities.copy(), alpha.copy())
+
+        # Find first stable→unstable crossing, skipping unresolved intervals
         trans_idx = None
-        for i in range(len(alpha) - 1):
-            if np.isfinite(alpha[i]) and np.isfinite(alpha[i + 1]):
-                if alpha[i] < stability_tol and alpha[i + 1] >= stability_tol:
-                    trans_idx = i
-                    break
+        for i in range(n_scan - 1):
+            if not (np.isfinite(alpha[i]) and np.isfinite(alpha[i + 1])):
+                continue
+            if alpha[i] <= alpha_tol and alpha[i + 1] > alpha_tol:
+                trans_idx = i
+                break
 
         if trans_idx is None:
             return None
 
-        # Bisect in velocity space
-        lo, hi = float(velocities[trans_idx]), float(velocities[trans_idx + 1])
-        for _ in range(50):
-            if hi - lo < tol:
-                break
-            mid = (lo + hi) / 2
-            try:
-                mid_alpha = self._max_real_eigenvalue(
-                    mid, flow_angle, rho, c_sound, n_modes)
-                mid_stable = mid_alpha < stability_tol
-            except (ValueError, RuntimeError, np.linalg.LinAlgError):
-                mid_stable = False
-            if mid_stable:
-                lo = mid
-            else:
-                hi = mid
+        # brentq refinement
+        v_lo = float(velocities[trans_idx])
+        v_hi = float(velocities[trans_idx + 1])
 
-        return (lo + hi) / 2
+        def _alpha_of_v(v):
+            return self._max_real_eigenvalue(v, flow_angle, rho, c_sound, zeta)
+
+        try:
+            v_flutter = brentq(
+                lambda v: _alpha_of_v(v) - alpha_tol,
+                v_lo, v_hi,
+                xtol=velocity_tol, rtol=1e-10,
+            )
+        except ValueError as exc:
+            raise RuntimeError(f"brentq failed in [{v_lo:.6g}, {v_hi:.6g}]: {exc}") from exc
+
+        return v_flutter

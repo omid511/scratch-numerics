@@ -161,17 +161,21 @@ class TestFindFlutterBoundary:
         cfap = s.find_flutter_boundary(lambda_lower=1.0, lambda_upper=5.0, tol=0.01, n_modes=4)
         assert abs(cfap - 3.0) < 0.02
 
-    def test_large_rightmost_eigenvalue_failure_raises(self, monkeypatch):
-        import mechanics.solver as solver_module
+    def test_large_rightmost_eigenvalue_failure_raises(self):
+        """_max_real_eigenvalue raises RuntimeError when no physical modes pass filtering."""
+        s = _solver()
+        # Monkeypatch assemble_aeroelastic_system to return a singular system
+        # where no physical eigenvalues survive filtering
+        import numpy as np
+        original = s.assemble_aeroelastic_system
 
-        s = _solver(M=8, N=8)
+        def broken_system(*args, **kwargs):
+            M, K, C = original(*args, **kwargs)
+            # Make K singular so all modes have zero frequency → filtered out
+            return M, np.zeros_like(K), np.zeros_like(C)
 
-        def fail_eigs(*args, **kwargs):
-            raise solver_module.slinalg.ArpackNoConvergence("no convergence", None, None)
-
-        monkeypatch.setattr(solver_module.slinalg, "eigs", fail_eigs)
-
-        with pytest.raises(RuntimeError, match="rightmost aeroelastic eigenvalues"):
+        s.assemble_aeroelastic_system = broken_system
+        with pytest.raises(RuntimeError, match="No physical eigenvalues found"):
             s._max_real_eigenvalue(400.0)
 
     def test_returns_none_when_no_crossing(self):

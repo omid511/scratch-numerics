@@ -22,10 +22,55 @@ class SensorPerturbationConfig:
     gain_drift: bool = True
     colored_noise_prob: float = 0.25
     common_mode_fraction: float = 0.3
-    channel_drop概率: tuple[int, float] = ((0, 0.6), (1, 0.25), (2, 0.15))
+    channel_dropout_distribution: tuple[tuple[int, float], ...] = (
+        (0, 0.60), (1, 0.25), (2, 0.15),
+    )
     burst_dropout_prob: float = 0.25
     burst_duration_ms: tuple[float, float] = (10.0, 50.0)
     timing_skew: bool = True
+
+    # Backward-compat alias
+    @property
+    def channel_drop概率(self) -> tuple[tuple[int, float], ...]:
+        return self.channel_dropout_distribution
+
+    @classmethod
+    def from_dict(cls, d: dict) -> SensorPerturbationConfig:
+        """Construct from dict, handling legacy Chinese field name."""
+        d = dict(d)
+        if "channel_drop概率" in d and "channel_dropout_distribution" not in d:
+            d["channel_dropout_distribution"] = d.pop("channel_drop概率")
+        else:
+            d.pop("channel_drop概率", None)
+        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
+
+
+@dataclass
+class PerturbedSignals:
+    """Return type for perturbation: data + validity mask."""
+    signals: np.ndarray
+    valid_mask: np.ndarray
+
+
+def shift_without_wrap(signal: np.ndarray, shift: int, fill_value: float = 0.0) -> np.ndarray:
+    """Shift a 1-D signal without wraparound (zero-fill)."""
+    output = np.full_like(signal, fill_value)
+    if shift == 0:
+        output[...] = signal
+    elif shift > 0:
+        output[shift:] = signal[:-shift]
+    else:
+        output[:shift] = signal[-shift:]
+    return output
+
+
+def measured_snr_db(clean: np.ndarray, noisy: np.ndarray) -> float:
+    """Measure SNR in dB between clean and noisy signals."""
+    signal_power = float(np.mean(clean ** 2))
+    noise_power = float(np.mean((clean - noisy) ** 2))
+    if noise_power <= 0.0:
+        return float("inf")
+    return 10.0 * np.log10(signal_power / max(noise_power, np.finfo(float).tiny))
 
 
 class SensorPerturber:
@@ -36,17 +81,20 @@ class SensorPerturber:
 
     def perturb(
         self, signals: np.ndarray, rng: np.random.Generator, fs: float = 1024.0
-    ) -> np.ndarray:
+    ) -> PerturbedSignals:
         """Apply realistic sensor perturbations.
 
         signals: (n_sensors, n_timesteps)
         fs: sampling frequency in Hz
-        Returns: perturbed copy (n_sensors, n_timesteps)
+        Returns: PerturbedSignals with perturbed data and validity mask
         """
         cfg = self.config
         n_sensors, n_t = signals.shape
         out = signals.copy().astype(np.float64)
-        rms = np.sqrt(np.mean(out**2)) or 1.0
+        mask = np.ones_like(out)
+        rms = np.sqrt(np.mean(out ** 2)) or 1.0
+
+        # Enforced order: gain/bias → drift → timing skew → noise → dropout
 
         # 1. Per-channel gain
         if cfg.per_channel_gain:
@@ -64,22 +112,29 @@ class SensorPerturber:
             t_norm = np.linspace(0.0, 1.0, n_t).reshape(1, -1)
             out *= 1.0 + drift_factors * t_norm
 
-        # 4. White noise with SNR control
+        # 4. Timing skew (±1 sample per channel, no wrap)
+        if cfg.timing_skew:
+            shifts = rng.integers(-1, 2, size=n_sensors)
+            for s in range(n_sensors):
+                if shifts[s] != 0:
+                    out[s] = shift_without_wrap(out[s], int(shifts[s]))
+
+        # 5. White noise with SNR control
         noise_power = np.zeros_like(out)
         if cfg.snr_db is not None:
             sigma = rms * 10.0 ** (-cfg.snr_db / 20.0)
             noise_power = rng.normal(0, sigma, size=out.shape)
 
-        # 5. Colored (pink / 1/f) noise
+        # 6. Colored (pink / 1/f) noise
         if cfg.snr_db is not None and rng.random() < cfg.colored_noise_prob:
             pink = self._pink_noise(n_t, n_sensors, rng)
             sigma = rms * 10.0 ** (-cfg.snr_db / 20.0)
-            pink_rms = np.sqrt(np.mean(pink**2))
+            pink_rms = np.sqrt(np.mean(pink ** 2))
             if pink_rms > 0:
                 pink *= sigma / pink_rms
             noise_power += pink
 
-        # 6. Common-mode noise
+        # 7. Common-mode noise
         if cfg.snr_db is not None:
             sigma = rms * 10.0 ** (-cfg.snr_db / 20.0)
             common_pattern = rng.normal(0, sigma, size=(1, n_t))
@@ -88,15 +143,16 @@ class SensorPerturber:
 
         out += noise_power
 
-        # 7. Channel dropout
-        drop_counts = [c for c, _ in cfg.channel_drop概率]
-        drop_probs = [p for _, p in cfg.channel_drop概率]
+        # 8. Channel dropout
+        drop_counts = [c for c, _ in cfg.channel_dropout_distribution]
+        drop_probs = [p for _, p in cfg.channel_dropout_distribution]
         n_drop = rng.choice(drop_counts, p=drop_probs)
         if n_drop > 0:
             drop_idx = rng.choice(n_sensors, size=min(n_drop, n_sensors), replace=False)
             out[drop_idx] = 0.0
+            mask[drop_idx, :] = 0.0
 
-        # 8. Burst dropout (all channels zero for a segment)
+        # 9. Burst dropout (all channels zero for a segment)
         if rng.random() < cfg.burst_dropout_prob:
             burst_len_ms = rng.uniform(*cfg.burst_duration_ms)
             burst_samples = int(burst_len_ms * fs / 1000.0)
@@ -104,15 +160,9 @@ class SensorPerturber:
             if burst_samples > 0:
                 start = rng.integers(0, n_t - burst_samples + 1)
                 out[:, start : start + burst_samples] = 0.0
+                mask[:, start : start + burst_samples] = 0.0
 
-        # 9. Timing skew (±1 sample per channel)
-        if cfg.timing_skew:
-            shifts = rng.integers(-1, 2, size=n_sensors)  # uniform over {-1, 0, 1}
-            for s in range(n_sensors):
-                if shifts[s] != 0:
-                    out[s] = np.roll(out[s], int(shifts[s]))
-
-        return out
+        return PerturbedSignals(signals=out, valid_mask=mask)
 
     @staticmethod
     def _pink_noise(n_t: int, n_channels: int, rng: np.random.Generator) -> np.ndarray:
@@ -133,7 +183,7 @@ def augment_clip(
     config: SensorPerturbationConfig,
     base_seed: int,
     fs: float = 1024.0,
-) -> list[np.ndarray]:
+) -> list[PerturbedSignals]:
     """Generate n_augmented perturbed versions of one clip."""
     perturber = SensorPerturber(config)
     return [
