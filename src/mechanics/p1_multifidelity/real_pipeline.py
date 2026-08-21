@@ -386,3 +386,141 @@ def fit_frequency_error_gp(data_root, config: RealPipelineConfig | None = None) 
     freq_errors = hf_dataset.load_frequency_errors(data_root)
     rel_err_pct = np.asarray(freq_errors["rel_err_pct"], dtype=np.float64)
     return _frequency_gp_on_arrays(theta, rel_err_pct, config)
+
+
+def _mode_onehot_gp_inputs(theta_rows: np.ndarray, n_modes: int) -> np.ndarray:
+    """Per-sample GP inputs: [theta_of_run, one-hot(mode)] (n_samples, d_theta+n_modes).
+
+    ``theta_rows`` must be per-sample theta in run-major order with modes
+    contiguous within each run, matching the flattened field-sample order.
+    """
+    n_samples, d_theta = theta_rows.shape
+    Xg = np.zeros((n_samples, d_theta + n_modes))
+    Xg[:, :d_theta] = theta_rows
+    Xg[np.arange(n_samples), d_theta + (np.arange(n_samples) % n_modes)] = 1.0
+    return Xg
+
+
+def _fit_on_modeconditioned(
+    theta: np.ndarray,
+    fields: np.ndarray,
+    train_idx: np.ndarray,
+    test_idx: np.ndarray,
+    config: RealPipelineConfig,
+) -> dict:
+    """Mode-conditioned variant of _fit_on.
+
+    Instead of repeating theta across modes (pooled model), each field sample's
+    GP input is [standardized theta, one-hot mode indicator], so a single GP
+    can represent per-mode behavior. Everything else matches _fit_on:
+    PCA encoder fit on TRAIN fields only, LatentGP per latent dim, decode with
+    boundary envelope, split-by-run enforced.
+
+    Additionally reports the predict-zero baseline and skill against it:
+        skill_vs_zero = (zero_baseline_mse - reconstruction_mse) / zero_baseline_mse
+    """
+    if set(train_idx.tolist()) & set(test_idx.tolist()):
+        raise ValueError("train and test runs overlap: split must be by run")
+
+    n_runs, n_modes, ny, nx = fields.shape
+    X = _fields_to_samples(fields)  # (n_runs*n_modes, ny, nx)
+    run_ids = _sample_run_ids(n_runs, n_modes)
+    train_mask = np.isin(run_ids, train_idx)
+    test_mask = np.isin(run_ids, test_idx)
+    X_train, X_test = X[train_mask], X[test_mask]
+
+    # --- Encoder: fit on TRAIN fields only ---
+    encoder = CorrectionEncoder(d_z=config.d_z, grid_size=(ny, nx))
+    encoder.fit(X_train)
+    z_train = encoder.encode(X_train)
+    decoder = CorrectionDecoder(encoder)
+
+    # --- Mode-conditioned GP inputs ---
+    theta_train_runs = theta[train_idx]
+    if config.standardize_theta:
+        mu, sd = _standardize_fit(theta_train_runs)
+        theta_train_s = (theta_train_runs - mu) / sd
+    else:
+        theta_train_s = theta_train_runs
+    gp_X_train = _mode_onehot_gp_inputs(np.repeat(theta_train_s, n_modes, axis=0), n_modes)
+    gp = LatentGP(
+        d_z=z_train.shape[1],
+        kernel=RBFKernel(length_scale=config.length_scale),
+        noise=config.noise,
+    )
+    gp.fit(gp_X_train, z_train)
+
+    # --- Held-out prediction per SAMPLE (theta + one-hot already in rows) ---
+    test_run_ids = run_ids[test_mask]
+    theta_test_runs = theta[test_idx]
+    if config.standardize_theta:
+        theta_test_s = (theta_test_runs - mu) / sd
+    else:
+        theta_test_s = theta_test_runs
+    gp_X_test = _mode_onehot_gp_inputs(np.repeat(theta_test_s, n_modes, axis=0), n_modes)
+    z_mean, z_var = gp.predict(gp_X_test)
+
+    decoded = decoder.decode(z_mean, apply_boundary=True)
+    true_fields = X_test
+    err = decoded - true_fields
+
+    reconstruction_mse = float(np.mean(err**2))
+    zero_baseline_mse = float(np.mean(true_fields**2))
+    skill_vs_zero = (
+        (zero_baseline_mse - reconstruction_mse) / zero_baseline_mse
+        if zero_baseline_mse > 0
+        else 0.0
+    )
+    pointwise_bias_map = err.mean(axis=0)
+
+    comp = encoder.components_.reshape(-1, ny, nx)
+    sigma_field = np.sqrt(np.einsum("nd,dhw->hw", z_var, comp**2))
+    coverage_proxy_2sigma = float((np.abs(err) <= 2.0 * sigma_field).mean())
+
+    per_mode_mse = np.zeros(n_modes)
+    for m in range(n_modes):
+        sel = np.arange(m, len(test_run_ids), n_modes)
+        per_mode_mse[m] = float(np.mean(err[sel] ** 2))
+
+    metrics = {
+        "reconstruction_mse": reconstruction_mse,
+        "zero_baseline_mse": zero_baseline_mse,
+        "skill_vs_zero": skill_vs_zero,
+        "coverage_proxy_2sigma": coverage_proxy_2sigma,
+        "n_train_runs": int(len(train_idx)),
+        "n_test_runs": int(len(test_idx)),
+        "d_z": int(z_train.shape[1]),
+        "per_mode_mse": per_mode_mse,
+    }
+    return {
+        "metrics": metrics,
+        "models": {"encoder": encoder, "decoder": decoder, "gp": gp},
+        "arrays": {
+            "z_train": z_train,
+            "z_test_pred_mean": z_mean,
+            "z_test_pred_var": z_var,
+            "theta_test": theta_test_runs,
+        },
+        "pointwise_bias_map": pointwise_bias_map,
+    }
+
+
+def run_field_pipeline_modeconditioned(data_root, config: RealPipelineConfig | None = None) -> dict:
+    """Mode-conditioned field-correction pipeline on recorded Part-1 data.
+
+    Motivated by orchestrator findings: the pooled pipeline (theta repeated
+    across modes) dilutes the GP because modes need different corrections;
+    here the GP input for each field sample is [theta, one-hot(mode)], letting
+    one GP represent all modes without mixing them. Same charter split-by-run,
+    same PCA-on-train-only encoder as run_field_pipeline.
+
+    Returns dict with 'metrics' (incl. 'zero_baseline_mse', 'skill_vs_zero',
+    'per_mode_mse'), 'models', 'arrays', 'pointwise_bias_map'.
+    """
+    hf_dataset = _load_hf_dataset()
+    config = config or RealPipelineConfig()
+
+    theta = np.asarray(hf_dataset.load_design(data_root), dtype=np.float64)
+    fields = np.asarray(hf_dataset.load_correction_fields(data_root), dtype=np.float64)
+    train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+    return _fit_on_modeconditioned(theta, fields, train_idx, test_idx, config)

@@ -233,10 +233,10 @@ def build_laminate(alpha, beta, theta_c, eta1, eta2, H=0.01, l1=0.003) -> Lamina
     properties (theta_c converted from degrees to radians, as required by
     :func:`mechanics.honeycomb.honeycomb_properties`).
 
-    Stacking (total thickness H, cell wall length l1):
-        core thickness h2 = H * alpha
-        top face h1 = (H - h2) * beta / (1 + beta)
-        bottom face h3 = H - h1 - h2
+    Stacking (total thickness H, cell wall length l1), bottom -> top:
+        beta-weighted face h1 = (H - h2) * beta / (1 + beta)
+        core h2 = H * alpha
+        remaining face h3 = H - h1 - h2
     z-coordinates centered at the midplane; ply angles [0, 0, 0].
     """
     E_face = 70e9             # Young's modulus (Pa)
@@ -257,10 +257,14 @@ def build_laminate(alpha, beta, theta_c, eta1, eta2, H=0.01, l1=0.003) -> Lamina
     )
 
     h2 = H * alpha                       # Core thickness
-    h1 = (H - h2) * beta / (1 + beta)    # Top face thickness
-    h3 = H - h1 - h2                     # Bottom face thickness
+    h1 = (H - h2) * beta / (1 + beta)    # Beta-weighted face
+    h3 = H - h1 - h2                     # Remaining face
 
-    z = [-H / 2, -H / 2 + h3, H / 2 - h1, H / 2]
+    # Stack order matches the source scripts exactly: the beta-weighted face
+    # is the BOTTOM layer (z = [0, h1, h1+h2, H] before centering). Mirroring
+    # this order keeps the B-matrix sign convention identical to the recorded
+    # dataset provenance.
+    z = [-H / 2, -H / 2 + h1, H / 2 - h3, H / 2]
     return Laminate([face, core, face], [0, 0, 0], z)
 
 

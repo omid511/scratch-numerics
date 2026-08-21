@@ -222,9 +222,10 @@ def test_build_laminate_core_thickness_alpha_08():
     assert (lam.z[2] - lam.z[1]) == pytest.approx(core_t)
     assert core_t == pytest.approx(0.008)
     # faces share the remaining thickness with ratio beta
+    # (beta-weighted face is the BOTTOM layer, matching the source scripts)
     top_t = lam.z[-1] - lam.z[2]
     bottom_t = lam.z[1] - lam.z[0]
-    assert top_t / bottom_t == pytest.approx(0.4)
+    assert bottom_t / top_t == pytest.approx(0.4)
     assert top_t + bottom_t + core_t == pytest.approx(H)
     assert len(lam.materials) == len(lam.angles) == 3
 
