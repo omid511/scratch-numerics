@@ -89,11 +89,18 @@ def generate_lf_dataset(
         )
         core_mat = Material(**core_props)
 
-        laminate = Laminate([
-            {"material": face_mat, "thickness": tf, "angle": 0.0},
-            {"material": core_mat, "thickness": tc, "angle": 0.0},
-            {"material": face_mat, "thickness": tf, "angle": 0.0},
-        ])
+        h_total = 2 * tf + tc
+        z = [
+            -h_total / 2,
+            -h_total / 2 + tf,
+            h_total / 2 - tf,
+            h_total / 2,
+        ]
+        laminate = Laminate(
+            materials=[face_mat, core_mat, face_mat],
+            angles=[0.0, 0.0, 0.0],
+            z=z,
+        )
 
         solver = FSDTSolver(
             L1=config.L1, L2=config.L2,

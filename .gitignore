@@ -21,7 +21,11 @@ htmlcov/
 *.swo
 
 # Data and profiling
-data/
+data/*
+!data/p1_part1/
+data/p1_part1/**
+!data/p1_part1/*.csv
+!data/p1_part1/*.md
 *.npz
 *.npy
 !src/**/tests/**/*.npy
