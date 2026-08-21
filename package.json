@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@mrgray17/opentoken-core": "^2.2.0"
+  }
+}

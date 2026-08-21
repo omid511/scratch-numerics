@@ -40,6 +40,9 @@ def piston_pressure(
     dw_dt: float,
     rho_inf: float = AIR_DENSITY,
     sound_speed: float = SOUND_SPEED,
+    *,
+    minimum_mach: float = 2.0,
+    pressure_sign: float = -1.0,
 ) -> float:
     """First-order supersonic piston theory pressure.
 
@@ -51,22 +54,33 @@ def piston_pressure(
         dw_dt: Partial derivative of w with respect to t
         rho_inf: Air density (kg/m^3)
         sound_speed: Speed of sound (m/s)
+        minimum_mach: Minimum Mach number for domain guard
+        pressure_sign: Sign convention for pressure (+1 or -1)
 
     Returns:
         Aerodynamic pressure Delta_p (Pa)
 
     Raises:
-        ValueError: If velocity <= sound_speed (subsonic flow)
+        ValueError: If inputs are non-positive or M < minimum_mach
     """
+    if velocity <= 0.0:
+        raise ValueError(f"velocity must be positive, got {velocity}")
+    if sound_speed <= 0.0:
+        raise ValueError(f"sound_speed must be positive, got {sound_speed}")
+    if rho_inf <= 0.0:
+        raise ValueError(f"rho_inf must be positive, got {rho_inf}")
+
     M_inf = velocity / sound_speed
-    if M_inf <= 1.0:
-        raise ValueError(f"Supersonic flow required (M>1), got M={M_inf:.4f}")
+    if M_inf < minimum_mach:
+        raise ValueError(
+            f"First-order piston model configured for M >= {minimum_mach}; received M={M_inf:.6f}"
+        )
     cos_a = np.cos(flow_angle)
     sin_a = np.sin(flow_angle)
 
     # Eq (13) from paper
     coeff = rho_inf * velocity**2 / (np.sqrt(M_inf**2 - 1))
-    Delta_p = coeff * (
+    Delta_p = pressure_sign * coeff * (
         cos_a * dw_dx
         + sin_a * dw_dy
         + (M_inf**2 - 2) / (M_inf**2 - 1) * dw_dt / velocity

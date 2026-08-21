@@ -17,7 +17,14 @@ class Material:
     rho: float = 0.0
 
     def __post_init__(self):
+        for name in ("E1", "E2", "G23", "G13", "G12", "rho"):
+            value = getattr(self, name)
+            if not np.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive, got {value}")
         self.nu21 = self.nu12 * self.E2 / self.E1
+        denominator = 1.0 - self.nu12 * self.nu21
+        if denominator <= 0.0:
+            raise ValueError(f"Invalid orthotropic plane-stress constants: 1 - nu12*nu21 = {denominator}")
 
     def Q(self) -> np.ndarray:
         """6x6 plane stress-reduced stiffness matrix."""
@@ -69,7 +76,27 @@ class Laminate:
     z: list[float]       # ply interface z-coordinates (length = nplies + 1)
 
     def __post_init__(self):
-        assert len(self.materials) == len(self.angles) == len(self.z) - 1
+        if not (len(self.materials) == len(self.angles) == len(self.z) - 1):
+            raise ValueError(
+                f"materials ({len(self.materials)}), angles ({len(self.angles)}), "
+                f"and z ({len(self.z)}) are inconsistent: expected len(z) = len(materials) + 1"
+            )
+
+    def validate(self) -> None:
+        """Check ABD matrix symmetry and positive-definiteness."""
+        ABBD, As = self.ABD()
+        if not np.allclose(ABBD, ABBD.T, rtol=1e-9, atol=1e-6):
+            raise ValueError("ABD matrix is not symmetric")
+        # A block must be positive definite for stable in-plane response
+        A_block = ABBD[:3, :3]
+        eigvals_A = np.linalg.eigvalsh(0.5 * (A_block + A_block.T))
+        if np.min(eigvals_A) <= 0.0:
+            raise ValueError(f"A block is not positive definite: eigenvalues={eigvals_A}")
+        # D block must be positive definite for stable bending response
+        D_block = ABBD[3:6, 3:6]
+        eigvals_D = np.linalg.eigvalsh(0.5 * (D_block + D_block.T))
+        if np.min(eigvals_D) <= 0.0:
+            raise ValueError(f"D block is not positive definite: eigenvalues={eigvals_D}")
 
     def ABD(self) -> np.ndarray:
         """6x6 ABD stiffness matrix [A B; B D]."""

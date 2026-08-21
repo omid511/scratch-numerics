@@ -5,17 +5,19 @@ Uses median-centered parameterization for asymmetric uncertainty.
 """
 from __future__ import annotations
 
+import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-from .tcn import TCNBackbone
+from .tcn import TCNBackbone, TemporalSummary
 
 
-DEFAULT_QUANTILES = (0.05, 0.50, 0.95)
+SUPPORTED_QUANTILES = (0.05, 0.50, 0.95)
 
 
 class QuantileMarginModel(nn.Module):
-    """TCN backbone + global-average-pooled quantile head.
+    """TCN backbone + temporal-summary quantile head.
 
     Input:  (batch, n_channels, seq_len)
     Output: (batch, n_quantiles)  — scalar margin prediction per clip
@@ -30,58 +32,124 @@ class QuantileMarginModel(nn.Module):
         self,
         n_channels: int = 8,
         hidden_dim: int = 32,
-        n_layers: int = 4,
+        n_layers: int = 8,
         kernel: int = 3,
         dropout: float = 0.1,
-        quantiles: tuple[float, ...] = DEFAULT_QUANTILES,
+        quantiles: tuple[float, ...] = SUPPORTED_QUANTILES,
+        sequence_length: int = 512,
     ):
         super().__init__()
-        self.quantiles = quantiles
-        self.tcn = TCNBackbone(n_channels, hidden_dim, n_layers, kernel, dropout)
-        n_q = len(quantiles)
-        self._n_q = n_q
-        if n_q == 3 and quantiles[1] == 0.5:
-            # Median-centered parameterization: median + lower_width + upper_width
-            self.head = nn.Linear(hidden_dim, 3)
-            self._mode = 'median_centered'
-        else:
-            # General quantile regression: one output per quantile
-            self.head = nn.Linear(hidden_dim, n_q)
-            self._mode = 'direct'
+        self.quantiles = tuple(float(q) for q in quantiles)
+        if self.quantiles != SUPPORTED_QUANTILES:
+            raise ValueError(
+                f"Median-centered head supports exactly {SUPPORTED_QUANTILES}; "
+                f"got {self.quantiles}"
+            )
+        self.tcn = TCNBackbone(n_channels, hidden_dim, n_layers, kernel, dropout, sequence_length=sequence_length)
+        self.summary = TemporalSummary(window=64)
+        self.head = nn.Linear(3 * hidden_dim, 3)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns (batch, n_quantiles) — scalar margin per clip."""
         feat = self.tcn(x)                # (B, hidden, T)
-        feat = feat.mean(dim=2)            # (B, hidden) — global average pooling
-        out = self.head(feat)              # (B, n_head)
+        feat = self.summary(feat)          # (B, 3*hidden)
+        out = self.head(feat)              # (B, 3)
 
-        if self._mode == 'median_centered':
-            median = out[:, 0:1]
-            lower_raw = out[:, 1:2]
-            upper_raw = out[:, 2:3]
-            lower_width = torch.nn.functional.softplus(lower_raw)
-            upper_width = torch.nn.functional.softplus(upper_raw)
-            q_lo = median - lower_width
-            q_med = median
-            q_hi = median + upper_width
-            return torch.cat([q_lo, q_med, q_hi], dim=1)  # (B, 3)
-        else:
-            return out
+        median = out[:, 0:1]
+        lower_raw = out[:, 1:2]
+        upper_raw = out[:, 2:3]
+        lower_width = F.softplus(lower_raw)
+        upper_width = F.softplus(upper_raw)
+        q_lo = median - lower_width
+        q_med = median
+        q_hi = median + upper_width
+        return torch.cat([q_lo, q_med, q_hi], dim=1)  # (B, 3)
 
 
-def pinball_loss(pred: torch.Tensor, target: torch.Tensor, quantiles: tuple[float, ...]) -> torch.Tensor:
-    """Pinball (quantile) loss.
+def pinball_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    quantiles: tuple[float, ...],
+    weights: tuple[float, ...] | None = None,
+) -> torch.Tensor:
+    """Pinball (quantile) loss with shape validation and safety weights.
 
     Parameters
     ----------
     pred    : (B, n_quantiles) — scalar predictions per quantile
     target  : (B,) or (B, 1) — the true margin value
+    weights : optional per-quantile weights (e.g. (2.0, 1.0, 1.0))
     """
-    if target.dim() == 1:
-        target = target.unsqueeze(1)  # (B, 1)
+    if pred.ndim != 2:
+        raise ValueError(f"pred must be (B, Q), got {tuple(pred.shape)}")
 
-    losses = []
-    for i, tau in enumerate(quantiles):
-        err = target - pred[:, i : i + 1]  # (B, 1)
-        losses.append(torch.max(tau * err, (tau - 1) * err))
-    return torch.stack(losses).mean()
+    target = target.reshape(-1, 1)
+    if target.shape[0] != pred.shape[0]:
+        raise ValueError(
+            f"Batch mismatch: pred={pred.shape[0]}, target={target.shape[0]}"
+        )
+
+    q = pred.new_tensor(quantiles).reshape(1, -1)
+    if q.shape[1] != pred.shape[1]:
+        raise ValueError(
+            f"Quantile mismatch: pred has {pred.shape[1]} outputs, "
+            f"quantiles has {q.shape[1]}"
+        )
+
+    error = target - pred
+    loss = torch.maximum(q * error, (q - 1.0) * error)
+
+    if weights is not None:
+        weight_tensor = pred.new_tensor(weights).reshape(1, -1)
+        loss = loss * weight_tensor
+
+    return loss.mean()
+
+
+# ── Conformalized Quantile Regression (CQR) ────────────────────────────────
+
+def fit_cqr_adjustment(
+    lower: np.ndarray,
+    upper: np.ndarray,
+    target: np.ndarray,
+    alpha: float = 0.10,
+) -> float:
+    """Fit CQR adjustment on calibration set.
+
+    Returns the nonconformity quantile that widens intervals to achieve
+    nominal coverage (1 - alpha).
+    """
+    scores = np.maximum(lower - target, target - upper)
+    n = scores.size
+    if n == 0:
+        raise ValueError("Calibration set is empty")
+    quantile_level = min(1.0, np.ceil((n + 1) * (1.0 - alpha)) / n)
+    return float(np.quantile(scores, quantile_level, method="higher"))
+
+
+def apply_cqr_adjustment(
+    lower: np.ndarray,
+    upper: np.ndarray,
+    adjustment: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Widen lower/upper by the fitted CQR adjustment."""
+    return lower - adjustment, upper + adjustment
+
+
+# ── Safety-aware Huber loss ─────────────────────────────────────────────────
+
+def safety_aware_huber_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    delta: float = 0.05,
+    false_safe_weight: float = 4.0,
+    temperature: float = 0.01,
+) -> torch.Tensor:
+    """Huber loss with extra penalty for predicting positive margin when true margin <= 0."""
+    pred = pred.reshape(-1)
+    target = target.reshape(-1)
+    base = F.huber_loss(pred, target, delta=delta, reduction="none")
+    unsafe = (target <= 0.0).to(pred.dtype)
+    false_safe_penalty = unsafe * F.softplus(pred / temperature) * temperature
+    return (base + false_safe_weight * false_safe_penalty).mean()

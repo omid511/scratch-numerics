@@ -5,14 +5,14 @@ for space-filling coverage of the design space.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
-from scipy import linalg
 from scipy.stats.qmc import Sobol
 
 from mechanics.laminate import Material, Laminate
-from mechanics.solver import FSDTSolver
+from mechanics.solver import FSDTSolver, compute_structural_damping
 
 
 # Nominal material properties
@@ -38,8 +38,6 @@ class DesignSample:
     face_rho_mult: float
     core_G_mult: float
     core_rho_mult: float
-    left_k: float
-    top_k: float
     zeta: float
     rho_air: float
     c_air: float
@@ -51,24 +49,30 @@ def _log_uniform(rng: np.ndarray, lo: float, hi: float) -> np.ndarray:
 
 
 def sample_designs(n_designs: int, seed: int = 0) -> list[DesignSample]:
-    """Sample n_designs using Sobol sequence for space-filling coverage."""
-    sampler = Sobol(d=13, seed=seed, scramble=True)
-    unit = sampler.random(n_designs)
+    """Sample n_designs using Sobol sequence for space-filling coverage.
+
+    11 Sobol dimensions: L1, L2_ratio, face_thick, core_thick, face_E,
+    face_rho, core_G, core_rho, zeta, rho_air, c_air.
+    Uses random_base2 to preserve Sobol balance properties.
+    """
+    if n_designs <= 0:
+        raise ValueError("n_designs must be positive")
+    sampler = Sobol(d=11, seed=seed, scramble=True)
+    exponent = math.ceil(math.log2(max(n_designs, 2)))
+    unit = sampler.random_base2(m=exponent)[:n_designs]
 
     L1 = unit[:, 0] * 0.4 + 0.8                          # [0.8, 1.2]
     L2_ratio = unit[:, 1] * 0.58 + 0.75                   # [0.75, 1.33]
     L2 = L1 * L2_ratio
-    face_thick = _log_uniform(unit[:, 2], 0.6e-3, 1.6e-3)   # log [0.6, 1.6] mm → Mach 2-8
+    face_thick = _log_uniform(unit[:, 2], 0.6e-3, 1.6e-3)   # log [0.6, 1.6] mm
     core_thick = _log_uniform(unit[:, 3], 5e-3, 12e-3)      # log [5, 12] mm
     face_E = unit[:, 4] * 0.2 + 0.9                        # [0.9, 1.1]
     face_rho = unit[:, 5] * 0.1 + 0.95                     # [0.95, 1.05]
     core_G = unit[:, 6] * 0.4 + 0.8                        # [0.8, 1.2]
     core_rho = unit[:, 7] * 0.2 + 0.9                      # [0.9, 1.1]
-    left_k = _log_uniform(unit[:, 8], 1e12, 1e14)           # log [1e12, 1e14] (penalty stiffness)
-    top_k = _log_uniform(unit[:, 9], 1e12, 1e14)            # log [1e12, 1e14] (elastic top)
-    zeta = unit[:, 10] * 0.005                              # [0.0, 0.005] (reduced)
-    rho_air = unit[:, 11] * 0.2 + 1.0                      # [1.0, 1.2]
-    c_air = unit[:, 12] * 10 + 335                          # [335, 345]
+    zeta = unit[:, 8] * 0.005                              # [0.0, 0.005]
+    rho_air = unit[:, 9] * 0.2 + 1.0                      # [1.0, 1.2]
+    c_air = unit[:, 10] * 10 + 335                          # [335, 345]
 
     designs = []
     for i in range(n_designs):
@@ -82,8 +86,6 @@ def sample_designs(n_designs: int, seed: int = 0) -> list[DesignSample]:
             face_rho_mult=float(face_rho[i]),
             core_G_mult=float(core_G[i]),
             core_rho_mult=float(core_rho[i]),
-            left_k=float(left_k[i]),
-            top_k=float(top_k[i]),
             zeta=float(zeta[i]),
             rho_air=float(rho_air[i]),
             c_air=float(c_air[i]),
@@ -92,7 +94,10 @@ def sample_designs(n_designs: int, seed: int = 0) -> list[DesignSample]:
 
 
 def make_solver_from_design(design: DesignSample) -> FSDTSolver:
-    """Create an FSDTSolver configured for this design sample."""
+    """Create an FSDTSolver configured for this design sample.
+
+    Always applies fixed CFCF boundary conditions.
+    """
     face = Material(
         E1=NOMINAL_FACE.E1 * design.face_E_mult,
         E2=NOMINAL_FACE.E2 * design.face_E_mult,
@@ -125,102 +130,25 @@ def make_solver_from_design(design: DesignSample) -> FSDTSolver:
         M=6, N=6,
         laminate=lam,
         grid=(32, 32),
-        k_stiffness=1e14,  # high penalty for clamped BC (always)
+        # ponytail: penalty_factor scales with diag(K_struct) inside solver.
+        # 1e6 is the multiplier; the solver computes k_penalty = factor * max(|diag(K)|).
+        penalty_factor=1e6,
     )
     solver.set_boundary(
         left={"type": "clamped"}, right={"type": "free"},
         top={"type": "clamped"}, bottom={"type": "free"},
     )
-    solver._design_zeta = design.zeta  # ponytail: stash zeta for flutter
     return solver
 
 
-def _find_flutter_with_damping(
-    solver: FSDTSolver,
-    rho: float,
-    c_sound: float,
-    zeta: float,
-    v_lower: float | None = None,
-    v_upper: float = 10000.0,
-    n_scan: int = 40,
-    tol: float = 2.0,
-    n_modes: int = 10,
-    stability_tol: float = 1e-4,
-) -> float | None:
-    """Find flutter velocity with structural Rayleigh damping.
-
-    Uses coarse scan then bisection. Precomputes structural damping once.
-    """
-    if v_lower is None:
-        v_lower = max(300.0, c_sound * 1.01)
-
-    M_mat, K_base, _ = solver._base_matrices()
-    size = M_mat.shape[0]
-    MN_eff = size // 5
-
-    # Precompute structural damping once
-    I_mat = np.eye(size)
-    M_lu = linalg.lu_factor(M_mat)
-
-    if zeta > 0:
-        KM = K_base @ M_mat
-        sqrt_KM = linalg.sqrtm(KM).real
-        C_struct = 2.0 * zeta * sqrt_KM
-    else:
-        C_struct = np.zeros((size, size))
-
-    def _max_re(vel: float) -> float:
-        """Max real part of physical eigenvalues. Minimal filtering — just frequency."""
-        K_air, C_air = solver.assemble_aerodynamic(vel, 0.0, rho, c_sound)
-        K_total = K_base + K_air
-        C_total = C_air + C_struct
-
-        A = np.zeros((2 * size, 2 * size))
-        A[:size, size:] = I_mat
-        A[size:, :size] = -linalg.lu_solve(M_lu, K_total)
-        A[size:, size:] = -linalg.lu_solve(M_lu, C_total)
-
-        eigvals = linalg.eigvals(A)
-        eigvals = eigvals[np.isfinite(eigvals)]
-        freqs = np.abs(eigvals.imag)
-
-        # Only keep modes with physical frequencies
-        phys = (freqs > 10) & (freqs < 100000)
-        if not phys.any():
-            return -1.0
-        return float(eigvals.real[phys].max())
-
-    # Coarse scan
-    velocities = np.linspace(v_lower, v_upper, n_scan)
-    alpha = np.array([_max_re(v) for v in velocities])
-
-    # Find first stable->unstable crossing
-    trans_idx = None
-    for i in range(len(alpha) - 1):
-        if alpha[i] < stability_tol and alpha[i + 1] >= stability_tol:
-            trans_idx = i
-            break
-
-    if trans_idx is None:
-        return None
-
-    lo, hi = float(velocities[trans_idx]), float(velocities[trans_idx + 1])
-    for _ in range(30):
-        if hi - lo < tol:
-            break
-        mid = (lo + hi) / 2
-        mid_re = _max_re(mid)
-        if mid_re < stability_tol:
-            lo = mid
-        else:
-            hi = mid
-
-    return (lo + hi) / 2
-
-
-def compute_design_u_crit(solver: FSDTSolver, design: DesignSample) -> float | None:
+def compute_design_u_crit(solver: FSDTSolver, design: DesignSample, v_lower: float | None = None) -> float | None:
     """Compute flutter velocity for a design, accounting for structural damping."""
-    zeta = getattr(solver, "_design_zeta", design.zeta)
-    return _find_flutter_with_damping(
-        solver, design.rho_air, design.c_air, zeta,
+    kwargs: dict = dict(
+        rho=design.rho_air,
+        c_sound=design.c_air,
+        zeta=design.zeta,
+        v_lower=v_lower,
+        n_scan=40,
+        velocity_tol=2.0,
     )
+    return solver.find_flutter_velocity(**kwargs)

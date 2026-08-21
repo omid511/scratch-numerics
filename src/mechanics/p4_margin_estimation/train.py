@@ -4,10 +4,30 @@ from __future__ import annotations
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from .tcn import TCNBackbone
-from .quantile_head import QuantileMarginModel, pinball_loss, DEFAULT_QUANTILES
+from .quantile_head import QuantileMarginModel, pinball_loss, SUPPORTED_QUANTILES
+
+
+def safety_aware_huber_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    delta: float = 0.05,
+    false_safe_weight: float = 4.0,
+    temperature: float = 0.01,
+) -> torch.Tensor:
+    """Huber loss that penalizes predicting positive margin on unsafe samples."""
+    pred = pred.reshape(-1)
+    target = target.reshape(-1)
+
+    base = F.huber_loss(pred, target, delta=delta, reduction="none")
+
+    unsafe = (target <= 0.0).to(pred.dtype)
+    false_safe_penalty = unsafe * F.softplus(pred / temperature) * temperature
+
+    return (base + false_safe_weight * false_safe_penalty).mean()
 
 
 class HuberMarginModel(nn.Module):
@@ -42,34 +62,46 @@ def _build_tensors(clips):
     return X, y
 
 
-def _grouped_3way_split(y, val_split, test_split, seed, velocities):
-    """Grouped 3-way split: entire velocity groups go to train/val/test."""
+def _grouped_3way_split(clips, val_split, test_split, seed):
+    if val_split <= 0.0 or test_split <= 0.0:
+        raise ValueError("val_split and test_split must both be positive")
+    if val_split + test_split >= 1.0:
+        raise ValueError("val_split + test_split must be less than 1")
+
+    group_ids = np.asarray([c.design_id for c in clips])
+    unique_groups = np.asarray(sorted(set(group_ids.tolist())))
+
+    if unique_groups.size < 3:
+        raise ValueError(
+            "At least three independent design groups are required for splitting"
+        )
+
     rng = np.random.default_rng(seed)
-    unique_vels = sorted(set(velocities))
-    n_val_vels = max(1, int(len(unique_vels) * val_split))
-    remaining = [v for v in unique_vels]
-    val_vels = set(rng.choice(remaining, size=n_val_vels, replace=False))
-    remaining = [v for v in remaining if v not in val_vels]
-    n_test_vels = max(1, int(len(unique_vels) * test_split))
-    test_vels = set(rng.choice(remaining, size=n_test_vels, replace=False))
-    train_idx = [i for i, v in enumerate(velocities) if v not in val_vels and v not in test_vels]
-    val_idx = [i for i, v in enumerate(velocities) if v in val_vels]
-    test_idx = [i for i, v in enumerate(velocities) if v in test_vels]
+    rng.shuffle(unique_groups)
+
+    n_test = max(1, int(round(unique_groups.size * test_split)))
+    n_val = max(1, int(round(unique_groups.size * val_split)))
+
+    if n_test + n_val >= unique_groups.size:
+        raise ValueError("Not enough design groups")
+
+    test_groups = set(unique_groups[:n_test].tolist())
+    val_groups = set(unique_groups[n_test:n_test + n_val].tolist())
+    train_groups = set(unique_groups[n_test + n_val:].tolist())
+
+    train_idx = np.flatnonzero(np.fromiter((g in train_groups for g in group_ids), dtype=bool))
+    val_idx = np.flatnonzero(np.fromiter((g in val_groups for g in group_ids), dtype=bool))
+    test_idx = np.flatnonzero(np.fromiter((g in test_groups for g in group_ids), dtype=bool))
+
     return train_idx, val_idx, test_idx
 
 
-def _split(clips, X, y, val_split, test_split, seed, velocities=None):
+def _split(clips, X, y, val_split, test_split, seed):
     """Dispatch to grouped 3-way split."""
-    if velocities is not None and len(velocities) == len(y):
-        valid_vels = []
-        for c, v in zip(clips, velocities):
-            if not np.isnan(c.margin) and not torch.isnan(torch.tensor(c.sensor_signals, dtype=torch.float32)).any():
-                valid_vels.append(v)
-        train_idx, val_idx, test_idx = _grouped_3way_split(y, val_split, test_split, seed, valid_vels)
-        if len(train_idx) == 0 or len(val_idx) == 0 or len(test_idx) == 0:
-            raise ValueError(f"Split failed: train={len(train_idx)}, val={len(val_idx)}, test={len(test_idx)}")
-    else:
-        raise ValueError("Velocities must be provided for grouped split")
+    valid_clips = [c for c in clips if not np.isnan(c.margin) and not torch.isnan(torch.tensor(c.sensor_signals, dtype=torch.float32)).any()]
+    train_idx, val_idx, test_idx = _grouped_3way_split(valid_clips, val_split, test_split, seed)
+    if len(train_idx) == 0 or len(val_idx) == 0 or len(test_idx) == 0:
+        raise ValueError(f"Split failed: train={len(train_idx)}, val={len(val_idx)}, test={len(test_idx)}")
     return train_idx, val_idx, test_idx
 
 
@@ -107,10 +139,10 @@ def train(
         val_ds = TensorDataset(X_val, y_val)
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
-        test_vels = [v for c, v in zip(test_clips, velocities or []) if not np.isnan(c.margin)]
+        test_vels = [c.velocity for c in test_clips]
     else:
         X, y = _build_tensors(clips)
-        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed, velocities)
+        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed)
         train_ds = TensorDataset(X[train_idx], y[train_idx])
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -119,13 +151,18 @@ def train(
         test_clips = [clips[i] for i in test_idx]
         test_vels = [velocities[i] for i in test_idx] if velocities else []
 
-    model = QuantileMarginModel(n_channels, hidden_dim, n_layers).to(device)
+    seq_len = X_train.shape[-1] if train_clips is not None else X.shape[-1]
+    model = QuantileMarginModel(n_channels, hidden_dim, n_layers, sequence_length=seq_len).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
 
     quantiles = model.quantiles
 
+    SAFETY_WEIGHTS = (2.0, 1.0, 1.0)
+
     history = {"train_loss": [], "val_loss": []}
+    best_val_loss = float("inf")
+    best_state = None
 
     for epoch in range(epochs):
         model.train()
@@ -135,7 +172,7 @@ def train(
             xb, yb = xb.to(device), yb.to(device)
             pred = model(xb)  # (B, n_q) — scalar per quantile
             target = yb       # (B,)
-            loss = pinball_loss(pred, target, quantiles)
+            loss = pinball_loss(pred, target, quantiles, weights=SAFETY_WEIGHTS)
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -153,9 +190,17 @@ def train(
                 xb, yb = xb.to(device), yb.to(device)
                 pred = model(xb)
                 target = yb
-                val_loss += pinball_loss(pred, target, quantiles).item()
+                val_loss += pinball_loss(pred, target, quantiles, weights=SAFETY_WEIGHTS).item()
                 n_val += 1
-        history["val_loss"].append(val_loss / max(n_val, 1))
+        avg_val_loss = val_loss / max(n_val, 1)
+        history["val_loss"].append(avg_val_loss)
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
     return model, history, test_clips, test_vels
 
@@ -191,10 +236,10 @@ def train_huber(
         val_ds = TensorDataset(X_val, y_val)
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
-        test_vels = [v for c, v in zip(test_clips, velocities or []) if not np.isnan(c.margin)]
+        test_vels = [c.velocity for c in test_clips]
     else:
         X, y = _build_tensors(clips)
-        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed, velocities)
+        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed)
         train_ds = TensorDataset(X[train_idx], y[train_idx])
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -209,6 +254,8 @@ def train_huber(
     criterion = nn.HuberLoss(delta=0.1)
 
     history = {"train_loss": [], "val_loss": []}
+    best_val_loss = float("inf")
+    best_state = None
 
     for epoch in range(epochs):
         model.train()
@@ -235,7 +282,15 @@ def train_huber(
                 pred = model(xb).squeeze(-1)
                 val_loss += criterion(pred, yb).item()
                 n_val += 1
-        history["val_loss"].append(val_loss / max(n_val, 1))
+        avg_val_loss = val_loss / max(n_val, 1)
+        history["val_loss"].append(avg_val_loss)
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
     return model, history, test_clips, test_vels
 
@@ -271,10 +326,10 @@ def train_median(
         val_ds = TensorDataset(X_val, y_val)
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
-        test_vels = [v for c, v in zip(test_clips, velocities or []) if not np.isnan(c.margin)]
+        test_vels = [c.velocity for c in test_clips]
     else:
         X, y = _build_tensors(clips)
-        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed, velocities)
+        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed)
         train_ds = TensorDataset(X[train_idx], y[train_idx])
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -283,11 +338,14 @@ def train_median(
         test_clips = [clips[i] for i in test_idx]
         test_vels = [velocities[i] for i in test_idx] if velocities else []
 
-    model = QuantileMarginModel(n_channels, hidden_dim, n_layers, quantiles=(0.5,)).to(device)
+    seq_len = X_train.shape[-1] if train_clips is not None else X.shape[-1]
+    model = QuantileMarginModel(n_channels, hidden_dim, n_layers, sequence_length=seq_len).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
 
     history = {"train_loss": [], "val_loss": []}
+    best_val_loss = float("inf")
+    best_state = None
 
     for epoch in range(epochs):
         model.train()
@@ -295,9 +353,9 @@ def train_median(
         n_batches = 0
         for xb, yb in train_dl:
             xb, yb = xb.to(device), yb.to(device)
-            pred = model(xb)  # (B, 1)
+            pred = model(xb)  # (B, 3)
             target = yb       # (B,)
-            loss = pinball_loss(pred, target, (0.5,))
+            loss = pinball_loss(pred, target, model.quantiles)
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -314,9 +372,17 @@ def train_median(
                 xb, yb = xb.to(device), yb.to(device)
                 pred = model(xb)
                 target = yb
-                val_loss += pinball_loss(pred, target, (0.5,)).item()
+                val_loss += pinball_loss(pred, target, model.quantiles).item()
                 n_val += 1
-        history["val_loss"].append(val_loss / max(n_val, 1))
+        avg_val_loss = val_loss / max(n_val, 1)
+        history["val_loss"].append(avg_val_loss)
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
     return model, history, test_clips, test_vels
 

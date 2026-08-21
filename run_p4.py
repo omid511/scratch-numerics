@@ -75,7 +75,8 @@ if __name__ == "__main__":
     P("2. Finding flutter boundary...")
     t0 = time.time()
     u_crit = solver.find_flutter_velocity(
-        v_lower=680.0, v_upper=3000.0, n_scan=20, tol=1.0, n_modes=8)
+        rho=1.2, c_sound=SOUND_SPEED, zeta=0.0,
+        v_lower=680.0, v_upper=3000.0, n_scan=20, velocity_tol=1.0, n_modes=8)
     P(f"   u_crit={u_crit:.1f} m/s (Mach {u_crit/SOUND_SPEED:.2f}) ({time.time()-t0:.1f}s)")
 
     if u_crit is None:

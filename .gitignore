@@ -52,6 +52,9 @@ p4_train_results.json
 plate-main.zip
 plate-main/
 
+# Node
+node_modules/
+
 # OS junk
 .DS_Store
 Thumbs.db
