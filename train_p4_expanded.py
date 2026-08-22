@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Train all P4 models on the expanded dataset with design-level splits."""
 from __future__ import annotations
+import ctypes
+import gc
 import json
 import time
-import math
 from collections import defaultdict
 import numpy as np
 import torch
@@ -36,6 +37,30 @@ class _GruPredictAdapter:
 
 
 P = lambda *a, **kw: print(*a, **kw, flush=True)
+
+_LIBC = ctypes.CDLL("libc.so.6")
+
+
+def _release_memory():
+    """Return freed native memory to the OS between model runs.
+
+    Training a TCN allocates large transient activation buffers (batch x
+    hidden x seq_len per layer, forward+backward). PyTorch frees them
+    promptly, but glibc keeps them in malloc arenas/fastbins, so RSS only
+    ratchets upward across sequential train() calls (~+200-400MB per model,
+    measured). gc.collect() drops the Python references;
+    malloc_trim(0) hands the cached native pages back to the kernel,
+    keeping the post-run RSS floor flat instead of climbing.
+
+    Recommended at launch: export MALLOC_ARENA_MAX=2 (glibc reads it at
+    process start; it cannot be enabled from inside Python) to limit arena
+    fragmentation under torch's multi-threaded allocators.
+    """
+    gc.collect()
+    try:
+        _LIBC.malloc_trim(0)
+    except Exception:
+        pass  # non-glibc platform: gc.collect() alone still bounds growth
 
 
 def bootstrap_by_design(
@@ -285,6 +310,8 @@ if __name__ == "__main__":
         results[name] = metrics
         P(f"  MAE={metrics.get('mae', 0):.4f} width={metrics.get('mean_interval_width', 0):.4f}")
         torch.save(model.state_dict(), f"p4_{name}.pt")
+        del model, history
+        _release_memory()
 
     # ── TCN Huber ──
     for seed in range(N_SEEDS):
@@ -302,6 +329,8 @@ if __name__ == "__main__":
         results[name] = metrics
         P(f"  MAE={metrics.get('mae', 0):.4f}")
         torch.save(model.state_dict(), f"p4_{name}.pt")
+        del model, history
+        _release_memory()
 
     # ── TCN Median ──
     for seed in range(N_SEEDS):
@@ -319,6 +348,8 @@ if __name__ == "__main__":
         results[name] = metrics
         P(f"  MAE={metrics.get('mae', 0):.4f}")
         torch.save(model.state_dict(), f"p4_{name}.pt")
+        del model, history
+        _release_memory()
 
     # ── Baselines ──
     P(f"\nTraining baselines...")
@@ -355,6 +386,8 @@ if __name__ == "__main__":
         results[name] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_dr, test_vels)
         P(f"  {name} MAE={results[name].get('mae', 0):.4f}")
         torch.save(gru_model.state_dict(), f"p4_{name}.pt")
+        del gru_model, history
+        _release_memory()
 
     # ── Summary ──
     P("\n" + "=" * 70)
@@ -508,6 +541,8 @@ if __name__ == "__main__":
                     all_pred_median.cpu().numpy(), test_vels_arr, test_design_ids_arr,
                 )
                 P(f"    Monotonicity violation rate: {mono_rate:.4f}")
+
+    _release_memory()
 
     # Save results
     with open("p4_train_results.json", "w") as f:
