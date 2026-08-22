@@ -10,6 +10,7 @@ from scipy.stats.qmc import LatinHypercube
 
 from ..laminate import Material, Laminate
 from ..solver import FSDTSolver
+from ..piston_theory import AIR_DENSITY, SOUND_SPEED
 
 
 @dataclass
@@ -21,6 +22,7 @@ class SweepResult:
     mode_shapes: list | None = None  # optional mode shapes at each point
     n_success: int = 0
     n_total: int = 0
+    failure_reasons: dict[str, int] | None = None  # category -> count
 
 
 def _make_solver(
@@ -39,6 +41,20 @@ def _make_solver(
         top={"type": "clamped"}, bottom={"type": "clamped"},
     )
     return solver
+
+
+def _classify_no_boundary(solver: FSDTSolver) -> str:
+    """Categorize why find_flutter_boundary returned None for this design."""
+    from ..piston_theory import velocity_from_lambda
+
+    rho, c_sound = AIR_DENSITY, SOUND_SPEED
+    D11 = solver._compute_D11()
+    V_min = 2.0 * c_sound
+    lam_floor = 0.9 * rho * V_min**2 * solver.L1**3 / (D11 * np.sqrt(3.0))
+    vel = velocity_from_lambda(lam_floor, rho, solver.L1, D11, c_sound)
+    if solver._max_real_eigenvalue(vel, 0.0, rho, c_sound, 0.0) >= 1e-4:
+        return "unstable_at_lambda_lower"
+    return "no_crossing_in_bracket"
 
 
 def generate_design_sweep(
@@ -60,8 +76,16 @@ def generate_design_sweep(
         M, N: Basis function counts.
 
     Returns:
-        SweepResult with design parameters and flutter lambdas.
+        SweepResult with design parameters and flutter lambdas. Failed
+        points are not silently dropped: each failure is counted in
+        ``SweepResult.failure_reasons`` (dict category -> count) with
+        categories 'unstable_at_lambda_lower' (system already unstable at
+        the per-design Mach-floor bracket, so no crossing exists),
+        'no_crossing_in_bracket' (stable throughout), or
+        'solver_error:<ExcType>' for solver exceptions.
     """
+
+
     # Default bounds: 4 edges (left, right, top, bottom), log10 stiffness
     edge_names = ["left", "right", "top", "bottom"]
     if stiffness_bounds is None:
@@ -77,9 +101,9 @@ def generate_design_sweep(
 
     # Actual stiffnesses
     stiffnesses = 10.0 ** samples_log10
-
     flutter_lambdas = np.full(n_samples, np.nan)
     n_success = 0
+    failure_reasons: dict[str, int] = {}
 
     for i in range(n_samples):
         solver = _make_solver(laminate, M=M, N=N)
@@ -94,16 +118,19 @@ def generate_design_sweep(
             k_stiffness=1e12,
         )
         solver.set_boundary_springs(spring_list)
-
         try:
             lam_cr = solver.find_flutter_boundary(
-                lambda_lower=10.0, lambda_upper=1000.0, tol=1.0, n_modes=8,
+                lambda_lower=None, lambda_upper=1000.0, tol=1.0, n_modes=8,
             )
             if lam_cr is not None:
                 flutter_lambdas[i] = lam_cr
                 n_success += 1
-        except Exception:
-            pass  # ponytail: skip failed points, track ratio
+            else:
+                reason = _classify_no_boundary(solver)
+                failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
+        except Exception as exc:
+            key = f"solver_error:{type(exc).__name__}"
+            failure_reasons[key] = failure_reasons.get(key, 0) + 1
 
     return SweepResult(
         design_params=samples_log10,
@@ -111,4 +138,5 @@ def generate_design_sweep(
         flutter_lambda=flutter_lambdas,
         n_success=n_success,
         n_total=n_samples,
+        failure_reasons=failure_reasons,
     )

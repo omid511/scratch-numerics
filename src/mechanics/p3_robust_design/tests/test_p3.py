@@ -218,7 +218,32 @@ class TestGPSurrogate:
         lml = gp.log_marginal_likelihood()
         assert np.isfinite(lml)
 
-    def test_predict_before_fit_raises(self):
+    def test_gp_hyperparam_optimization_improves_fit(self):
+        """ML-II hyperparameter optimization reduces holdout RMSE on an
+        anisotropic function where fixed length-scales underfit."""
+        rng = np.random.default_rng(7)
+
+        def true_fn(X):
+            return np.sin(4.0 * X[:, 0]) + 0.1 * X[:, 1]
+
+        X = rng.uniform(-2.0, 2.0, size=(40, 2))
+        y = true_fn(X)
+        X_test = rng.uniform(-2.0, 2.0, size=(60, 2))
+        y_test = true_fn(X_test)
+
+        gp_fixed = GPSurrogate(noise_var=1e-6)
+        gp_fixed.fit(X, y)
+        mean_fixed, _ = gp_fixed.predict(X_test)
+        rmse_fixed = np.sqrt(np.mean((y_test - mean_fixed) ** 2))
+
+        gp_opt = GPSurrogate(noise_var=1e-6)
+        gp_opt.fit(X, y, optimize_hyperparams=True)
+        mean_opt, _ = gp_opt.predict(X_test)
+        rmse_opt = np.sqrt(np.mean((y_test - mean_opt) ** 2))
+
+        assert rmse_opt < rmse_fixed, (
+            f"optimized RMSE {rmse_opt:.4g} not < fixed {rmse_fixed:.4g}"
+        )
         gp = GPSurrogate()
         with pytest.raises(RuntimeError):
             gp.predict(np.random.randn(5, 2))
@@ -296,6 +321,27 @@ class TestSweep:
         assert result.boundary_stiffnesses.shape == (3, 4)
         assert result.flutter_lambda.shape == (3,)
         assert result.n_total == 3
+
+    def test_sweep_records_failure_reasons(self):
+        """Failed sweep points are counted with a categorized reason."""
+        from mechanics.p3_robust_design.sweep import generate_design_sweep
+        lam = _sandwich_laminate()
+        # Absurdly stiff edges (log10 k ~ 17-18, far above the machine
+        # k_stiffness ceiling): flutter lambda is pushed beyond the sweep's
+        # upper bracket (1000), so no crossing can be found.
+        result = generate_design_sweep(
+            n_samples=2, laminate=lam, seed=1, M=5, N=5,
+            stiffness_bounds={e: (17.0, 18.0)
+                              for e in ("left", "right", "top", "bottom")},
+        )
+        assert result.n_success == 0
+        assert result.failure_reasons
+        total = sum(result.failure_reasons.values())
+        assert total == 2
+        known = {"unstable_at_lambda_lower", "no_crossing_in_bracket"}
+        solver_cats = {k for k in result.failure_reasons
+                       if k in known or k.startswith("solver_error:")}
+        assert solver_cats == set(result.failure_reasons)
 
 
 class TestModeTrackingSmoothness:
