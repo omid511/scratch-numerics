@@ -49,7 +49,11 @@ Start with this document, then open only paths named below.
 - `compute_design_u_crit()` delegates to `solver.find_flutter_velocity()` with design air properties and damping. Flutter is first stable-to-unstable crossing from scan plus bisection.
 - `solve_eigenproblem()` is sole eigenanalysis path. It uses generalized pencil `[0,I;-K,-C] z = s [I,0;0,M] z`, then filters frequency, positive imaginary branch, transverse participation, and residual.
 - `compute_eigendecomposition()` keeps two least-stable modes first, then fills remaining requested modes by frequency. Do not make transient and flutter paths use different filters.
-- Clip shape is `(n_sensors, n_timesteps)`, normally `(8, 512)`, over 0.5 s. Sensors are fixed interior locations from `default_sensor_xy()`.
+- Clip shape is `(n_sensors, n_timesteps)`, normally `(8, 512)`. The time
+  base adapts to the retained mode band: `dt = min(dt_nominal, 0.9*pi/
+  omega_max_retained)`, so physical clip duration is `512 * dt` and can be
+  well below the nominal 0.5 s for stiff designs. Training consumes sample
+  indices only; any physical-time use must recover dt from transient.py.
 - Modal coefficients use random log-normal amplitudes and phases. Two least-stable modes must receive at least 20% total initial amplitude.
 - Clip normalization is causal: one global RMS from first 10% of samples. Do not normalize using future samples.
 - Generator applies 3 material/damping realizations per nominal design, 10 continuous velocity ratios per realization sampled from 5 stratified bands (`VELOCITY_RATIO_STRATA`: 2 each in 0.68-0.85, 0.85-0.95, 0.95-1.00, 1.00-1.05, 1.05-1.15), and 2 excitations per velocity. Nominal maximum: 60 clips/design before failures.

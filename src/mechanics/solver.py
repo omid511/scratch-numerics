@@ -537,6 +537,13 @@ class FSDTSolver:
 
         Returns:
             AeroelasticResult with complex eigenvalues and stability info
+
+        Note: this path filters by residual/frequency only (FLUTTER_FILTER,
+        no transverse-participation floor), unlike _max_real_eigenvalue()
+        which passes eta_w_min=1e-3 to spectral_abscissa(). Consumers that
+        track modes across velocity (p3 mode_tracking) therefore rely on the
+        lowest-frequency truncation to exclude constraint artifacts; align
+        both filters deliberately, not accidentally.
         """
         M_mat, K_total, C_total = self.assemble_aeroelastic_system(
             velocity, rho, c_sound, zeta, flow_angle,
@@ -635,119 +642,6 @@ class FSDTSolver:
         result = spectral_abscissa(M_mat, K_total, C_total, eta_w_min=1e-3)
         return result.alpha
 
-    def _diagnose_eigenpair_filtering(
-        self,
-        velocity: float,
-        flow_angle: float = 0.0,
-        rho: float = AIR_DENSITY,
-        c_sound: float = SOUND_SPEED,
-        zeta: float = 0.0,
-    ) -> dict:
-        """Diagnose eigenpair filtering at a given velocity.
-
-        Returns dict with:
-          - total_finite: total finite eigenvalues
-          - n_freq_rejected: modes rejected by frequency filter
-          - n_imag_rejected: modes rejected by imaginary-part filter
-          - n_eta_rejected: modes rejected by eta_w filter
-          - n_residual_rejected: modes rejected by residual filter
-          - n_physical: modes passing all filters
-          - critical_mode_residual: residual of least-stable mode
-          - median_retained_residual: median residual of retained modes
-          - max_retained_residual: max residual of retained modes
-          - retained_residuals: list of all retained residuals
-          - all_residuals: list of all computed residuals
-        """
-        M_mat, K_total, C_total = self.assemble_aeroelastic_system(
-            velocity, rho, c_sound, zeta, flow_angle,
-        )
-
-        # Solve with loose filter to get all finite eigenvalues
-        loose = EigenFilter(omega_min=0.0, omega_max=1e18, eta_w_min=0.0, residual_max=1e18)
-        result = solve_eigenproblem(
-            M_mat, K_total, C_total,
-            filt=loose,
-            require_positive_imag=False,
-        )
-
-        eigvals_all = result.eigvals_all
-        total_finite = len(eigvals_all)
-
-        # Compute residuals and eta_w for all finite eigenvalues
-        from scipy import linalg as _la
-        size = M_mat.shape[0]
-        eigvecs_phys_all = result.eigvecs_phys if hasattr(result, 'eigvecs_phys') else None
-        if eigvecs_phys_all is None:
-            # Rebuild from scratch since we need unfiltered eigenvectors
-            Z = np.zeros((size, size))
-            I_mat = np.eye(size)
-            A_comp = np.block([[Z, I_mat], [-K_total, -C_total]])
-            B_comp = np.block([[I_mat, Z], [Z, M_mat]])
-            eigvals_raw, eigvecs_raw = _la.eig(A_comp, B_comp)
-            finite_mask = np.isfinite(eigvals_raw)
-            eigvals_all = eigvals_raw[finite_mask]
-            eigvecs_phys_all = eigvecs_raw[:size, finite_mask]
-
-        # Transverse participation
-        w_start = 2 * (size // 5)
-        w_end = 3 * (size // 5)
-        q_w = eigvecs_phys_all[w_start:w_end, :]
-        q_norm = np.abs(eigvecs_phys_all).sum(axis=0) + 1e-30
-        eta_w_all = np.abs(q_w).sum(axis=0) / q_norm
-
-        # Eigenpair residual
-        Mq = M_mat @ eigvecs_phys_all
-        Kq = K_total @ eigvecs_phys_all
-        Cq = C_total @ eigvecs_phys_all
-        s2M = eigvals_all**2 * Mq
-        sC = eigvals_all * Cq
-        numer = np.linalg.norm(s2M + sC + Kq, axis=0)
-        denom = (np.abs(eigvals_all)**2 * np.linalg.norm(Mq, axis=0)
-                 + np.abs(eigvals_all) * np.linalg.norm(Cq, axis=0)
-                 + np.linalg.norm(Kq, axis=0))
-        denom[denom == 0] = 1.0
-        residuals_all = numer / denom
-
-        all_residuals = residuals_all.tolist()
-
-        # Stage 1: frequency filter
-        freqs = np.abs(eigvals_all.imag)
-        after_freq = (freqs >= FLUTTER_FILTER.omega_min) & (freqs <= FLUTTER_FILTER.omega_max)
-        n_freq_rejected = total_finite - int(after_freq.sum())
-
-        # Stage 2: positive imaginary (applied on top of freq)
-        after_imag = after_freq & (eigvals_all.imag > 0)
-        n_imag_rejected = int(after_freq.sum()) - int(after_imag.sum())
-
-        # Stage 3: eta_w filter (applied on top of imag)
-        after_eta = after_imag & (eta_w_all >= FLUTTER_FILTER.eta_w_min)
-        n_eta_rejected = int(after_imag.sum()) - int(after_eta.sum())
-
-        # Stage 4: residual filter (applied on top of eta)
-        after_res = after_eta & (residuals_all < FLUTTER_FILTER.residual_max)
-        n_residual_rejected = int(after_eta.sum()) - int(after_res.sum())
-
-        n_physical = int(after_res.sum())
-        retained_residuals = residuals_all[after_res].tolist()
-
-        critical_residual = None
-        if n_physical > 0:
-            best = np.argmax(eigvals_all[after_res].real)
-            critical_residual = float(residuals_all[after_res][best])
-
-        return {
-            "total_finite": total_finite,
-            "n_freq_rejected": n_freq_rejected,
-            "n_imag_rejected": n_imag_rejected,
-            "n_eta_rejected": n_eta_rejected,
-            "n_residual_rejected": n_residual_rejected,
-            "n_physical": n_physical,
-            "critical_mode_residual": critical_residual,
-            "median_retained_residual": float(np.median(retained_residuals)) if retained_residuals else None,
-            "max_retained_residual": float(max(retained_residuals)) if retained_residuals else None,
-            "retained_residuals": retained_residuals,
-            "all_residuals": all_residuals,
-        }
 
     def _compute_D11(self) -> float:
         """Bending stiffness D11 from the laminate ABD matrix.

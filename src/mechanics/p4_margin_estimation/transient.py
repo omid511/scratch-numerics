@@ -193,7 +193,9 @@ def compute_eigendecomposition(
         # DYNAMICALLY SCALED pencil (same fix as spectral_abscissa): gamma =
         # sqrt(||K||_F/||M||_F), K_t=K/gamma^2, C_t=C/gamma; eigenvalues map
         # back via s = gamma*s_hat, eigenvector layout is unchanged.
-        from mechanics.eigenanalysis import _qep_backward_error, _scale_qep
+        from mechanics.eigenanalysis import (
+            _qep_backward_error, _scale_qep, _transverse_participation,
+        )
 
         logger.warning(
             "solve_eigenproblem retained 0 modes at V=%.1f (unscaled residual "
@@ -220,8 +222,17 @@ def compute_eigendecomposition(
         # for numerical rather than physical reasons.
         res_tol = max(filt.residual_max, 1e-5)
         keep = idx_ok[res_scaled < res_tol]
-        cand_vals = gamma_s * w_hat[keep]
-        cand_vecs = V_hat[:, keep]
+        # Apply the participation part of the filter that the primary path
+        # enforces: without it, zero-transverse-content constraint artifacts
+        # (eta_w == 0) occupy mode slots and can win the 'most dangerous
+        # oscillatory mode' selection on numerical dust alone.
+        if filt.eta_w_min > 0.0:
+            eta = _transverse_participation(V_hat[:size_all, keep], size_all)
+            physical = eta >= filt.eta_w_min
+        else:
+            physical = np.ones(keep.size, dtype=bool)
+        cand_vals = gamma_s * w_hat[keep[physical]]
+        cand_vecs = V_hat[:size_all, keep[physical]]
         # Apply the frequency-band part of the filter that still makes sense.
         om_lo = filt.omega_min if filt.omega_min is not None else 0.0
         om_hi = filt.omega_max if filt.omega_max is not None else np.inf
