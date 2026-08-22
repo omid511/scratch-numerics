@@ -23,13 +23,14 @@ read as a rough uncertainty-quality diagnostic only.
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 
 import numpy as np
 
 from .decoder import CorrectionDecoder
 from .encoder import CorrectionEncoder
-from .gp_model import LatentGP, RBFKernel
+from .gp_model import ARDRBFKernel, LatentGP, RBFKernel, fit_hyperparameters
 
 
 @dataclass
@@ -255,20 +256,10 @@ def _frequency_gp_on_arrays(
         for i in range(n):
             tr = np.delete(np.arange(n), i)
             te = np.array([i])
-            th_tr = theta[tr]
-            if config.standardize_theta:
-                mu, sd = _standardize_fit(th_tr)
-                th_tr_s = (th_tr - mu) / sd
-                th_te_s = (theta[te] - mu) / sd
-            else:
-                th_tr_s, th_te_s = th_tr, theta[te]
-            gp = LatentGP(
-                d_z=1,
-                kernel=RBFKernel(length_scale=config.length_scale),
-                noise=config.noise,
+            fitted = _fit_scalar_correction_gps(
+                theta[tr], rel_err_pct[tr][:, [m]], config
             )
-            gp.fit(th_tr_s, y[tr][:, np.newaxis])
-            mean_i, var_i = gp.predict(th_te_s)
+            mean_i, var_i = _predict_scalar_with_vars(fitted, theta[te])
             preds[i] = mean_i[0, 0]
             pred_vars[i] = var_i[0, 0]
             baseline_sq_errs[i] = (y[tr].mean() - y[i]) ** 2
@@ -297,9 +288,53 @@ def _frequency_gp_on_arrays(
     }
 
 
-# ---------------------------------------------------------------------------
-# Public entry points (load recorded Part-1 data, delegate to helpers above).
-# ---------------------------------------------------------------------------
+def _fit_scalar_correction_gps(
+    theta_train: np.ndarray, rel_err_train: np.ndarray, config: RealPipelineConfig
+) -> dict:
+    """Fit one single-output GP per frequency mode on TRAIN designs only.
+
+    Returns {'gps': [LatentGP], 'mu': theta mean, 'sd': theta std, 'n_modes'}.
+    Used by fit_frequency_error_gp's LOO internals and by the crossmodal
+    pipeline's Stage A.
+    """
+    if config.standardize_theta:
+        mu, sd = _standardize_fit(theta_train)
+    else:
+        mu = np.zeros(theta_train.shape[1])
+        sd = np.ones(theta_train.shape[1])
+    th_s = (theta_train - mu) / sd
+    n_modes = rel_err_train.shape[1]
+    gps = []
+    for m in range(n_modes):
+        gp = LatentGP(
+            d_z=1,
+            kernel=RBFKernel(length_scale=config.length_scale),
+            noise=config.noise,
+        )
+        gp.fit(th_s, rel_err_train[:, [m]])
+        gps.append(gp)
+    return {"gps": gps, "mu": mu, "sd": sd, "n_modes": n_modes}
+
+
+def _predict_scalar_with_vars(
+    fitted: dict, theta_runs: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Predict per-mode relative errors -> (mean, var), each (n_runs, n_modes)."""
+    th_s = (theta_runs - fitted["mu"]) / fitted["sd"]
+    n = len(theta_runs)
+    mean = np.empty((n, fitted["n_modes"]))
+    var = np.empty((n, fitted["n_modes"]))
+    for m, gp in enumerate(fitted["gps"]):
+        mj, vj = gp.predict(th_s)
+        mean[:, m], var[:, m] = mj[:, 0], vj[:, 0]
+    return mean, var
+
+
+def _predict_scalar_correction(
+    fitted: dict, theta_runs: np.ndarray
+) -> np.ndarray:
+    """Predict per-mode relative errors for given runs -> (n_runs, n_modes)."""
+    return _predict_scalar_with_vars(fitted, theta_runs)[0]
 
 
 def _load_hf_dataset():
@@ -524,3 +559,319 @@ def run_field_pipeline_modeconditioned(data_root, config: RealPipelineConfig | N
     fields = np.asarray(hf_dataset.load_correction_fields(data_root), dtype=np.float64)
     train_idx, test_idx = _split_run_indices(theta.shape[0], config)
     return _fit_on_modeconditioned(theta, fields, train_idx, test_idx, config)
+
+
+def _fit_on_modeconditioned_ard(
+    theta: np.ndarray,
+    fields: np.ndarray,
+    train_idx: np.ndarray,
+    test_idx: np.ndarray,
+    config: RealPipelineConfig,
+    optimize: bool = True,
+    n_steps: int = 300,
+) -> dict:
+    """Mode-conditioned pipeline with ARD kernels + ML-II hyperparameter fit.
+
+    Identical data flow to _fit_on_modeconditioned, except each latent dim
+    gets its OWN ARDRBFKernel whose per-dimension length scales (and signal
+    variance) are learned by negative-log-marginal-likelihood minimization
+    over that dim's training targets.
+
+    Returns the same dict shape plus 'ard' metadata: learned length scales per
+    latent dim and wall-clock timing of the optimization stage.
+    """
+    if set(train_idx.tolist()) & set(test_idx.tolist()):
+        raise ValueError("train and test runs overlap: split must be by run")
+
+    n_runs, n_modes, ny, nx = fields.shape
+    X = _fields_to_samples(fields)
+    run_ids = _sample_run_ids(n_runs, n_modes)
+    train_mask = np.isin(run_ids, train_idx)
+    test_mask = np.isin(run_ids, test_idx)
+    X_train, X_test = X[train_mask], X[test_mask]
+
+    encoder = CorrectionEncoder(d_z=config.d_z, grid_size=(ny, nx))
+    encoder.fit(X_train)
+    z_train = encoder.encode(X_train)
+    decoder = CorrectionDecoder(encoder)
+
+    theta_train_runs = theta[train_idx]
+    if config.standardize_theta:
+        mu, sd = _standardize_fit(theta_train_runs)
+        theta_train_s = (theta_train_runs - mu) / sd
+    else:
+        theta_train_s = theta_train_runs
+    gp_X_train = _mode_onehot_gp_inputs(np.repeat(theta_train_s, n_modes, axis=0), n_modes)
+
+    test_run_ids = run_ids[test_mask]
+    theta_test_runs = theta[test_idx]
+    if config.standardize_theta:
+        theta_test_s = (theta_test_runs - mu) / sd
+    else:
+        theta_test_s = theta_test_runs
+    gp_X_test = _mode_onehot_gp_inputs(np.repeat(theta_test_s, n_modes, axis=0), n_modes)
+
+    # --- Per-latent-dim ARD GPs ---
+    d_eff = z_train.shape[1]
+    z_mean = np.zeros((gp_X_test.shape[0], d_eff))
+    z_var = np.zeros((gp_X_test.shape[0], d_eff))
+    length_scales = np.zeros((d_eff, gp_X_train.shape[1]))
+    t_start = time.perf_counter()
+    for j in range(d_eff):
+        if optimize:
+            kernel_j = fit_hyperparameters(
+                gp_X_train, z_train[:, j], n_steps=n_steps, noise=config.noise
+            )
+        else:
+            kernel_j = ARDRBFKernel(d_in=gp_X_train.shape[1])
+        gj = LatentGP(d_z=1, kernel=kernel_j, noise=config.noise)
+        gj.fit(gp_X_train, z_train[:, [j]])
+        mj, vj = gj.predict(gp_X_test)
+        z_mean[:, j] = mj[:, 0]
+        z_var[:, j] = vj[:, 0]
+        length_scales[j] = kernel_j.length_scales
+    elapsed = time.perf_counter() - t_start
+
+    decoded = decoder.decode(z_mean, apply_boundary=True)
+    true_fields = X_test
+    err = decoded - true_fields
+
+    reconstruction_mse = float(np.mean(err**2))
+    zero_baseline_mse = float(np.mean(true_fields**2))
+    skill_vs_zero = (
+        (zero_baseline_mse - reconstruction_mse) / zero_baseline_mse
+        if zero_baseline_mse > 0
+        else 0.0
+    )
+    pointwise_bias_map = err.mean(axis=0)
+
+    comp = encoder.components_.reshape(-1, ny, nx)
+    sigma_field = np.sqrt(np.einsum("nd,dhw->hw", z_var, comp**2))
+    coverage_proxy_2sigma = float((np.abs(err) <= 2.0 * sigma_field).mean())
+
+    per_mode_mse = np.zeros(n_modes)
+    for m in range(n_modes):
+        sel = np.arange(m, len(test_run_ids), n_modes)
+        per_mode_mse[m] = float(np.mean(err[sel] ** 2))
+
+    metrics = {
+        "reconstruction_mse": reconstruction_mse,
+        "zero_baseline_mse": zero_baseline_mse,
+        "skill_vs_zero": skill_vs_zero,
+        "coverage_proxy_2sigma": coverage_proxy_2sigma,
+        "n_train_runs": int(len(train_idx)),
+        "n_test_runs": int(len(test_idx)),
+        "d_z": int(d_eff),
+        "per_mode_mse": per_mode_mse,
+    }
+    return {
+        "metrics": metrics,
+        "models": {"encoder": encoder, "decoder": decoder},
+        "arrays": {
+            "z_train": z_train,
+            "z_test_pred_mean": z_mean,
+            "z_test_pred_var": z_var,
+            "theta_test": theta_test_runs,
+        },
+        "pointwise_bias_map": pointwise_bias_map,
+        "ard": {
+            "length_scales": length_scales,
+            "optimize_seconds": float(elapsed),
+        },
+    }
+
+
+def run_field_pipeline_modeconditioned_ard(
+    data_root,
+    config: RealPipelineConfig | None = None,
+    optimize: bool = True,
+    n_steps: int = 300,
+) -> dict:
+    """Mode-conditioned pipeline with ARD hyperparameter learning.
+
+    Mirrors run_field_pipeline_modeconditioned but replaces the isotropic RBF
+    with an ARD kernel per latent dim; per-dim length scales are learned by
+    marginal-likelihood maximization (ML-II). ``optimize=False`` uses the ARD
+    kernel at its initial (isotropic-equivalent) scales — a control run.
+
+    Returns the standard result dict plus 'ard' = {'length_scales'
+    (d_z x d_in), 'optimize_seconds'}.
+    """
+    hf_dataset = _load_hf_dataset()
+    config = config or RealPipelineConfig()
+
+    theta = np.asarray(hf_dataset.load_design(data_root), dtype=np.float64)
+    fields = np.asarray(hf_dataset.load_correction_fields(data_root), dtype=np.float64)
+    train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+    return _fit_on_modeconditioned_ard(
+        theta, fields, train_idx, test_idx, config, optimize=optimize, n_steps=n_steps
+    )
+
+
+def _crossmodal_gp_inputs(
+    theta_rows: np.ndarray, n_modes: int, yhat_rows: np.ndarray
+) -> np.ndarray:
+    """Per-sample GP inputs [theta, one-hot(mode), scalar_pred] of width
+    d_theta + n_modes + 1. ``theta_rows``/``yhat_rows`` are per-sample,
+    run-major with modes contiguous (sample s -> mode s % n_modes)."""
+    n_samples, d_theta = theta_rows.shape
+    Xg = np.zeros((n_samples, d_theta + n_modes + 1))
+    Xg[:, :d_theta] = theta_rows
+    Xg[np.arange(n_samples), d_theta + (np.arange(n_samples) % n_modes)] = 1.0
+    Xg[:, -1] = yhat_rows
+    return Xg
+
+
+def _fit_on_crossmodal(
+    theta: np.ndarray,
+    fields: np.ndarray,
+    rel_err_pct: np.ndarray,
+    train_idx: np.ndarray,
+    test_idx: np.ndarray,
+    config: RealPipelineConfig,
+) -> dict:
+    """Crossmodal variant: field GP conditioned on Stage-A scalar predictions.
+
+    Stage A fits per-mode frequency-error GPs on TRAIN runs only and predicts
+    held-out runs' rel_err_pct. Stage B is the mode-conditioned field GP whose
+    input is [standardized theta, one-hot(mode), standardized yhat_scalar]
+    (width d_theta + n_modes + 1). All standardization uses TRAIN-only stats.
+    """
+    if set(train_idx.tolist()) & set(test_idx.tolist()):
+        raise ValueError("train and test runs overlap: split must be by run")
+
+    n_runs, n_modes, ny, nx = fields.shape
+
+    # --- Stage A: scalar correction GPs on TRAIN runs ---
+    fitted_scalar = _fit_scalar_correction_gps(
+        theta[train_idx], rel_err_pct[train_idx], config
+    )
+    yhat_train_runs = _predict_scalar_correction(fitted_scalar, theta[train_idx])
+    yhat_test_runs = _predict_scalar_correction(fitted_scalar, theta[test_idx])
+    stage_a_rmse_pct = float(
+        np.sqrt(np.mean((yhat_test_runs - rel_err_pct[test_idx]) ** 2))
+    )
+
+    # --- Stage B: mode-conditioned field GP with scalar block ---
+    X = _fields_to_samples(fields)
+    run_ids = _sample_run_ids(n_runs, n_modes)
+    train_mask = np.isin(run_ids, train_idx)
+    test_mask = np.isin(run_ids, test_idx)
+    X_train, X_test = X[train_mask], X[test_mask]
+
+    encoder = CorrectionEncoder(d_z=config.d_z, grid_size=(ny, nx))
+    encoder.fit(X_train)
+    z_train = encoder.encode(X_train)
+    decoder = CorrectionDecoder(encoder)
+
+    theta_train_s = (
+        (theta[train_idx] - fitted_scalar["mu"]) / fitted_scalar["sd"]
+        if config.standardize_theta
+        else theta[train_idx]
+    )
+    y_scaler_mu = yhat_train_runs.mean()
+    y_scaler_sd = yhat_train_runs.std()
+    if y_scaler_sd <= 0:
+        y_scaler_sd = 1.0
+    yhat_train_samples = _per_sample_scalar(yhat_train_runs, n_modes)
+    yhat_test_samples = _per_sample_scalar(yhat_test_runs, n_modes)
+
+    gp_X_train = _crossmodal_gp_inputs(
+        np.repeat(theta_train_s, n_modes, axis=0),
+        n_modes,
+        (yhat_train_samples - y_scaler_mu) / y_scaler_sd,
+    )
+    gp = LatentGP(
+        d_z=z_train.shape[1],
+        kernel=RBFKernel(length_scale=config.length_scale),
+        noise=config.noise,
+    )
+    gp.fit(gp_X_train, z_train)
+
+    theta_test_s = (
+        (theta[test_idx] - fitted_scalar["mu"]) / fitted_scalar["sd"]
+        if config.standardize_theta
+        else theta[test_idx]
+    )
+    gp_X_test = _crossmodal_gp_inputs(
+        np.repeat(theta_test_s, n_modes, axis=0),
+        n_modes,
+        (yhat_test_samples - y_scaler_mu) / y_scaler_sd,
+    )
+    z_mean, z_var = gp.predict(gp_X_test)
+
+    decoded = decoder.decode(z_mean, apply_boundary=True)
+    true_fields = X_test
+    err = decoded - true_fields
+    test_run_ids = run_ids[test_mask]
+
+    reconstruction_mse = float(np.mean(err**2))
+    zero_baseline_mse = float(np.mean(true_fields**2))
+    skill_vs_zero = (
+        (zero_baseline_mse - reconstruction_mse) / zero_baseline_mse
+        if zero_baseline_mse > 0
+        else 0.0
+    )
+
+    comp = encoder.components_.reshape(-1, ny, nx)
+    sigma_field = np.sqrt(np.einsum("nd,dhw->hw", z_var, comp**2))
+    coverage_proxy_2sigma = float((np.abs(err) <= 2.0 * sigma_field).mean())
+    per_mode_mse = np.zeros(n_modes)
+    for m in range(n_modes):
+        sel = np.arange(m, len(test_run_ids), n_modes)
+        per_mode_mse[m] = float(np.mean(err[sel] ** 2))
+
+    metrics = {
+        "reconstruction_mse": reconstruction_mse,
+        "zero_baseline_mse": zero_baseline_mse,
+        "skill_vs_zero": skill_vs_zero,
+        "coverage_proxy_2sigma": coverage_proxy_2sigma,
+        "n_train_runs": int(len(train_idx)),
+        "n_test_runs": int(len(test_idx)),
+        "d_z": int(z_train.shape[1]),
+        "per_mode_mse": per_mode_mse,
+        "stage_a_holdout_rmse_pct": stage_a_rmse_pct,
+    }
+    return {
+        "metrics": metrics,
+        "models": {"encoder": encoder, "decoder": decoder, "gp": gp},
+        "arrays": {
+            "z_train": z_train,
+            "z_test_pred_mean": z_mean,
+            "z_test_pred_var": z_var,
+            "theta_test": theta[test_idx],
+        },
+    }
+
+
+def _per_sample_scalar(yhat_runs: np.ndarray, n_modes: int) -> np.ndarray:
+    """(n_runs, n_modes) run-level predictions -> per-sample values matching
+    the flattened run-major/mode-contiguous sample order."""
+    rep = np.repeat(yhat_runs, n_modes, axis=0)
+    return rep[np.arange(rep.shape[0]), np.arange(rep.shape[0]) % n_modes]
+
+
+def run_field_pipeline_crossmodal(data_root, config: RealPipelineConfig | None = None) -> dict:
+    """Does the predictable SCALAR correction signal help FIELD prediction?
+
+    Two stages sharing one split-by-run:
+      Stage A: per-mode frequency-error GPs fit on TRAIN runs only; predict
+               held-out runs' rel_err_pct.
+      Stage B: mode-conditioned field GP with inputs [standardized theta,
+               one-hot(mode), standardized scalar prediction] (width
+               d_theta + n_modes + 1).
+
+    Returns the standard result dict; metrics additionally include
+    'stage_a_holdout_rmse_pct' for transparency.
+    """
+    hf_dataset = _load_hf_dataset()
+    config = config or RealPipelineConfig()
+
+    theta = np.asarray(hf_dataset.load_design(data_root), dtype=np.float64)
+    fields = np.asarray(hf_dataset.load_correction_fields(data_root), dtype=np.float64)
+    freq_errors = hf_dataset.load_frequency_errors(data_root)
+    rel_err_pct = np.asarray(freq_errors["rel_err_pct"], dtype=np.float64)
+    train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+    return _fit_on_crossmodal(
+        theta, fields, rel_err_pct, train_idx, test_idx, config
+    )
