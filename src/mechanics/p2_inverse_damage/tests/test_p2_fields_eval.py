@@ -217,6 +217,11 @@ class TestCRPS:
         wide = crps(np.linspace(0, 2, 10)[None, :], np.array([1.0]))
         assert wide > tight
 
+    def test_multi_obs_identical_ensembles_mean_not_sum(self):
+        # Regression: spread was summed over observations, driving CRPS to
+        # -2/3 instead of +1/3 for two identical {0,0,3} obs with truth 1.
+        ens = np.array([[0.0, 0.0, 3.0], [0.0, 0.0, 3.0]])
+        assert abs(crps(ens, np.array([1.0, 1.0])) - 1.0 / 3.0) < 1e-12
 
 # ─── 8. MSE helpers ──────────────────────────────────────────────────
 
