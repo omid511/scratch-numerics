@@ -362,3 +362,21 @@ ml = [
 | Posterior collapses to point estimate | Medium | High | Add noise to training data, use multiple latent dimensions, check decoder capacity |
 | Mode shapes insufficient to distinguish damage patterns | Low | Medium | Add aeroelastic measurements (flutter boundary), increase n_modes |
 | FrEi library incompatible with PyTorch 2.x | Low | Medium | Implement minimal cINN from scratch (~150 LOC) |
+
+## Amendment 2026-08-22: CVAE substitution
+
+As implemented in `src/mechanics/p2_inverse_damage/`, three roadmap decisions were revised:
+
+1. **Phase-4 cINN → diagonal-Gaussian CVAE head.** The conditional invertible neural network
+   (and the frEi library option) was never adopted. Phase 4 instead uses a conditional VAE
+   posterior (`ConditionalPosterior`): a diagonal-Gaussian head mapping the conditioning vector
+   `c` to `(mu, log_var)` with reparameterized sampling against an N(0, I) prior, trained by ELBO
+   with a free-bits KL floor. Invertibility is no longer required anywhere in the pipeline.
+2. **SP4 redefined in CVAE terms.** The original SP4 ("SBC calibration error < 10%") assumed
+   log_prob evaluation over an invertible posterior. SP4 is now measured with **sample-based SBC**:
+   rank histograms computed over posterior *samples* (not analytic log-prob/rank machinery),
+   together with the existing **90% interval coverage > 80%** gate (SP3 criterion retained as part
+   of calibration sign-off).
+3. **zarr → .npz persistence.** Datasets are stored as NumPy `.npz` archives with an embedded
+   provenance JSON record, matching repo norms; the `zarr` dependency is dropped from the proposed
+   `ml` extra.
