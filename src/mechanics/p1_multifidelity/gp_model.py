@@ -107,11 +107,123 @@ class LatentGP:
             K = K + 1e-6 * torch.eye(n, dtype=torch.float64)
             L = torch.linalg.cholesky(K)
 
-        z_t = torch.as_tensor(z_col, dtype=torch.float64)
+        z_t = torch.as_tensor(
+            np.asarray(z_col, dtype=np.float64).reshape(n, -1)
+        )
         alpha = torch.linalg.solve_triangular(
             L.T,
             torch.linalg.solve_triangular(L, z_t, upper=False),
             upper=True,
         )
-        nlml = 0.5 * z_t @ alpha + torch.log(torch.diag(L)).sum() + 0.5 * n * np.log(2 * np.pi)
+        nlml = 0.5 * z_t.ravel() @ alpha.ravel() + torch.log(torch.diag(L)).sum() + 0.5 * n * np.log(2 * np.pi)
         return float(nlml)
+
+
+class ARDRBFKernel:
+    """RBF kernel with Automatic Relevance Determination (per-dimension
+    length scales) and learned signal variance.
+
+    Parameters are torch tensors with ``requires_grad_=True`` so they can be
+    optimized by marginal-likelihood maximization (see fit_hyperparameters).
+    ``__call__`` mirrors RBFKernel (numpy in, numpy out) so it drops into
+    LatentGP unchanged.
+
+    Args:
+        d_in: number of input dimensions.
+        log_length_scales: optional initial per-dim log length scales.
+        log_signal_variance: initial log signal variance.
+    """
+
+    def __init__(
+        self,
+        d_in: int,
+        log_length_scales: np.ndarray | None = None,
+        log_signal_variance: float = 0.0,
+    ):
+        if log_length_scales is None:
+            log_length_scales = np.zeros(d_in)
+        log_length_scales = np.asarray(log_length_scales, dtype=np.float64)
+        if log_length_scales.shape != (d_in,):
+            raise ValueError(f"log_length_scales must have shape ({d_in},)")
+        self.log_length_scales = torch.tensor(
+            log_length_scales, dtype=torch.float64, requires_grad=True
+        )
+        self.log_signal_variance = torch.tensor(
+            float(log_signal_variance), dtype=torch.float64, requires_grad=True
+        )
+
+    @property
+    def length_scales(self) -> np.ndarray:
+        return np.exp(self.log_length_scales.detach().numpy())
+
+    @property
+    def signal_variance(self) -> float:
+        return float(np.exp(self.log_signal_variance.item()))
+
+    def _cov(self, X1t: "torch.Tensor", X2t: "torch.Tensor") -> "torch.Tensor":
+        inv_ls = torch.exp(-2.0 * self.log_length_scales)
+        # Pairwise squared distance with per-dim scaling.
+        x1 = X1t * inv_ls
+        x2 = X2t * inv_ls
+        sq = (
+            x1.pow(2).sum(dim=1)[:, None]
+            + x2.pow(2).sum(dim=1)[None, :]
+            - 2.0 * x1 @ x2.T
+        ).clamp(min=0.0)
+        return torch.exp(self.log_signal_variance) * torch.exp(-0.5 * sq)
+
+    def __call__(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
+        X1t = torch.as_tensor(np.asarray(X1, dtype=np.float64))
+        X2t = torch.as_tensor(np.asarray(X2, dtype=np.float64))
+        return self._cov(X1t, X2t).detach().numpy()
+
+
+def fit_hyperparameters(
+    theta: np.ndarray,
+    z_col: np.ndarray,
+    n_steps: int = 300,
+    lr: float = 0.05,
+    noise: float = 1e-4,
+) -> ARDRBFKernel:
+    """Learn ARD length scales and signal variance by minimizing the negative
+    log marginal likelihood of a single-output GP (torch autograd, Adam).
+
+    Args:
+        theta: (n, d_in) inputs.
+        z_col: (n,) targets for ONE output dimension.
+        n_steps / lr: Adam optimization budget.
+        noise: fixed observation noise variance.
+
+    Returns the fitted ARDRBFKernel (parameters updated in place and returned).
+    """
+    theta_t = torch.as_tensor(np.asarray(theta, dtype=np.float64))
+    y = torch.as_tensor(
+        np.asarray(z_col, dtype=np.float64).ravel().reshape(-1, 1)
+    )
+    n, d_in = theta_t.shape
+    kernel = ARDRBFKernel(d_in=d_in)
+    params = [kernel.log_length_scales, kernel.log_signal_variance]
+    optimizer = torch.optim.Adam(params, lr=lr)
+    jitter = torch.eye(n, dtype=torch.float64)
+
+
+    def nlml() -> "torch.Tensor":
+        K = kernel._cov(theta_t, theta_t) + noise * jitter
+        try:
+            L = torch.linalg.cholesky(K)
+        except RuntimeError:
+            L = torch.linalg.cholesky(K + 1e-6 * jitter)
+        alpha = torch.linalg.solve_triangular(
+            L.T, torch.linalg.solve_triangular(L, y, upper=False), upper=True
+        )
+        return (
+            0.5 * y.ravel() @ alpha.ravel()
+            + torch.log(torch.diag(L)).sum()
+            + 0.5 * n * np.log(2 * np.pi)
+        )
+    for _ in range(n_steps):
+        optimizer.zero_grad()
+        loss = nlml()
+        loss.backward()
+        optimizer.step()
+    return kernel

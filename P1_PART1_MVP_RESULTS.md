@@ -26,16 +26,18 @@ Leave-one-run-out, per-mode:
 
 The GP beats the trivial baseline on **all 10 modes**. The 5 design parameters carry genuine information about the FSDT frequency error (~43% RMSE reduction vs predicting the mean). This is the first quantified, cross-validated correction model on real HF data in the repo and already supports a usable scalar calibration of the fast solver.
 
-### Spatial field pipeline — negative-but-informative
+### Spatial field pipeline — mode-mixing was the bottleneck
 
-Held-out 20 runs, pooled across modes (PCA d_z=16 → GP):
+Held-out 20 runs, PCA d_z → GP, skill measured against predict-zero on the
+same split:
 
-| quantity | value |
-|---|---|
-| model reconstruction MSE | 0.2028 |
-| predict-zero baseline MSE | 0.2035 |
-| skill vs zero baseline | **0.32 %** |
-| coverage proxy (2σ, uncalibrated) | 0.996 |
+| variant | model MSE | zero-baseline MSE | skill vs zero |
+|---|---|---|---|
+| pooled (modes folded into samples), d_z=16 | 0.2028 | 0.2035 | 0.32 % |
+| **mode-conditioned** (one-hot mode GP input), d_z=8 | 0.1960 | 0.2035 | 3.66 % |
+| **mode-conditioned**, d_z=16 | 0.1950 | 0.2035 | 4.18 % |
+| **mode-conditioned**, d_z=32 | 0.1950 | 0.2035 | **4.19 %** |
+| coverage proxy (2σ, uncalibrated) | — | — | ~0.996 |
 
 Diagnostics (roadmap SP-gate checks):
 
@@ -50,12 +52,23 @@ Interpretation:
 2. Pooling modes into one GP dilutes signal; conditioning on mode identity (per-mode GPs or a mode input) recovers measurable (~4%) but still modest field-level skill.
 3. Δw compares max-normalized shapes, discarding amplitude — part of the residual is plausibly irreducible given degenerate-mode-pair index fragility (see `P1_PART1_REPORT.md` caveats).
 
-## Next levers (ranked, cheapest first)
+## Levers tried
 
-1. Mode-conditioned field GP (one-hot mode as 6th GP input, or per-mode latent GPs) — probe already shows ~12× skill gain from de-pooling.
-2. ARD / per-dimension length-scale kernel for the θ→z GP (current single length-scale RBF).
-3. Predict the scalar-error field's *spatial profile* conditional on the (already predictable) scalar magnitude.
-4. If field skill stays <10% after 1–2 upgrades, that itself is a finding: report that with ≤100 HF samples, field-level correction learning is data-limited, and ship the scalar calibration as the P1 deliverable — consistent with the charter's stop condition.
+1. **Mode-conditioned field GP** (one-hot mode as GP input) — ADOPTED: skill 0.32% → 4.19%; d_z=16 and 32 indistinguishable, d_z=8 worse. Committed.
+2. **ARD / per-dimension length scales** (ML-II, Adam on NLML, per-latent-dim GPs) — TESTED AND REJECTED: skill drops to 3.16% (300 steps) / 3.06% (gentle); init-scale control run reproduces isotropic exactly (4.18%), so ML-II itself overfits each latent dim's GP at n=800, noise=1e-4. Negative result is informative: GP capacity/kernel flexibility is not the binding constraint.
+3. **Cross-modal conditioning** (GP-predicted scalar frequency error appended to field GP inputs) — TESTED, NEUTRAL: skill 3.84% vs 4.18% baseline (−0.34%, within ±0.5% noise band). The well-predicted scalar error shares no usable design-space structure with the fields; the two correction channels are independent.
+
+## Conclusion
+
+Three probes converge: mode-conditioning captures the real structure (+3.9%
+absolute skill), kernel/hyperparameter flexibility and cross-modal features do
+not. Field-level shape-correction skill saturates near ~4% with ≤100 HF
+designs — consistent with the charter's stop condition. The deliverable P1
+result on this dataset is the **scalar calibration**: leave-one-run-out GP on
+the five design parameters predicts per-mode FSDT frequency error at 5.35%
+RMSE vs 9.45% for the train-mean baseline (all 10 modes improved), with the
+field pipeline available as the mode-conditioned upgrade path if more HF data
+arrives.
 
 Reproduce:
 

@@ -8,10 +8,13 @@ import math
 import numpy as np
 import pytest
 
+from mechanics.p1_multifidelity.gp_model import fit_hyperparameters
 from mechanics.p1_multifidelity.real_pipeline import (
     RealPipelineConfig,
     _fit_on,
     _fit_on_modeconditioned,
+    _fit_on_modeconditioned_ard,
+    _fit_on_crossmodal,
     _mode_onehot_gp_inputs,
     _frequency_gp_on_arrays,
     _loo_cv_on_arrays,
@@ -272,3 +275,99 @@ class TestModeConditioned:
             _fit_on_modeconditioned(
                 theta, fields, np.arange(4), np.arange(3, 6), RealPipelineConfig()
             )
+
+
+class TestARD:
+    def _anisotropic_target(self, n=40, seed=0):
+        rng = np.random.default_rng(seed)
+        theta = rng.uniform(0, 1, (n, 2))
+        # Varies fast along dim 0, slowly along dim 1 -> ARD is meaningful.
+        y = np.sin(8 * np.pi * theta[:, 0]) + 0.1 * theta[:, 1] + 0.01 * rng.standard_normal(n)
+        return theta, y
+
+    def test_hyperparameter_optimization_reduces_nll(self):
+        theta, y = self._anisotropic_target()
+        nll_before = float("inf")
+        from mechanics.p1_multifidelity.gp_model import LatentGP
+
+        nll_before = LatentGP(d_z=1).negative_log_marginal_likelihood(theta, y)
+        kernel = fit_hyperparameters(theta, y, n_steps=300, lr=0.05)
+        nll_after = LatentGP(d_z=1, kernel=kernel).negative_log_marginal_likelihood(
+            theta, y
+        )
+        assert nll_after < nll_before
+        assert kernel.length_scales.shape == (2,)
+        assert np.all(kernel.length_scales > 0)
+
+    def test_ard_pipeline_runs_and_shapes(self):
+        theta, fields = _make_synthetic_fields(n_runs=6, n_modes=2, seed=51)
+        config = RealPipelineConfig(d_z=3, seed=4)
+        train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+        result = _fit_on_modeconditioned_ard(
+            theta, fields, train_idx, test_idx, config, optimize=True, n_steps=5
+        )
+        d_theta = theta.shape[1]
+        metrics = result["metrics"]
+        assert set(metrics) >= {
+            "reconstruction_mse",
+            "zero_baseline_mse",
+            "skill_vs_zero",
+            "per_mode_mse",
+        }
+        d_in = result["ard"]["length_scales"].shape[1]
+        assert d_in == d_theta + fields.shape[1]
+        assert result["ard"]["length_scales"].shape[0] == metrics["d_z"]
+        assert np.all(result["ard"]["length_scales"] > 0)
+        assert result["arrays"]["z_test_pred_mean"].shape == (
+            len(test_idx) * 2,
+            metrics["d_z"],
+        )
+        assert metrics["reconstruction_mse"] <= metrics["zero_baseline_mse"]
+        assert result["arrays"]["theta_test"].shape == (len(test_idx), d_theta)
+
+    def test_optimize_false_is_valid_control(self):
+        theta, fields = _make_synthetic_fields(n_runs=6, n_modes=2, seed=52)
+        config = RealPipelineConfig(d_z=2, seed=4)
+        train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+        result = _fit_on_modeconditioned_ard(
+            theta, fields, train_idx, test_idx, config, optimize=False
+        )
+        # Initial ARD scales are all 1.0 (log 0).
+        assert np.allclose(result["ard"]["length_scales"], 1.0)
+        assert result["metrics"]["reconstruction_mse"] >= 0
+
+
+class TestCrossmodal:
+    def test_input_width_and_split_by_run(self):
+        theta, fields = _make_synthetic_fields(n_runs=6, n_modes=2, seed=61)
+        rng = np.random.default_rng(7)
+        rel_err_pct = np.abs(rng.normal(5, 2, (theta.shape[0], fields.shape[1])))
+        config = RealPipelineConfig(d_z=3, seed=6)
+        train_idx, test_idx = _split_run_indices(theta.shape[0], config)
+        result = _fit_on_crossmodal(
+            theta, fields, rel_err_pct, train_idx, test_idx, config
+        )
+        d_theta = theta.shape[1]
+        gp_inputs = result["models"]["gp"]._theta_train
+        # Input width: standardized theta + one-hot(mode) + scalar prediction.
+        assert gp_inputs.shape == (len(train_idx) * 2, d_theta + 2 + 1)
+        onehot = gp_inputs[:, d_theta:d_theta + 2]
+        assert np.all(onehot.sum(axis=1) == 1.0)
+        # Split-by-run: GP input theta block only contains TRAIN-run thetas.
+        mu = theta[train_idx].mean(axis=0)
+        sd = np.where(theta[train_idx].std(axis=0) > 0, theta[train_idx].std(axis=0), 1.0)
+        input_thetas = {
+            tuple(np.round(row, 9))
+            for row in np.unique(gp_inputs[:, :d_theta], axis=0)
+        }
+        train_thetas = {tuple(np.round(row, 9)) for row in (theta[train_idx] - mu) / sd}
+        heldout_thetas = {
+            tuple(np.round((theta[i] - mu) / sd, 9)) for i in test_idx
+        }
+        assert input_thetas == train_thetas
+        for h in heldout_thetas:
+            assert all(not np.allclose(h, r, atol=1e-6) for r in train_thetas)
+
+        metrics = result["metrics"]
+        assert "stage_a_holdout_rmse_pct" in metrics
+        assert metrics["reconstruction_mse"] <= metrics["zero_baseline_mse"]
