@@ -520,7 +520,7 @@ if __name__ == "__main__":
 
             # P1-29: Bootstrap confidence intervals
             test_records = [
-                (c.design_id, float((pred - c.margin).abs().item()))
+                (c.design_id, float(abs(pred - c.margin)))
                 for c, pred in zip(
                     [c for c in test_clips_dr if not np.isnan(c.margin)],
                     all_pred_median.cpu().numpy().tolist(),
