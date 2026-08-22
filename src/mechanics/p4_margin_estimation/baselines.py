@@ -243,9 +243,19 @@ def train_gru(
     # Grouped split (same as train.py)
     valid_clips = [c for c in clips if not np.isnan(c.margin) and not torch.isnan(torch.tensor(c.sensor_signals, dtype=torch.float32)).any()]
     if valid_clips:
-        from .train import _grouped_3way_split
-        train_idx, val_idx, _ = _grouped_3way_split(
-            valid_clips, val_split=val_split, test_split=0.0, seed=seed)
+        # Design-grouped validation split (no _grouped_3way_split: it
+        # requires test_split > 0, which a train/val-only baseline does not
+        # have). Groups, not clips, are shuffled so no design leaks across.
+        group_ids = np.asarray([c.design_id for c in valid_clips])
+        unique_groups = np.asarray(sorted(set(group_ids.tolist())))
+        rng.shuffle(unique_groups)
+        n_val_groups = max(1, int(round(unique_groups.size * val_split)))
+        n_val_groups = min(n_val_groups, max(1, unique_groups.size - 1))
+        val_groups = set(unique_groups[:n_val_groups].tolist())
+        train_idx = [i for i, c in enumerate(valid_clips)
+                     if c.design_id not in val_groups]
+        val_idx = [i for i, c in enumerate(valid_clips)
+                   if c.design_id in val_groups]
     else:
         n = len(y)
         n_val = max(1, int(n * val_split))
