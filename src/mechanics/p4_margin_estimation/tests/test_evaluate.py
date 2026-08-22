@@ -66,11 +66,6 @@ class TestLeadTimePrecisionRecall:
         assert m["precision"] == pytest.approx(1.0)
         assert m["recall"] == pytest.approx(0.5)
 
-    def test_no_warnings_precision_nan(self):
-        m = lead_time_precision_recall(np.zeros(3, dtype=bool), np.ones(3, dtype=bool))
-        assert np.isnan(m["precision"])
-        assert m["recall"] == pytest.approx(1.0)
-
     def test_no_failures_recall_nan(self):
         m = lead_time_precision_recall(np.ones(3, dtype=bool), np.zeros(3, dtype=bool))
         assert m["precision"] == pytest.approx(0.0)

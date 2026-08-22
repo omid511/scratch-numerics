@@ -395,7 +395,7 @@ def write_report(u_crit, clips, velocities, models, results, histories):
 - **Velocity levels**: 24 (8 low 680–1000, 8 mid 1000–1300, 8 high 1300–0.95·u_crit)
 - **Realizations per level**: 10
 - **Total clips**: {len(valid_clips)} valid (of {len(clips)} generated)
-- **Clip length**: 512 timesteps over 0.0–0.5 s
+- **Clip length**: 512 timesteps (time base adapts to retained mode band)
 - **Sensors**: 8 interior grid points
 - **Modes**: 8 well-conditioned physical modes per velocity
 - **Normalization**: causal (initial-window RMS)

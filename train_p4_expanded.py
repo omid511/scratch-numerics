@@ -138,10 +138,20 @@ def load_dataset(dataset_dir: str = "p4_dataset"):
         clips_arr = np.load(clips_npz)["clips"]
     else:
         raise FileNotFoundError(f"No clips file found in {d}")
-    margins = np.load(d / "margins.npy")
-    velocities = np.load(d / "velocities.npy")
-    design_ids = np.load(d / "design_ids.npy")
-    realization_ids = np.load(d / "realization_ids.npy")
+    # Label/metadata arrays: current generator writes metadata_arrays.npz;
+    # legacy datasets kept them as loose .npy files.
+    arrays_npz = d / "metadata_arrays.npz"
+    if arrays_npz.exists():
+        with np.load(arrays_npz) as z:
+            margins = z["margins"]
+            velocities = z["velocities"]
+            design_ids = z["design_ids"]
+            realization_ids = z["realization_ids"]
+    else:
+        margins = np.load(d / "margins.npy")
+        velocities = np.load(d / "velocities.npy")
+        design_ids = np.load(d / "design_ids.npy")
+        realization_ids = np.load(d / "realization_ids.npy")
     with open(d / "metadata.json") as f:
         meta = json.load(f)
 
@@ -265,7 +275,7 @@ if __name__ == "__main__":
         P(f"\nTraining {name}...")
         t0 = time.time()
         model, history, _, _ = train(
-            None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=4,
+            None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
             train_clips=train_clips_dr, val_clips=val_clips_dr, test_clips=test_clips_dr,
             velocities=all_vels,
@@ -282,7 +292,7 @@ if __name__ == "__main__":
         P(f"\nTraining {name}...")
         t0 = time.time()
         model, history, _, _ = train_huber(
-            None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=4,
+            None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
             train_clips=train_clips_dr, val_clips=val_clips_dr, test_clips=test_clips_dr,
             velocities=all_vels,
@@ -299,7 +309,7 @@ if __name__ == "__main__":
         P(f"\nTraining {name}...")
         t0 = time.time()
         model, history, _, _ = train_median(
-            None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=4,
+            None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
             train_clips=train_clips_dr, val_clips=val_clips_dr, test_clips=test_clips_dr,
             velocities=all_vels,
@@ -368,7 +378,7 @@ if __name__ == "__main__":
         from mechanics.p4_margin_estimation.quantile_head import (
             QuantileMarginModel, fit_cqr_adjustment, apply_cqr_adjustment,
         )
-        q_model = QuantileMarginModel(n_channels=N_CHANNELS, hidden_dim=32, n_layers=4)
+        q_model = QuantileMarginModel(n_channels=N_CHANNELS, hidden_dim=32, n_layers=9)
         q_model.load_state_dict(torch.load(f"p4_{q_model_name}.pt", weights_only=True))
         q_model.eval()
 
