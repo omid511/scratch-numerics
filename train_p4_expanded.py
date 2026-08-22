@@ -13,12 +13,27 @@ from mechanics.p4_margin_estimation.train import (
 )
 from mechanics.p4_margin_estimation.baselines import (
     ConstantMedianBaseline, PhysicsFeatureRidge, VelocityLinearBaseline,
-    GrowthRateBaseline,
+    GrowthRateBaseline, GRUMarginModel, train_gru,
 )
+
 
 from mechanics.p4_margin_estimation.domain_randomization import (
     SensorPerturber, SensorPerturbationConfig,
 )
+
+
+class _GruPredictAdapter:
+    """Adapt GRUMarginModel.forward to the MarginPredictor protocol."""
+
+    def __init__(self, model):
+        self.model = model
+
+    def predict(self, clips) -> np.ndarray:
+        X = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in clips])
+        self.model.eval()
+        with torch.inference_mode():
+            return self.model(X).squeeze(-1).cpu().numpy()
+
 
 P = lambda *a, **kw: print(*a, **kw, flush=True)
 
@@ -317,6 +332,19 @@ if __name__ == "__main__":
     bl.fit(train_clips_dr)
     results["physics_ridge"] = evaluate_baseline(bl, test_clips_dr, test_vels)
     P(f"  physics_ridge MAE={results['physics_ridge'].get('mae', 0):.4f}")
+
+    # ── GRU (deep sequence baseline) ──
+    for seed in range(N_SEEDS):
+        name = f"gru_s{seed}"
+        P(f"\nTraining {name}...")
+        t0 = time.time()
+        gru_model, history = train_gru(
+            train_clips_dr, n_channels=N_CHANNELS, epochs=20, seed=seed,
+        )
+        P(f"  final_train_loss={history['train_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
+        results[name] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_dr, test_vels)
+        P(f"  {name} MAE={results[name].get('mae', 0):.4f}")
+        torch.save(gru_model.state_dict(), f"p4_{name}.pt")
 
     # ── Summary ──
     P("\n" + "=" * 70)

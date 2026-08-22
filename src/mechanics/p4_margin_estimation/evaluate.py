@@ -1,0 +1,148 @@
+"""Phase-6 warning metrics downstream of continuous margin predictions.
+
+The margin model produces continuous predictions; this module implements the
+separate decision layer that turns those predictions into warnings and scores
+the warnings. All functions operate on plain numpy arrays so they can be used
+against any predictor (TCN quantile medians, GRU, growth-rate baseline).
+
+Data semantics (matching ``TransientClip`` and ``generate_p4_dataset.py``):
+
+- A clip's scalar label is ``margin = (u_crit - velocity) / u_crit``:
+  positive subcritical, zero flutter, negative supercritical.
+- For lead-time analysis each clip contributes one *margin series* sampled on
+  its common time grid (``TransientClip.time``, shape ``(n_timesteps,)``):
+  the predicted margin series from the decision layer and the corresponding
+  true margin series. A clip "crosses" when its margin falls to or below the
+  warning threshold (margin shrinking toward/past 0 means approaching
+  flutter). Time ordering follows ascending sample index; convert indices to
+  physical seconds via the caller's ``dt`` if needed.
+- Clip-level warning flags are booleans aligned across clips; a "failure"
+  flag marks clips whose true margin actually crosses the threshold.
+"""
+from __future__ import annotations
+
+import numpy as np
+
+__all__ = [
+    "compute_lead_time",
+    "lead_time_precision_recall",
+    "false_alarm_rate",
+    "roc_auc",
+]
+
+
+def compute_lead_time(
+    pred_margin_series: np.ndarray,
+    true_margin_series: np.ndarray,
+    warn_threshold: float = 0.15,
+) -> float:
+    """Lead time (in samples) between predicted and true threshold crossings.
+
+    The first index where the predicted series is ``<= warn_threshold`` is the
+    warning time; the first index where the true series is ``<=
+    warn_threshold`` is the failure time. Lead time = failure_index -
+    warning_index in samples (positive means the warning preceded failure).
+
+    Returns NaN when either series never crosses the threshold (no warning,
+    or no actual instability to warn about), since lead time is undefined.
+    """
+    pred = np.asarray(pred_margin_series)
+    true = np.asarray(true_margin_series)
+    if pred.shape != true.shape:
+        raise ValueError(f"series shape mismatch: {pred.shape} vs {true.shape}")
+
+    warn_idx = np.flatnonzero(pred <= warn_threshold)
+    fail_idx = np.flatnonzero(true <= warn_threshold)
+    if warn_idx.size == 0 or fail_idx.size == 0:
+        return float("nan")
+    return float(fail_idx[0] - warn_idx[0])
+
+
+def lead_time_precision_recall(
+    warned_flags: np.ndarray,
+    failure_within_horizon_flags: np.ndarray,
+) -> dict[str, float]:
+    """Precision/recall of clip-level warnings at a given horizon.
+
+    Parameters
+    ----------
+    warned_flags:
+        Boolean array; True where the decision layer warned the clip before
+        the horizon elapsed (e.g. predicted margin crossed the threshold with
+        enough samples remaining).
+    failure_within_horizon_flags:
+        Boolean array; True where the clip's true margin actually crossed the
+        threshold within the horizon.
+
+    Precision: fraction of warnings that correspond to real imminent
+    failures. Recall: fraction of real imminent failures that were warned.
+    Both are NaN when their denominator is zero (no warnings / no failures).
+    """
+    warned = np.asarray(warned_flags, dtype=bool)
+    failed = np.asarray(failure_within_horizon_flags, dtype=bool)
+    if warned.shape != failed.shape:
+        raise ValueError(f"flag shape mismatch: {warned.shape} vs {failed.shape}")
+
+    n_warned = int(warned.sum())
+    n_failed = int(failed.sum())
+    hits = int((warned & failed).sum())
+    return {
+        "precision": hits / n_warned if n_warned else float("nan"),
+        "recall": hits / n_failed if n_failed else float("nan"),
+    }
+
+
+def false_alarm_rate(
+    warned_flags: np.ndarray,
+    failure_within_horizon_flags: np.ndarray,
+) -> float:
+    """Fraction of stable clips (true margin never crosses) that were warned.
+
+    Computed only over clips whose true margin does not cross within the
+    horizon. NaN when there are no stable clips.
+    """
+    warned = np.asarray(warned_flags, dtype=bool)
+    failed = np.asarray(failure_within_horizon_flags, dtype=bool)
+    if warned.shape != failed.shape:
+        raise ValueError(f"flag shape mismatch: {warned.shape} vs {failed.shape}")
+    stable = ~failed
+    n_stable = int(stable.sum())
+    if n_stable == 0:
+        return float("nan")
+    return float((warned & stable).sum() / n_stable)
+
+
+def roc_auc(scores: np.ndarray, labels: np.ndarray) -> float:
+    """Rank-based ROC AUC without sklearn.
+
+    ``scores`` are continuous decision scores (e.g. negative predicted
+    margin); ``labels`` are binary ground-truth failure flags. AUC equals the
+    Mann-Whitney U statistic normalized to [0, 1]: probability that a random
+    positive outranks a random negative, with ties counting 0.5. Ties handled
+    via average ranks. NaN when only one class is present.
+    """
+    scores = np.asarray(scores, dtype=float)
+    labels = np.asarray(labels)
+    if scores.shape != labels.shape:
+        raise ValueError(f"shape mismatch: {scores.shape} vs {labels.shape}")
+    pos = labels.astype(bool)
+    n_pos = int(pos.sum())
+    n_neg = int(labels.size - n_pos)
+    if n_pos == 0 or n_neg == 0:
+        return float("nan")
+
+    order = np.argsort(scores, kind="mergesort")
+    sorted_scores = scores[order]
+    ranks = np.empty(scores.size, dtype=float)
+    # Average ranks for ties (merge sort keeps equal scores adjacent).
+    i = 0
+    while i < scores.size:
+        j = i
+        while j + 1 < scores.size and sorted_scores[j + 1] == sorted_scores[i]:
+            j += 1
+        ranks[order[i:j + 1]] = 0.5 * (i + j) + 1.0  # 1-based average rank
+        i = j + 1
+
+    rank_sum_pos = ranks[pos].sum()
+    u = rank_sum_pos - n_pos * (n_pos + 1) / 2.0
+    return float(u / (n_pos * n_neg))

@@ -29,9 +29,14 @@ class SensorPerturbationConfig:
     burst_duration_ms: tuple[float, float] = (10.0, 50.0)
     timing_skew: bool = True
 
-    # Backward-compat alias
+    # Canonical name; `channel_drop概率` kept as deprecated alias below.
+    @property
+    def channel_drop_probability(self) -> tuple[tuple[int, float], ...]:
+        return self.channel_dropout_distribution
+
     @property
     def channel_drop概率(self) -> tuple[tuple[int, float], ...]:
+        """Deprecated: use `channel_drop_probability`."""
         return self.channel_dropout_distribution
 
     @classmethod
