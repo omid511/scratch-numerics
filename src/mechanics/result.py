@@ -40,4 +40,5 @@ class AeroelasticResult:
     lambda_cr: float | None = None
     velocity: float | None = None
     mach_number: float | None = None
+    mode_shapes_complex: np.ndarray | None = None
     lambda_value: float | None = None

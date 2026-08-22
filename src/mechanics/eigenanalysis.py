@@ -99,6 +99,21 @@ def _qep_backward_error(eigvals, eigvecs_phys, M_mat, K_total, C_total):
     return numer / denom
 
 
+def _transverse_participation(eigvecs_phys, size):
+    """Transverse participation ratio eta_w = ||q_w||_1 / ||q||_1 per mode.
+
+    ``eigvecs_phys`` is the physical-displacement half of the state-space
+    eigenvectors (size x n_modes); the transverse (w) DOF block spans
+    [2*(size//5), 3*(size//5)). Shared by solve_eigenproblem and
+    spectral_abscissa's optional participation gate.
+    """
+    w_start = 2 * (size // 5)
+    w_end = 3 * (size // 5)
+    q_w = eigvecs_phys[w_start:w_end, :]
+    q_norm = np.abs(eigvecs_phys).sum(axis=0) + 1e-30
+    return np.abs(q_w).sum(axis=0) / q_norm
+
+
 def _scale_qep(M_mat, K_total, C_total):
     """Dynamic (diagonal-free) QEP scaling: gamma = sqrt(||K||_F / ||M||_F).
 
@@ -175,15 +190,9 @@ def solve_eigenproblem(
     eigvecs_phys_all = eigvecs_all[:size, :]
 
     # Transverse participation: eta_w = ||q_w||_1 / ||q||_1
-    w_start = 2 * (size // 5)
-    w_end = 3 * (size // 5)
-    q_w = eigvecs_phys_all[w_start:w_end, :]
-    q_norm = np.abs(eigvecs_phys_all).sum(axis=0) + 1e-30
-    eta_w_all = np.abs(q_w).sum(axis=0) / q_norm
-
+    eta_w_all = _transverse_participation(eigvecs_phys_all, size)
     # QEP backward error (dimensionless)
     residuals_all = _qep_backward_error(eigvals_all, eigvecs_phys_all, M_mat, K_total, C_total)
-
     # Build filter mask
     freqs = np.abs(eigvals_all.imag)
     mask = np.ones(len(eigvals_all), dtype=bool)
@@ -268,12 +277,16 @@ def spectral_abscissa(
     C_total: np.ndarray,
     *,
     residual_tol: float = 1e-5,
+    eta_w_min: float = 0.0,
+    omega_max: float | None = None,
 ) -> SpectralAbscissaResult:
     """Compute spectral abscissa over the full validated spectrum.
 
-    Uses all finite eigenvalues from the linearized pencil. Applies only
-    finite-check and normalized backward-error (QEP residual) validation.
-    No frequency, participation, conjugate, or mode-count restrictions.
+    Uses all finite eigenvalues from the linearized pencil. Applies the
+    finite-check and normalized backward-error (QEP residual) validation,
+    plus OPTIONAL transverse-participation and frequency-band gates
+    (``eta_w_min`` / ``omega_max``) for excluding stiff-constraint pencil
+    artifacts. Defaults disable both extra gates (previous behavior).
 
     The quadratic eigenvalue problem is solved in DYNAMICALLY SCALED units:
     gamma = sqrt(||K||_F / ||M||_F), K_t = K/gamma^2, C_t = C/gamma, M_t = M,
@@ -290,10 +303,13 @@ def spectral_abscissa(
     comparable across designs precisely because the scaling normalizes the
     matrix magnitudes.
 
-    Parameters
-    ----------
     M_mat, K_total, C_total : aeroelastic system matrices
     residual_tol : maximum scaled-QEP backward error for acceptance
+    eta_w_min : minimum transverse participation ||q_w||_1/||q||_1 for a
+        mode to count as physical; excludes penalty-spring/constraint
+        artifact modes whose eigenvectors live outside the w-block
+    omega_max : if given, modes with physical |Im s| > omega_max are
+        excluded (frequency band gate, physical rad/s)
 
     Returns
     -------
@@ -320,9 +336,9 @@ def spectral_abscissa(
     # Map scaled eigenvalues back to physical units.
     eigvals_phys = gamma * eigvals_raw
 
-    finite = np.isfinite(eigvals_raw)
-    eigvals_f = eigvals_raw[finite]
-    eigvecs_f = eigvecs_raw[:, finite]
+    idx_finite = np.flatnonzero(np.isfinite(eigvals_raw))
+    eigvals_f = eigvals_raw[idx_finite]
+    eigvecs_f = eigvecs_raw[:, idx_finite]
     eigvecs_phys_f = eigvecs_f[:size, :]
 
     # Validity gate on the SCALED system actually solved: scaled eigenvalues
@@ -331,16 +347,26 @@ def spectral_abscissa(
         eigvals_f, eigvecs_phys_f, M_t, K_t, C_t
     )
 
-    valid = finite & (backward_errors <= residual_tol)
+    ok = backward_errors <= residual_tol
+    if eta_w_min > 0.0:
+        eta_w = _transverse_participation(eigvecs_phys_f, size)
+        ok &= eta_w >= eta_w_min
+    if omega_max is not None:
+        ok &= np.abs(gamma * eigvals_f.imag) <= omega_max
 
-    if not np.any(valid):
-        raise RuntimeError(
+    if not np.any(ok):
+        msg = (
             f"No numerically valid eigenvalues for spectral abscissa: "
-            f"finite={int(finite.sum())}/{len(finite)}, "
-            f"min_error={np.nanmin(backward_errors):.3e}, gamma={gamma:.3e}"
+            f"finite={len(idx_finite)}/{len(eigvals_raw)}, "
+            f"min_error={np.min(backward_errors):.3e}, gamma={gamma:.3e}"
         )
+        if eta_w_min > 0.0:
+            eta_w_all = _transverse_participation(eigvecs_phys_f, size)
+            msg += f", max_eta_w={eta_w_all.max():.3e}"
+        raise RuntimeError(msg)
 
-    valid_idx = np.flatnonzero(valid)
+    valid_idx = idx_finite[ok]
+    n_valid = len(valid_idx)
     # Among valid eigenvalues, find max real part (physical real parts share
     # ordering with scaled ones since gamma > 0).
     valid_eigvals = eigvals_phys[valid_idx]
@@ -351,6 +377,6 @@ def spectral_abscissa(
         alpha=float(eigvals_phys[best].real),
         critical_eigenvalue=complex(eigvals_phys[best]),
         backward_error=float(backward_errors[best_pos]),
-        finite_count=int(finite.sum()),
-        valid_count=int(valid.sum()),
+        finite_count=int(len(idx_finite)),
+        valid_count=int(n_valid),
     )
