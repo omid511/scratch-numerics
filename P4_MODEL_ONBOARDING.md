@@ -52,7 +52,7 @@ Start with this document, then open only paths named below.
 - Clip shape is `(n_sensors, n_timesteps)`, normally `(8, 512)`, over 0.5 s. Sensors are fixed interior locations from `default_sensor_xy()`.
 - Modal coefficients use random log-normal amplitudes and phases. Two least-stable modes must receive at least 20% total initial amplitude.
 - Clip normalization is causal: one global RMS from first 10% of samples. Do not normalize using future samples.
-- Generator applies 3 material/damping realizations per nominal design, 9 continuous velocity ratios per realization (6 in 0.96-1.06, 3 in 0.68-0.90), and 2 excitations per velocity. Nominal maximum: 54 clips/design before failures.
+- Generator applies 3 material/damping realizations per nominal design, 10 continuous velocity ratios per realization sampled from 5 stratified bands (`VELOCITY_RATIO_STRATA`: 2 each in 0.68-0.85, 0.85-0.95, 0.95-1.00, 1.00-1.05, 1.05-1.15), and 2 excitations per velocity. Nominal maximum: 60 clips/design before failures.
 - Train/validation/test are assigned once per design: 70%/15%/15%. Never split clips from one design across partitions.
 
 ## Model Contract
@@ -80,7 +80,7 @@ p4_dataset/
 
 All P4 data, checkpoints, and results are ignored by Git (`.gitignore`). Dataset files (`p4_dataset/clips.npz`, etc.) must be generated via `generate_p4_dataset.py` before training. `train_p4_expanded.py` validates clips on load (finite values, correct shape, no all-zero clips).
 
-`p4_dataset/metadata.json` is stale relative to current generator: it describes old fixed 14 velocity ratios, whereas current `generate_p4_dataset.py` writes 9 continuous ratios and a `velocity_sampling` object. Regenerate whole directory; do not mix old metadata/arrays with new clips.
+`p4_dataset/metadata.json` is written by `generate_p4_dataset.py` and includes a `velocity_sampling` object describing the current 5-band stratified sampling of 10 continuous velocity ratios per realization (see `VELOCITY_RATIO_STRATA`). If your local metadata predates this scheme, regenerate the whole directory; do not mix old metadata/arrays with new clips.
 
 ## Commands
 
@@ -100,9 +100,9 @@ Dataset generation is expensive: process count defaults to 4 and can be changed 
 
 - Worktree contains uncommitted P4/solver changes. Treat current source, not older reports, as authoritative.
 - `P4_REPORT.md` reports legacy nominal-dataset results only. It does not evaluate current design-level generator.
-- `review_round3_notes.md` records current physics changes and deferred work. `roadmaps/reviews/p4_review_r2.md` predates shared eigenanalysis and has obsolete line-level descriptions.
+- Historical review notes (`review_round3_notes.md`, `roadmaps/reviews/p4_review_r2.md`) no longer exist; treat current source and tests as the only authoritative record of physics changes.
 - Full-order generalized eigensolves dominate runtime. Deferred improvements: modal reduction, adaptive bracketing/mode tracking, physical modal normalization, and constraint elimination.
-- `domain_randomization.py` has a non-ASCII field name `channel_drop概率`; use that exact name if constructing `SensorPerturbationConfig` until renamed deliberately across code/tests.
+- `domain_randomization.py`'s dropout distribution field is `channel_dropout_distribution`, exposed as the property `channel_drop_probability`. The legacy non-ASCII name `channel_drop概率` remains as a deprecated read-only alias; prefer the ASCII property in new code.
 - On any physics change, rerun P4 tests and regenerate dataset/checkpoints. Labels and clips share solver/eigenanalysis assumptions; changing only one produces invalid experiments.
 
 ## Fast Change Routing

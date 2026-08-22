@@ -130,9 +130,13 @@ def make_solver_from_design(design: DesignSample) -> FSDTSolver:
         M=6, N=6,
         laminate=lam,
         grid=(32, 32),
-        # ponytail: penalty_factor scales with diag(K_struct) inside solver.
-        # 1e6 is the multiplier; the solver computes k_penalty = factor * max(|diag(K)|).
-        penalty_factor=1e6,
+        # NOTE: do NOT set penalty_factor here. _base_matrices scales springs to
+        # penalty_factor * max(|diag(K_struct)|), which makes the second-order
+        # pencil so ill-conditioned that dense eig returns backward errors
+        # O(0.1-1) for most of the spectrum and spectral_abscissa's validity
+        # gate rejects every eigenvalue (flutter evaluation then fails for all
+        # designs). Absolute k_stiffness springs keep min backward error
+        # <= ~4e-7 while still enforcing effectively rigid clamps.
     )
     solver.set_boundary(
         left={"type": "clamped"}, right={"type": "free"},

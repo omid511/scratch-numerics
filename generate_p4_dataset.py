@@ -188,12 +188,12 @@ def _worker_process_design(args):
                     continue
 
                 for exc_idx in range(N_EXCITATIONS):
-                    ss = np.random.SeedSequence(
+                    ss = np.random.SeedSequence(entropy=[
                         _design_seed(design.design_id),
                         r_idx,
                         int(round(vel * 1000)),
                         exc_idx,
-                    )
+                    ])
                     rng = np.random.default_rng(ss.generate_state(1)[0])
 
                     try:
@@ -216,6 +216,7 @@ def _worker_process_design(args):
                         "velocity": clip.velocity,
                         "design_id": design.design_id,
                         "realization_idx": r_idx,
+                        "excitation_idx": exc_idx,
                         "split": split,
                     })
 
@@ -338,6 +339,7 @@ def generate_dataset(
     clips_arr = np.stack([c["signals"] for c in all_clips]).astype(np.float32)
     margins_arr = np.array([c["margin"] for c in all_clips], dtype=np.float32)
     velocities_arr = np.array([c["velocity"] for c in all_clips], dtype=np.float32)
+    excitation_ids_arr = np.array([c["excitation_idx"] for c in all_clips])
     design_ids_arr = np.array([c["design_id"] for c in all_clips])
     realization_ids_arr = np.array([c["realization_idx"] for c in all_clips])
 
@@ -366,6 +368,7 @@ def generate_dataset(
         "velocities": velocities_arr,
         "design_ids": design_ids_arr,
         "realization_ids": realization_ids_arr,
+        "excitation_ids": excitation_ids_arr,
     }
     for name, array in aligned_arrays.items():
         if len(array) != n_clips:
@@ -375,6 +378,7 @@ def generate_dataset(
     clip_keys = list(zip(
         design_ids_arr.tolist(),
         realization_ids_arr.tolist(),
+        excitation_ids_arr.tolist(),
         [float(v) for v in velocities_arr.tolist()],
     ))
     if len(clip_keys) != len(set(clip_keys)):
@@ -434,6 +438,7 @@ def generate_dataset(
         velocities=velocities_arr,
         design_ids=design_ids_arr,
         realization_ids=realization_ids_arr,
+        excitation_ids=excitation_ids_arr,
     )
     with open(tmp_path / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)

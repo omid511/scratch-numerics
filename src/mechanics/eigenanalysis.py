@@ -99,6 +99,31 @@ def _qep_backward_error(eigvals, eigvecs_phys, M_mat, K_total, C_total):
     return numer / denom
 
 
+def _scale_qep(M_mat, K_total, C_total):
+    """Dynamic (diagonal-free) QEP scaling: gamma = sqrt(||K||_F / ||M||_F).
+
+    Returns (gamma, M_t, K_t, C_t) with K_t = K/gamma^2, C_t = C/gamma,
+    M_t = M, so that the scaled stiffness and mass matrices have comparable
+    Frobenius norms. The substitution s = gamma * s_hat maps eigenvalues of
+    the scaled quadratic eigenvalue problem back to physical ones; the
+    eigenvector layout is unchanged.
+
+    Degenerate cases (non-finite or zero norms) fall back to gamma = 1.
+    """
+    norm_M = np.linalg.norm(M_mat)
+    norm_K = np.linalg.norm(K_total)
+    if (
+        np.isfinite(norm_M) and norm_M > 0.0
+        and np.isfinite(norm_K) and norm_K > 0.0
+    ):
+        gamma = float(np.sqrt(norm_K / norm_M))
+    else:
+        gamma = 1.0
+    if not (np.isfinite(gamma) and gamma > 0.0):
+        gamma = 1.0
+    return gamma, M_mat, K_total / gamma**2, C_total / gamma
+
+
 def solve_eigenproblem(
     M_mat: np.ndarray,
     K_total: np.ndarray,
@@ -250,37 +275,60 @@ def spectral_abscissa(
     finite-check and normalized backward-error (QEP residual) validation.
     No frequency, participation, conjugate, or mode-count restrictions.
 
+    The quadratic eigenvalue problem is solved in DYNAMICALLY SCALED units:
+    gamma = sqrt(||K||_F / ||M||_F), K_t = K/gamma^2, C_t = C/gamma, M_t = M,
+    so the linearized pencil blocks have comparable magnitudes and the dense
+    eigensolve stays well conditioned even for stiff structures (springs with
+    huge stiffness entries). Eigenvalues map back via s = gamma * s_hat;
+    eigenvectors are physically unchanged.
+
+    ``backward_error`` and the ``residual_tol`` gate are evaluated on the
+    SCALED system with scaled eigenvalues (s_hat against K_t, C_t, M_t) —
+    that is the system actually solved numerically — and therefore measure
+    the normwise accuracy of the computed eigenpairs in scaled terms. This is
+    the standard QEP dynamic-scaling diagnostic; it is dimensionless and
+    comparable across designs precisely because the scaling normalizes the
+    matrix magnitudes.
+
     Parameters
     ----------
     M_mat, K_total, C_total : aeroelastic system matrices
-    residual_tol : maximum QEP backward error for acceptance
+    residual_tol : maximum scaled-QEP backward error for acceptance
 
     Returns
     -------
-    SpectralAbscissaResult with alpha, critical eigenvalue, error, counts
+    SpectralAbscissaResult with alpha (physical units), critical eigenvalue
+    (physical), scaled backward error, counts
     """
     size = M_mat.shape[0]
     Z = np.zeros((size, size))
     I_mat = np.eye(size)
 
+    gamma, M_t, K_t, C_t = _scale_qep(M_mat, K_total, C_total)
+
     A_comp = np.block([
-        [Z,         I_mat],
-        [-K_total,  -C_total],
+        [Z,        I_mat],
+        [-K_t,     -C_t],
     ])
     B_comp = np.block([
         [I_mat, Z],
-        [Z,     M_mat],
+        [Z,     M_t],
     ])
 
     eigvals_raw, eigvecs_raw = linalg.eig(A_comp, B_comp)
+
+    # Map scaled eigenvalues back to physical units.
+    eigvals_phys = gamma * eigvals_raw
 
     finite = np.isfinite(eigvals_raw)
     eigvals_f = eigvals_raw[finite]
     eigvecs_f = eigvecs_raw[:, finite]
     eigvecs_phys_f = eigvecs_f[:size, :]
 
+    # Validity gate on the SCALED system actually solved: scaled eigenvalues
+    # against the scaled matrices.
     backward_errors = _qep_backward_error(
-        eigvals_f, eigvecs_phys_f, M_mat, K_total, C_total
+        eigvals_f, eigvecs_phys_f, M_t, K_t, C_t
     )
 
     valid = finite & (backward_errors <= residual_tol)
@@ -289,18 +337,20 @@ def spectral_abscissa(
         raise RuntimeError(
             f"No numerically valid eigenvalues for spectral abscissa: "
             f"finite={int(finite.sum())}/{len(finite)}, "
-            f"min_error={np.nanmin(backward_errors):.3e}"
+            f"min_error={np.nanmin(backward_errors):.3e}, gamma={gamma:.3e}"
         )
 
     valid_idx = np.flatnonzero(valid)
-    # Among valid eigenvalues, find max real part
-    valid_eigvals = eigvals_raw[valid_idx]
-    best = valid_idx[int(np.argmax(valid_eigvals.real))]
+    # Among valid eigenvalues, find max real part (physical real parts share
+    # ordering with scaled ones since gamma > 0).
+    valid_eigvals = eigvals_phys[valid_idx]
+    best_pos = int(np.argmax(valid_eigvals.real))
+    best = valid_idx[best_pos]
 
     return SpectralAbscissaResult(
-        alpha=float(eigvals_raw[best].real),
-        critical_eigenvalue=complex(eigvals_raw[best]),
-        backward_error=float(backward_errors[valid_idx[int(np.argmax(valid_eigvals.real))]]),
+        alpha=float(eigvals_phys[best].real),
+        critical_eigenvalue=complex(eigvals_phys[best]),
+        backward_error=float(backward_errors[best_pos]),
         finite_count=int(finite.sum()),
         valid_count=int(valid.sum()),
     )

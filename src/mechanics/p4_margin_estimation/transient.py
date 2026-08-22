@@ -56,6 +56,11 @@ class Eigendecomposition:
     c_sound: float
     zeta: float
     sensor_modes: np.ndarray | None = None  # P2-2: cached (n_sensors, n_modes) projection
+    # P2-3: adaptive sampling time base chosen by compute_eigendecomposition
+    # so the retained mode band fits under 90% of Nyquist. generate_clip uses
+    # it unless the caller passes an explicit t_span.
+    t_span: tuple = (0.0, 0.5)
+    dt: float | None = None
 
 
 @dataclass
@@ -160,15 +165,16 @@ def compute_eigendecomposition(
         velocity, rho, c_sound, zeta,
     )
 
-    # Modes above Nyquist (π/dt) will alias in the sampled output.
-    # Hard-fail if retained modes exceed Nyquist — oversampling is the remedy.
+    # P2-3: ADAPTIVE sampling window — determine the retained modes' frequency
+    # band FIRST, then choose dt so that 90% of Nyquist covers it. The output
+    # series LENGTH (n_timesteps) is unchanged; only dt (and hence the clip
+    # duration t1 - t0) adapts.
     t0, t1 = map(float, t_span)
     if t1 <= t0:
         raise ValueError(f"Invalid t_span: {t_span}")
     if n_timesteps < 2:
         raise ValueError("n_timesteps must be at least 2")
-    dt = (t1 - t0) / n_timesteps
-    nyquist_omega = np.pi / dt
+    dt_nominal = (t1 - t0) / n_timesteps
 
     result = solve_eigenproblem(
         M_mat, K_total, C_total,
@@ -177,38 +183,71 @@ def compute_eigendecomposition(
         n_modes=0,
     )
 
-    # Nyquist filter: reject modes that cannot be represented
-    omega = np.abs(result.eigvals.imag)
-    representable = omega <= 0.90 * nyquist_omega
+    if len(result.eigvals) > 0:
+        cand_vals, cand_vecs = result.eigvals, result.eigvecs
+    else:
+        # The unscaled linearized pencil mixes O(1) identity blocks with
+        # O(1e14) stiffness blocks, so BOTH its eigenpairs AND the unscaled
+        # residual metric are unreliable: solve_eigenproblem may retain zero
+        # modes purely for conditioning reasons. Redo the eigensolve on the
+        # DYNAMICALLY SCALED pencil (same fix as spectral_abscissa): gamma =
+        # sqrt(||K||_F/||M||_F), K_t=K/gamma^2, C_t=C/gamma; eigenvalues map
+        # back via s = gamma*s_hat, eigenvector layout is unchanged.
+        from mechanics.eigenanalysis import _qep_backward_error, _scale_qep
 
-    filtered_eigvals = result.eigvals[representable]
-    filtered_eigvecs = result.eigvecs[:, representable]
+        logger.warning(
+            "solve_eigenproblem retained 0 modes at V=%.1f (unscaled residual "
+            "gate); re-solving the dynamically scaled pencil", velocity,
+        )
+        size_all = result.size
+        gamma_s, M_t, K_t, C_t = _scale_qep(M_mat, K_total, C_total)
+        Z = np.zeros((size_all, size_all))
+        I = np.eye(size_all)
+        A_s = np.block([[Z, I], [-K_t, -C_t]])
+        B_s = np.block([[I, Z], [Z, M_t]])
+        w_hat, V_hat = linalg.eig(A_s, B_s)
+
+        ok = np.isfinite(w_hat) & (w_hat.imag > 0.0)
+        idx_ok = np.flatnonzero(ok)
+        if idx_ok.size == 0:
+            raise RuntimeError(f"No physical modes found at V={velocity:.1f}")
+        res_scaled = _qep_backward_error(
+            w_hat[idx_ok], V_hat[:size_all, idx_ok], M_t, K_t, C_t,
+        )
+        # Conditioning-aware tolerance floor: even well-computed eigenvectors
+        # of a damping-dominated stiff pencil carry scaled backward error
+        # ~1e-7..1e-6, so the filter's nominal 1e-7 would reject everything
+        # for numerical rather than physical reasons.
+        res_tol = max(filt.residual_max, 1e-5)
+        keep = idx_ok[res_scaled < res_tol]
+        cand_vals = gamma_s * w_hat[keep]
+        cand_vecs = V_hat[:, keep]
+        # Apply the frequency-band part of the filter that still makes sense.
+        om_lo = filt.omega_min if filt.omega_min is not None else 0.0
+        om_hi = filt.omega_max if filt.omega_max is not None else np.inf
+        band = (np.abs(cand_vals.imag) >= om_lo) & (np.abs(cand_vals.imag) <= om_hi)
+        cand_vals, cand_vecs = cand_vals[band], cand_vecs[:, band]
+
+    # P2-3: ADAPTIVE sampling window — determine the retained modes' frequency
+    # band FIRST, then choose dt so that 90% of Nyquist covers it. The output
+    # series LENGTH (n_timesteps) is unchanged; only dt (and hence the clip
+    # duration t1 - t0) adapts.
+    omega = np.abs(cand_vals.imag)
+    omega_max = float(omega.max()) if omega.size else 0.0
+    dt_needed = 0.90 * np.pi / omega_max if omega_max > 0.0 else dt_nominal
+    dt = min(dt_nominal, dt_needed)
+    nyquist_omega = np.pi / dt
+    t1_adapted = t0 + n_timesteps * dt
+
+    representable = omega <= 0.90 * nyquist_omega
+    filtered_eigvals = cand_vals[representable]
+    filtered_eigvecs = cand_vecs[:, representable]
 
     if filtered_eigvals.size == 0:
-        msg = (
-            f"No modes below 90% of Nyquist ({nyquist_omega:.1f} rad/s) at V={velocity:.1f}; "
-            f"increase n_timesteps or reduce t_span"
+        raise RuntimeError(
+            f"No modes below 90% of Nyquist ({nyquist_omega:.1f} rad/s) at "
+            f"V={velocity:.1f} even after adaptive dt selection"
         )
-        if nyquist_strict:
-            raise ValueError(msg)
-        else:
-            # P0-9: result.eigvals was post-TRANSIENT_FILTER which already killed
-            # them. Fall back to eigvals_all but apply minimal physical filtering:
-            # positive imaginary part, basic residual, and relaxed Nyquist bound.
-            logger.warning("%s — falling back to all finite eigenvalues (may alias)", msg)
-            phys_mask = result.eigvals_all.imag > 0
-            phys_mask &= result.residuals_all < 0.1 if hasattr(result, 'residuals_all') else True
-            if phys_mask.sum() == 0:
-                raise RuntimeError(msg)
-            filtered_eigvals = result.eigvals_all[phys_mask]
-            filtered_eigvecs = result.eigvecs_all[:, phys_mask]
-
-    if filtered_eigvals.size < n_modes:
-        logger.warning(
-            "Only %d modes below Nyquist (requested %d); using all %d",
-            filtered_eigvals.size, n_modes, filtered_eigvals.size,
-        )
-        n_modes = filtered_eigvals.size
 
     # Ensure the critical flutter mode is always included
     n_phys = len(filtered_eigvals)
@@ -291,13 +330,15 @@ def compute_eigendecomposition(
         c_sound=c_sound,
         zeta=zeta,
         sensor_modes=sensor_modes,
+        t_span=(t0, t1_adapted),
+        dt=dt,
     )
 
 
 def generate_clip_from_eigendecomposition(
     eigs: Eigendecomposition,
     rng: np.random.Generator,
-    t_span: tuple = (0.0, 0.5),
+    t_span: tuple | None = None,
     n_timesteps: int = 512,
     normalize_window_frac: float = 0.1,
     u_crit: float | None = None,
@@ -306,7 +347,14 @@ def generate_clip_from_eigendecomposition(
 
     Uses log-normal modal amplitudes so all modes receive meaningful
     excitation with independent random initial conditions.
+
+    ``t_span=None`` (default) uses the ADAPTIVE time base stored on the
+    Eigendecomposition by compute_eigendecomposition, so the sampled grid
+    always matches the dt chosen for the retained mode band. Passing an
+    explicit t_span keeps the legacy behavior.
     """
+    if t_span is None:
+        t_span = getattr(eigs, "t_span", None) or (0.0, 0.5)
     eigvals = eigs.eigvals
     eigvecs = eigs.eigvecs
     size = eigs.size
@@ -419,7 +467,7 @@ def generate_transient_clips_batch(
     clips = []
     for _ in range(n_realizations):
         clip = generate_clip_from_eigendecomposition(
-            eigs, rng, t_span, n_timesteps, normalize_window_frac, u_crit,
+            eigs, rng, None, n_timesteps, normalize_window_frac, u_crit,
         )
         clips.append(clip)
     return clips
@@ -473,7 +521,7 @@ def generate_transient_clip(
     )
 
     return generate_clip_from_eigendecomposition(
-        eigs, rng, t_span, n_timesteps, normalize_window_frac, u_crit,
+        eigs, rng, None, n_timesteps, normalize_window_frac, u_crit,
     )
 
 
