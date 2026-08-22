@@ -173,6 +173,9 @@ class FSDTSolver:
 
         # Boundary springs
         self._springs: list[tuple[float, int, float | None, float | None]] = []
+
+        # Spatial damage field (retention factors), None = pristine
+        self._damage_field: np.ndarray | None = None
         self._base_cache = None
 
     def _eval_basis_on_grid_x(self) -> np.ndarray:
@@ -239,6 +242,29 @@ class FSDTSolver:
     def set_boundary_springs(self, springs: list):
         """Directly set spring list."""
         self._springs = list(springs)
+        self._invalidate_caches()
+
+    def set_damage_field(self, field: np.ndarray | None) -> None:
+        """Set a spatial stiffness-retention damage field.
+
+        Args:
+            field: array of shape (n_y, n_x); entry [iy, ix] is the constant
+                stiffness retention factor on the cell
+                [ix*h1, (ix+1)*h1] x [iy*h2, (iy+1)*h2] over
+                [0, L1] x [0, L2], with values in (0, 1].
+                None clears the field (back to the pristine analytic path).
+        """
+        if field is None:
+            self._damage_field = None
+        else:
+            arr = np.asarray(field, dtype=float)
+            if arr.ndim != 2 or arr.shape[0] < 1 or arr.shape[1] < 1:
+                raise ValueError(
+                    f"damage field must be 2-D (n_y, n_x), got shape {arr.shape}"
+                )
+            if np.any(arr <= 0.0) or np.any(arr > 1.0):
+                raise ValueError("retention factors must lie in (0, 1]")
+            self._damage_field = arr.copy()
         self._invalidate_caches()
 
     def _base_matrices(self) -> tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray] | None]:
@@ -318,7 +344,109 @@ class FSDTSolver:
         return M_mat
 
     def assemble_stiffness(self) -> np.ndarray:
-        """Assemble FSDT structural stiffness matrix."""
+        """Assemble FSDT structural stiffness matrix.
+
+        With no damage field set, uses the analytic precomputed basis
+        integrals (unchanged fast path). With a spatial damage field set,
+        falls back to per-cell Gauss-Legendre quadrature where each cell's
+        ABDAs matrix is scaled uniformly (all 8x8 entries) by the cell's
+        retention factor — a v1 simplification: degradation is applied
+        isotropically across membrane, bending-coupling, and shear terms.
+        """
+        if self._damage_field is not None:
+            return self._assemble_stiffness_quadrature()
+        return self._assemble_stiffness_analytic()
+
+    def _assemble_stiffness_quadrature(self) -> np.ndarray:
+        """Numerical-quadrature stiffness assembly under a damage field.
+
+        Per field cell (constant retention factor), n_gp Gauss-Legendre
+        points per dimension (n_gp = max(2M, 2N)) are mapped into the cell;
+        basis values and physical derivatives are evaluated at each point,
+        the strain matrix is built with the same T-matrix pattern as the
+        analytic path, and K accumulates w_x*w_y*J*B^T*ABDAs_scaled*B.
+        """
+        from numpy.polynomial.legendre import leggauss
+
+        ABBD, As = self.laminate.ABD()
+
+        # Same 8x8 ABDAs matrix as the analytic path
+        if hasattr(self.laminate, 'kappa'):
+            kappa = np.asarray(self.laminate.kappa(), dtype=float)
+        else:
+            kappa = np.diag([5.0/6.0, 5.0/6.0])
+        ABDAs = np.zeros((8, 8))
+        ABDAs[:3, :3] = ABBD[:3, :3]
+        ABDAs[:3, 3:6] = ABBD[:3, 3:6]
+        ABDAs[3:6, :3] = ABBD[3:6, :3]
+        ABDAs[3:6, 3:6] = ABBD[3:6, 3:6]
+        ABDAs[6:, 6:] = kappa @ As
+
+        field = self._damage_field
+        n_y, n_x = field.shape
+        h1 = self.L1 / n_x
+        h2 = self.L2 / n_y
+        n_gp = max(2 * self.M, 2 * self.N)
+        xi_g, w_g = leggauss(n_gp)
+
+        T3 = _T.reshape(8, 3, 5)  # [strain, derivative slot, dof group]
+        MN = self._MN_eff
+        MN5 = 5 * MN
+        K = np.zeros((MN5, MN5))
+
+        for iy in range(n_y):
+            ys = (iy + 0.5) * h2 + 0.5 * h2 * xi_g
+            wy = 0.5 * h2 * w_g  # cell Jacobian folds into weights; J = 1
+            vy, dvy = self._eval_basis_derivs_axis("y", ys)
+            for ix in range(n_x):
+                f = float(field[iy, ix])
+                xs = (ix + 0.5) * h1 + 0.5 * h1 * xi_g
+                wx = 0.5 * h1 * w_g
+                vx, dvx = self._eval_basis_derivs_axis("x", xs)
+
+                # Tensor-product quad grid: point k = (px, qy), weight
+                # wx[px]*wy[qy]; basis value at k is vx[ix,px]*vy[iy,qy].
+                g_val = np.multiply.outer(vx, vy).transpose(0, 2, 1, 3)
+                g_dx = np.multiply.outer(dvx, vy).transpose(0, 2, 1, 3)
+                g_dy = np.multiply.outer(vx, dvy).transpose(0, 2, 1, 3)
+                G = np.stack([g.reshape(MN, -1) for g in (g_val, g_dx, g_dy)])
+                n_pts = G.shape[2]
+                # Strain-displacement matrix B[r, dof*MN + i, k]
+                B = np.einsum("rdt,dik->rtik", T3, G).reshape(8, MN5, n_pts)
+
+                ABDAs_scaled = ABDAs * f
+                W = np.outer(wx, wy).ravel()
+                for k in range(n_pts):
+                    Bk = B[:, :, k]
+                    K += W[k] * (Bk.T @ ABDAs_scaled @ Bk)
+
+        return K
+
+    def _eval_basis_derivs_axis(self, axis: str, pts: np.ndarray):
+        """Evaluate one axis' basis values and derivatives at points.
+
+        Returns (vals, dvals), each (n_basis, len(pts)); dvals are
+        derivatives w.r.t. the physical coordinate along the axis.
+        """
+        if axis == "x":
+            order, length = self.M - 1, self.L1
+        elif axis == "y":
+            order, length = self.N - 1, self.L2
+        else:
+            raise ValueError(f"Unknown axis: {axis}")
+        if self.basis_type == "legendre":
+            xi = 2.0 * pts / length - 1.0
+            vals, dvals = legendre_and_derivative(order, xi)
+            dvals = dvals * (2.0 / length)
+        elif self.basis_type == "trigonometric":
+            vals, dvals = trig_and_derivative(order, pts / length)
+            dvals = dvals / length
+        else:
+            raise ValueError(f"Unknown basis: {self.basis_type}")
+        return vals, dvals
+
+    def _assemble_stiffness_analytic(self) -> np.ndarray:
+        """Analytic-path stiffness assembly (pristine, precomputed integrals)."""
         ABBD, As = self.laminate.ABD()
 
         # Full 2x2 shear correction matrix (preserves off-diagonal coupling)
