@@ -133,8 +133,11 @@ def crps(
         raise ValueError("fair CRPS needs at least 2 ensemble members")
     term_abs = np.mean(np.abs(ens - y[:, None]))
     diffs = np.abs(ens[:, :, None] - ens[:, None, :])
-    spread = diffs.sum() / (2.0 * m * (m - 1))
-    return float(term_abs - spread)
+    # Per-observation fair spread, then average over observations.
+    # (Summing diffs over all axes double-counts observations and drives
+    # CRPS negative for >1 identical obs — regression-pinned in tests.)
+    spread = diffs.sum(axis=(1, 2)) / (2.0 * m * (m - 1))
+    return float(np.mean(term_abs - spread))
 
 
 def posterior_mean_mse(mean_field: np.ndarray, truth_field: np.ndarray) -> float:
