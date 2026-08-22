@@ -120,8 +120,9 @@ class GPSurrogate:
         self._alpha: np.ndarray | None = None
         self._n_train = 0
 
-    def fit(self, X: np.ndarray, y: np.ndarray, 
-            objective_fn=None) -> None:
+    def fit(self, X: np.ndarray, y: np.ndarray,
+            objective_fn=None,
+            optimize_hyperparams: bool = False) -> None:
         """Fit GP to training data.
 
         Args:
@@ -130,6 +131,11 @@ class GPSurrogate:
             objective_fn: Optional callable(X) -> y for computing gradients.
                 If use_gradients=True and objective_fn is provided, gradients
                 are computed automatically via finite differences.
+            optimize_hyperparams: When True, maximize the log marginal
+                likelihood over log length-scales and log signal variance
+                (L-BFGS-B) before the final fit; on any optimizer failure
+                the fixed heuristic hyperparameters are kept. Default False
+                preserves exact legacy behavior.
         """
         self._X_train = X.copy()
         n, d = X.shape
@@ -146,6 +152,9 @@ class GPSurrogate:
 
         self._y_train = y_aug
         self._n_train = n
+
+        if optimize_hyperparams:
+            self._optimize_hyperparams()
 
         # Build and factor kernel matrix (torch for Cholesky/solve)
         K = _augmented_kernel(
@@ -169,6 +178,53 @@ class GPSurrogate:
                 continue
         else:
             raise np.linalg.LinAlgError("GP kernel matrix not positive definite")
+
+    def _lml_for(self, length_scales: np.ndarray, signal_var: float) -> float:
+        """Log marginal likelihood for given hyperparameters."""
+        y = self._y_train
+        K = _augmented_kernel(
+            self._X_train, length_scales, signal_var, self.noise_var,
+            include_grad=self.use_gradients,
+        )
+        n = K.shape[0]
+        K_t = _to_torch(K)
+        sign, logdet = torch.linalg.slogdet(K_t)
+        if sign <= 0:
+            return -np.inf
+        alpha = torch.cholesky_solve(
+            _to_torch(y).unsqueeze(1), torch.linalg.cholesky(K_t)
+        ).squeeze(1)
+        return float(-0.5 * (_to_torch(y) @ alpha + logdet + n * np.log(2 * np.pi)))
+
+    def _optimize_hyperparams(self) -> None:
+        """Maximize log marginal likelihood over log length-scales and
+        log signal variance via L-BFGS-B; keep heuristics on failure."""
+        from scipy.optimize import minimize
+
+        ls0 = np.asarray(self.length_scales, dtype=float)
+        theta0 = np.concatenate([np.log(ls0), [np.log(self.signal_var)]])
+
+        def neg_lml(theta: np.ndarray) -> float:
+            ls = np.exp(theta[:-1])
+            sv = float(np.exp(theta[-1]))
+            if not np.all(np.isfinite(ls)) or not np.isfinite(sv):
+                return np.inf
+            val = self._lml_for(ls, sv)
+            return -val if np.isfinite(val) else np.inf
+
+        try:
+            res = minimize(neg_lml, theta0, method="L-BFGS-B",
+                           options={"maxiter": 100})
+        except Exception:
+            return
+        if not (np.all(np.isfinite(res.x)) and np.isfinite(res.fun)):
+            return
+        ls_new = np.exp(res.x[:-1])
+        sv_new = float(np.exp(res.x[-1]))
+        # Accept only if it actually improves on the heuristic start.
+        if -res.fun > self._lml_for(ls0, self.signal_var):
+            self.length_scales = ls_new
+            self.signal_var = sv_new
 
     def _compute_gradients(self, X: np.ndarray, objective_fn) -> np.ndarray:
         """Compute finite-difference gradients at training points."""

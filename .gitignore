@@ -48,6 +48,7 @@ serena/
 
 # P4 artifacts
 p4_dataset/
+p4_dataset_legacy/
 p4_*.pt
 p4_results.png
 p4_train_results.json
