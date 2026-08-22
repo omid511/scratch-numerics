@@ -1,9 +1,12 @@
 """Physics gates for FSDTSolver spatial damage fields (Proposal 2 enabler).
 
-Measured ones-field equivalence error on the reference fixture:
-8.7e-15 relative Frobenius norm (quadrature vs analytic integrals) —
-machine precision; the 1% gate below exists to catch regressions, not
-quadrature noise.
+Ones-field equivalence (quadrature vs analytic integrals), legendre basis:
+8.7e-15 relative Frobenius — machine precision. For the trigonometric
+basis the QUADRATURE path is exact (~5e-15) while the pre-existing
+analytic integral tables under-resolve high-mode trig products
+(~3e-4 relative); an all-ones field therefore shifts trig-basis
+frequencies ~0.015% vs the no-field state. The trig gate below uses that
+honest tolerance; see RevP2CodeB/SciVerif notes in the P2 review round.
 """
 from __future__ import annotations
 
@@ -98,3 +101,24 @@ def test_edge_patch_locality():
     # Center damage removes stiffness where transverse mode amplitude is
     # largest; same-size corner damage perturbs f1 less or equal.
     assert fe >= fc
+
+
+def test_trig_basis_ones_field_tolerance():
+    """Trig analytic tables under-resolve high-mode products; the
+    quadrature path is the accurate side. All-ones field may shift
+    frequencies ~0.015% — bounded here, not machine precision."""
+    E, nu, rho = 70e9, 0.33, 2700.0
+    G = E / (2 * (1 + nu))
+    lam = Laminate([Material(E, E, G, G, G, nu, rho)] * 3,
+                   [0.0, 0.0, 0.0], [-0.006, -0.002, 0.002, 0.006])
+    s = FSDTSolver(L1=0.3, L2=0.3, M=6, N=6, laminate=lam,
+                   basis_type="trigonometric", grid=(16, 16))
+    s.set_boundary(left={"type": "simply_supported"},
+                   right={"type": "simply_supported"},
+                   top={"type": "simply_supported"},
+                   bottom={"type": "simply_supported"})
+    f_ref = s.solve_modal(n_modes=4).frequencies.copy()
+    s.set_damage_field(np.ones((8, 8)))
+    f_ones = s.solve_modal(n_modes=4).frequencies
+    rel = np.abs(f_ones - f_ref) / f_ref
+    assert np.all(rel < 5e-4), f"trig ones-field drift {rel.max():.2e}"

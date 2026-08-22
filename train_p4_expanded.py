@@ -224,7 +224,12 @@ def evaluate_point(model, clips, velocities=None, device="cpu"):
     X = torch.stack(X_list).to(device)
     y_true = torch.tensor(y_list, dtype=torch.float32, device=device)
     with torch.inference_mode():
-        pred = model(X).squeeze(-1)
+        pred = model(X)
+    # Median-only variant is the full 3-column QuantileMarginModel trained
+    # on the middle channel; reduce to that column before point metrics.
+    if pred.dim() > 1 and pred.shape[-1] > 1:
+        pred = pred[..., pred.shape[-1] // 2]
+    pred = pred.squeeze(-1)
     mae = (pred - y_true).abs().mean().item()
     result = {"mae": mae, "mean_interval_width": float("nan"), "coverage": {}}
     if valid_vels:

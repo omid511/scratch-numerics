@@ -143,8 +143,15 @@ class DamageField:
 
     def __post_init__(self):
         self.values = np.asarray(self.values, dtype=float)
+        if self.values.ndim != 2 or self.values.size == 0:
+            raise ValueError(
+                f"DamageField values must be a non-empty 2-D array, got "
+                f"shape {self.values.shape}"
+            )
         if self.metadata is None:
             self.metadata = {}
+        if not np.all(np.isfinite(self.values)):
+            raise ValueError("DamageField values must be finite (NaN/inf rejected)")
         if self.values.min() <= 0.0 or self.values.max() > 1.0:
             raise ValueError(
                 f"DamageField values must be in (0, 1], got "
