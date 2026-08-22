@@ -514,6 +514,34 @@ class TestModeTrackingMAC:
             f"{low_steps} steps have median MAC < 0.5 (max 5 allowed)"
         )
 
+    def test_complex_shape_mac_phase_invariant_across_sweep(self):
+        """Regression: complex mode shapes keep MAC high across the
+        velocity sweep, and MAC is invariant to the arbitrary global
+        phase each eigenstep carries — the property the real-part
+        slice lacks along aeroelastic branches.
+        """
+        from mechanics.p3_robust_design.mode_tracking import mac
+        s = _make_solver()
+        velocities = np.linspace(420.0, 460.0, 8)
+        results = [s.solve_complex_modal(float(v), n_modes=4) for v in velocities]
+        macs = [
+            mac(prev.mode_shapes_complex[k], curr.mode_shapes_complex[k])
+            for prev, curr in zip(results[:-1], results[1:])
+            for k in range(4)
+        ]
+        assert np.median(macs) > 0.6, (
+            f"Median complex-shape MAC {np.median(macs):.3f} <= 0.6"
+        )
+        # Phase invariance: rotating each mode by an arbitrary global
+        # complex phase must not change MAC.
+        rng = np.random.default_rng(7)
+        rotated = results[0].mode_shapes_complex * np.exp(
+            1j * rng.uniform(0.0, 2.0 * np.pi, size=(4, 1, 1))
+        )
+        for k in range(4):
+            ref = mac(results[0].mode_shapes_complex[k], results[1].mode_shapes_complex[k])
+            assert abs(mac(rotated[k], results[1].mode_shapes_complex[k]) - ref) < 1e-9
+
 
 class TestStiffnessIncreasesFlutter:
     def test_stiffness_increases_flutter_lambda(self):

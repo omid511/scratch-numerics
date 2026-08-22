@@ -544,12 +544,23 @@ class FSDTSolver:
 
         size = M_mat.shape[0]
 
+        # Dynamic QEP scaling: with large penalty stiffnesses the raw
+        # pencil is badly conditioned and physical (transverse) modes
+        # pick up residuals above the filter threshold. Substituting
+        # s = gamma * s' with gamma = sqrt(||K||_F / ||M||_F balances the
+        # quadratic terms; eigenvectors are unchanged, eigenvalues scale
+        # back by gamma.
+        gamma = np.sqrt(
+            np.linalg.norm(K_total, "fro") / np.linalg.norm(M_mat, "fro")
+        )
         result = solve_eigenproblem(
-            M_mat, K_total, C_total,
+            M_mat, K_total / gamma**2, C_total / gamma,
             filt=FLUTTER_FILTER,
             require_positive_imag=True,
             n_modes=n_modes,
         )
+        eigvals_scaled = result.eigvals
+        result.eigvals = eigvals_scaled * gamma
 
         n_out = len(result.eigvals)
         if n_out == 0:
@@ -563,6 +574,9 @@ class FSDTSolver:
             )
 
         mode_shapes = np.zeros((n_out, self.grid[1], self.grid[0]))
+        mode_shapes_complex = np.zeros(
+            (n_out, self.grid[1], self.grid[0]), dtype=complex
+        )
         coeffs = np.zeros((n_out, size))
         stable = np.zeros(n_out, dtype=bool)
 
@@ -572,7 +586,13 @@ class FSDTSolver:
             pivot = np.argmax(np.abs(q))
             q = q * np.exp(-1j * np.angle(q[pivot]))
             coeffs[k] = q.real
-            mode_shapes[k] = self._eval_mode_on_grid(q.real)
+            # Complex shape on grid: evaluation is linear, so evaluate real
+            # and imaginary parts separately and recombine.
+            mode_shapes_complex[k] = (
+                self._eval_mode_on_grid(q.real)
+                + 1j * self._eval_mode_on_grid(q.imag)
+            )
+            mode_shapes[k] = mode_shapes_complex[k].real
 
         D11 = self._compute_D11()
         from .piston_theory import non_dimensional_lambda
@@ -585,6 +605,7 @@ class FSDTSolver:
         return AeroelasticResult(
             frequencies=result.eigvals.imag / (2 * np.pi),
             mode_shapes=mode_shapes,
+            mode_shapes_complex=mode_shapes_complex,
             grid_x=self._gx, grid_y=self._gy,
             eigenvalues=result.eigvals,
             stable=stable,
@@ -611,7 +632,7 @@ class FSDTSolver:
         M_mat, K_total, C_total = self.assemble_aeroelastic_system(
             velocity, rho, c_sound, zeta, flow_angle,
         )
-        result = spectral_abscissa(M_mat, K_total, C_total)
+        result = spectral_abscissa(M_mat, K_total, C_total, eta_w_min=1e-3)
         return result.alpha
 
     def _diagnose_eigenpair_filtering(
