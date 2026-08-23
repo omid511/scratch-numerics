@@ -334,6 +334,7 @@ def generate_field_dataset(
     area_frac: tuple[float, float] = (0.05, 0.3),
     multi_patch_prob: float = 0.5,
     store_shapes: bool = False,
+    store_full_shapes: bool = False,
     progress_every: int = 25,
 ) -> dict:
     """Generate a spatial damage-field dataset supervised by modal frequencies.
@@ -355,6 +356,11 @@ def generate_field_dataset(
     pass ``store_shapes=True`` to also keep the mode shapes
     ``(n_samples, n_modes, gy_eval, gx_eval)`` under key ``mode_shapes``
     (significantly more memory and disk).
+    Pass ``store_full_shapes=True`` to keep the transverse mode shapes on
+    the FIELD grid itself: the solver's evaluation grid is set to
+    (gx, gy), so ``mode_shapes`` comes back as (n, n_modes, gy, gx) and
+    aligns with ``fields`` pixel-for-pixel (frequencies are unaffected —
+    they come from the basis-coefficient eigenproblem, not the eval grid).
 
     Returns a dict with keys:
         fields:      (n_samples, gy, gx) stacked retention arrays
@@ -363,7 +369,9 @@ def generate_field_dataset(
         splits:      {"train": [...], "val": [...], "test": [...]}
                      design-level index lists from :func:`split_designs`
         config:      echo of every generation parameter
-        mode_shapes: only when store_shapes=True
+        mode_shapes: only when store_shapes=True or store_full_shapes=True
+                     ((n, n_modes, gy_eval, gx_eval) solver grid; field
+                     grid when store_full_shapes=True)
         summaries: only when store_shapes=True — (n_samples, n_modes*2)
                    per-mode [RMS(w), max|w|] of each solved mode shape
     """
@@ -375,10 +383,14 @@ def generate_field_dataset(
     rng = np.random.default_rng(seed)
     base_lam = _default_laminate()
     L1 = L2 = 0.3
+    solver_kwargs = (
+        {"grid": (gx, gy)} if store_full_shapes else {}
+    )
     solver = FSDTSolver(
         L1=L1, L2=L2, M=M, N=N,
         laminate=base_lam,
         basis_type="legendre",
+        **solver_kwargs,
     )
     solver.set_boundary(
         left={"type": "clamped"},
@@ -391,7 +403,7 @@ def generate_field_dataset(
     all_freq = []
     all_values = []
     all_severity = []
-    all_shapes = [] if store_shapes else None
+    all_shapes = [] if (store_shapes or store_full_shapes) else None
     all_summaries = [] if store_shapes else None
 
     t0 = time.perf_counter()
@@ -411,8 +423,9 @@ def generate_field_dataset(
         all_values.append(field.to_array())
         all_freq.append(result.frequencies.real)
         all_severity.append(1.0 - float(np.mean(field.to_array())))
-        if store_shapes:
+        if store_shapes or store_full_shapes:
             all_shapes.append(result.mode_shapes)
+        if store_shapes:
             # Per-mode shape summaries: [RMS(w), max|w|] for each solved
             # mode -> (n_modes, 2), later stacked to (n, n_modes*2).
             shapes_i = np.asarray(result.mode_shapes)
@@ -456,10 +469,11 @@ def generate_field_dataset(
             "boundary": "clamped-all-sides",
         },
     }
-    if store_shapes:
+    if store_shapes or store_full_shapes:
         dataset["mode_shapes"] = np.stack(all_shapes)
     if store_shapes:
         dataset["summaries"] = np.stack(all_summaries).reshape(
             n_samples, -1
         )                                                # (n, n_modes*2)
+    dataset["config"]["store_full_shapes"] = store_full_shapes
     return dataset
