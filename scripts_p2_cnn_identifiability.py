@@ -23,7 +23,7 @@ from mechanics.p2_inverse_damage.field_pipeline import (
     train_field_cvae_heteroscedastic,
 )
 
-DS = "data/p2/fields_cnn_ds.npz"
+DS = "data/p2/fields_ds_fullshapes.npz"
 
 
 def main() -> None:
