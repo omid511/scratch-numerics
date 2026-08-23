@@ -296,6 +296,30 @@ def inject_measurement_noise(
     eps = rng.normal(0.0, rel_pct / 100.0, size=np.shape(freqs))
     return np.asarray(freqs) * (1.0 + eps)
 
+def _canonicalize_mode_shape(w: np.ndarray) -> np.ndarray:
+    """Canonicalize one mode shape: sign-fix + amplitude normalization.
+
+    The eigensolver returns mode shapes with arbitrary per-sample sign and
+    scale (any scalar multiple of an eigenvector is an eigenvector). For
+    learning pipelines the stored representation is made canonical:
+
+      * sign: flipped so the element of ``max(|w|)`` is positive;
+      * amplitude: divided by ``max(|w|)`` so every stored shape has unit
+        peak magnitude.
+
+    Downstream consumers must NOT expect mass-normalized scaling — stored
+    shapes are max-norm 1 by construction. Frequencies are unaffected.
+    Deterministic given ``w``: identical inputs map to identical outputs.
+    """
+    w = np.array(w, dtype=np.float64)
+    peak_idx = int(np.argmax(np.abs(w)))
+    if w.flat[peak_idx] < 0:
+        w = -w
+    peak = float(np.max(np.abs(w)))
+    if peak > 0.0:
+        w = w / peak
+    return w
+
 
 def split_designs(
     n: int,
@@ -362,6 +386,13 @@ def generate_field_dataset(
     aligns with ``fields`` pixel-for-pixel (frequencies are unaffected —
     they come from the basis-coefficient eigenproblem, not the eval grid).
 
+    Stored mode shapes are CANONICALIZED: per mode, the shape is sign-fixed
+    (element of max |w| positive) and divided by max |w| (unit peak). They
+    are therefore max-norm 1, NOT mass-normalized — downstream consumers
+    must not expect mass-normalized scaling. This removes the eigensolver's
+    arbitrary per-sample sign/scale so spatial-learning pipelines see a
+    deterministic representation.
+
     Returns a dict with keys:
         fields:      (n_samples, gy, gx) stacked retention arrays
         frequencies: (n_samples, n_modes) real eigenfrequencies [Hz]
@@ -424,7 +455,13 @@ def generate_field_dataset(
         all_freq.append(result.frequencies.real)
         all_severity.append(1.0 - float(np.mean(field.to_array())))
         if store_shapes or store_full_shapes:
-            all_shapes.append(result.mode_shapes)
+            # Canonicalize before storage: sign-fixed (max-|w| element
+            # positive) and max-norm 1, removing the eigensolver's
+            # arbitrary per-sample sign/scale. See _canonicalize_mode_shape.
+            all_shapes.append(np.stack([
+                _canonicalize_mode_shape(w)
+                for w in np.asarray(result.mode_shapes)
+            ]))
         if store_shapes:
             # Per-mode shape summaries: [RMS(w), max|w|] for each solved
             # mode -> (n_modes, 2), later stacked to (n, n_modes*2).
