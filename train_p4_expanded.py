@@ -449,17 +449,21 @@ if __name__ == "__main__":
     # ── Safety-critical metrics ──
     if q_model is not None:
         near_flutter_clips = [c for c in test_clips_dr if not np.isnan(c.margin) and c.margin < 0.15]
+        false_safe_rate = lower_bound_false_safe_rate = float("nan")
+        false_safe_incidence = false_unsafe_rate = float("nan")
+        near_flutter_mae = signed_bias = cqr_coverage = cqr_width = float("nan")
+        mono_rate = None
+        bootstrap_ci = None
         if near_flutter_clips:
             X_nf = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in near_flutter_clips])
             y_nf = torch.tensor([c.margin for c in near_flutter_clips], dtype=torch.float32)
             with torch.inference_mode():
                 quantile_pred_nf = q_model(X_nf)
-            pred_nf = quantile_pred_nf[:, 1]  # median
+            pred_nf = quantile_pred_nf[:, 1]  # median column
             near_flutter_mae = (pred_nf - y_nf).abs().mean().item()
             P(f"\n  Safety-critical metrics:")
             P(f"    Near-flutter MAE (margin<0.15): {near_flutter_mae:.4f} ({len(near_flutter_clips)} clips)")
 
-            # False-safe rate using median and lower bound
             all_X = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in test_clips_dr if not np.isnan(c.margin)])
             all_y = torch.tensor([c.margin for c in test_clips_dr if not np.isnan(c.margin)], dtype=torch.float32)
             with torch.inference_mode():
@@ -469,24 +473,14 @@ if __name__ == "__main__":
             unsafe_mask = all_y <= 0.0
             median_false_safe = unsafe_mask & (all_pred_median > 0.0)
             n_unsafe = int(unsafe_mask.sum().item())
-            if n_unsafe == 0:
-                false_safe_rate = float("nan")
-            else:
-                false_safe_rate = median_false_safe.sum().item() / n_unsafe
-
+            false_safe_rate = (median_false_safe.sum().item() / n_unsafe) if n_unsafe else float("nan")
             false_safe_incidence = median_false_safe.float().mean().item()
 
-            # Lower bound false-safe
-            if quantile_pred_all.shape[1] > 0:
-                all_pred_lower = quantile_pred_all[:, 0]
-                lower_bound_false_safe = unsafe_mask & (all_pred_lower > 0.0)
-                if n_unsafe == 0:
-                    lower_bound_false_safe_rate = float("nan")
-                else:
-                    lower_bound_false_safe_rate = lower_bound_false_safe.sum().item() / n_unsafe
-                P(f"    Lower-bound false-safe rate: {lower_bound_false_safe_rate:.4f}")
+            all_pred_lower_t = quantile_pred_all[:, 0]
+            lower_bound_false_safe = unsafe_mask & (all_pred_lower_t > 0.0)
+            lower_bound_false_safe_rate = (lower_bound_false_safe.sum().item() / n_unsafe) if n_unsafe else float("nan")
+            P(f"    Lower-bound false-safe rate: {lower_bound_false_safe_rate:.4f}")
 
-            # Reciprocal metric
             safe_mask = all_y > 0.0
             false_unsafe_mask = safe_mask & (all_pred_median <= 0.0)
             false_unsafe_rate = false_unsafe_mask.sum().item() / max(int(safe_mask.sum().item()), 1)
@@ -494,31 +488,27 @@ if __name__ == "__main__":
             P(f"    False-safe incidence: {false_safe_incidence:.4f}")
             P(f"    False-unsafe rate: {false_unsafe_rate:.4f}")
 
-            # Signed bias near flutter
             signed_bias = (pred_nf - y_nf).mean().item()
             P(f"    Signed bias (near-flutter): {signed_bias:+.4f}")
 
-            # P1-21: CQR calibration on val set, evaluate on test
-            all_pred_lower = quantile_pred_all[:, 0].cpu().numpy()
+            all_pred_lower = all_pred_lower_t.cpu().numpy()
             all_pred_upper = quantile_pred_all[:, 2].cpu().numpy()
             all_y_np = all_y.cpu().numpy()
 
-            # Use val clips for CQR calibration
             val_clips_valid = [c for c in val_clips_dr if not np.isnan(c.margin)]
             if val_clips_valid:
                 val_X = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in val_clips_valid])
                 with torch.inference_mode():
                     val_pred = q_model(val_X)
-                val_lower = val_pred[:, 0].cpu().numpy()
-                val_upper = val_pred[:, 2].cpu().numpy()
-                val_y = np.array([c.margin for c in val_clips_valid])
-                cqr_adj = fit_cqr_adjustment(val_lower, val_upper, val_y, alpha=0.10)
+                cqr_adj = fit_cqr_adjustment(
+                    val_pred[:, 0].cpu().numpy(), val_pred[:, 2].cpu().numpy(),
+                    np.array([c.margin for c in val_clips_valid]), alpha=0.10,
+                )
                 adj_lower, adj_upper = apply_cqr_adjustment(all_pred_lower, all_pred_upper, cqr_adj)
                 cqr_coverage = float(np.mean((all_y_np >= adj_lower) & (all_y_np <= adj_upper)))
                 cqr_width = float(np.mean(adj_upper - adj_lower))
                 P(f"    CQR adjusted coverage: {cqr_coverage:.3f}, width: {cqr_width:.4f}")
 
-            # P1-29: Bootstrap confidence intervals
             test_records = [
                 (c.design_id, float(abs(pred - c.margin)))
                 for c, pred in zip(
@@ -532,9 +522,9 @@ if __name__ == "__main__":
                     test_records, lambda vals: float(np.mean(vals)),
                     n_bootstrap=500, seed=42,
                 )
+                bootstrap_ci = [lo_mae, hi_mae]
                 P(f"    MAE (design-bootstrap 95% CI): {obs_mae:.4f} [{lo_mae:.4f}, {hi_mae:.4f}]")
 
-            # P1-30: Monotonicity violations
             test_vels_arr = np.array([
                 c.velocity for c in test_clips_dr if not np.isnan(c.margin)
             ])
@@ -546,6 +536,22 @@ if __name__ == "__main__":
                     all_pred_median.cpu().numpy(), test_vels_arr, test_design_ids_arr,
                 )
                 P(f"    Monotonicity violation rate: {mono_rate:.4f}")
+
+            # Persist the safety block (previously print-only; the expanded-
+            # report generator consumes results["safety_summary"]).
+            results["safety_summary"] = {
+                "near_flutter_mae": near_flutter_mae,
+                "near_flutter_clips": len(near_flutter_clips),
+                "false_safe_rate_median": false_safe_rate,
+                "lower_bound_false_safe_rate": lower_bound_false_safe_rate,
+                "false_safe_incidence": false_safe_incidence,
+                "false_unsafe_rate": false_unsafe_rate,
+                "signed_bias_near_flutter": signed_bias,
+                "cqr_coverage_90": cqr_coverage,
+                "cqr_width_90": cqr_width,
+                "mae_design_bootstrap_ci95": bootstrap_ci,
+                "monotonicity_violation_rate": mono_rate,
+            }
 
     _release_memory()
 
