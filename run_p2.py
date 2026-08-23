@@ -29,10 +29,12 @@ for _var in (
 import argparse
 import json
 import sys
+import time
 import traceback
 from pathlib import Path
 
 DEFAULT_OUT = "data/p2/damage_dataset.npz"
+DEFAULT_FIELDS_OUT = "data/p2/field_dataset.npz"
 DEFAULT_POSTERIOR = "p2_posterior.pt"
 SEED = 42
 
@@ -89,6 +91,99 @@ def cmd_generate(args):
     P(f"frequencies:   {dataset['frequencies'].shape}")
     P(f"mode_shapes:   {dataset['mode_shapes'].shape}")
     P(f"damage_factors:{dataset['damage_factors'].shape}")
+    P(f"Saved {out}")
+
+
+# ---------------------------------------------------------------------------
+# generate-fields
+# ---------------------------------------------------------------------------
+
+def cmd_generate_fields(args):
+    import datetime
+
+    import numpy as np
+
+    from mechanics.p2_inverse_damage.damage_data import (
+        DamageField,
+        generate_field_dataset,
+        save_dataset_npz,
+    )
+
+    P(
+        f"P2 generate-fields: n={args.n} field grid={args.gy}x{args.gx} "
+        f"M={args.M} N={args.N} seed={args.seed}"
+    )
+    P(
+        "NOTE: each sample costs a damaged quadrature assembly (~1-10 s at "
+        "M=N=6..8, 6x6..8x8 field grids); frequencies-only supervision."
+    )
+
+    t0 = time.perf_counter()
+    dataset = generate_field_dataset(
+        n_samples=args.n,
+        gy=args.gy,
+        gx=args.gx,
+        M=args.M,
+        N=args.N,
+        seed=args.seed,
+    )
+
+    out = Path(args.out)
+    if out.suffix != ".npz":
+        out = out.with_suffix(out.suffix + ".npz")
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    fields = [
+        DamageField.from_array(dataset["fields"][i])
+        for i in range(args.n)
+    ]
+    splits = dataset["splits"]
+    save_dataset_npz(
+        str(out),
+        fields=fields,
+        measurements={
+            "frequencies": dataset["frequencies"],
+            "severity": dataset["severity"],
+        },
+    )
+
+    # Append split indices + provenance alongside the save_dataset_npz payload.
+    with np.load(out, allow_pickle=False) as data:
+        payload = {key: data[key] for key in data.files}
+    payload.update(
+        {
+            "split_train": np.asarray(splits["train"], dtype=np.int64),
+            "split_val": np.asarray(splits["val"], dtype=np.int64),
+            "split_test": np.asarray(splits["test"], dtype=np.int64),
+            "config": np.array(json.dumps(dataset["config"])),
+            "provenance": np.array(
+                json.dumps(
+                    {
+                        "created_at": datetime.datetime.now().isoformat(),
+                        "command": " ".join(sys.argv),
+                        "n_samples": args.n,
+                        "field_grid": [args.gy, args.gx],
+                        "M": args.M,
+                        "N": args.N,
+                        "seed": args.seed,
+                        "damage": "spatial retention fields (quadrature assembly)",
+                        "numpy_version": np.__version__,
+                    }
+                )
+            ),
+        }
+    )
+    np.savez(out, **payload)
+
+    elapsed = time.perf_counter() - t0
+    P(f"fields:      {dataset['fields'].shape}")
+    P(f"frequencies: {dataset['frequencies'].shape}")
+    P(f"severity:    {dataset['severity'].shape}  mean={dataset['severity'].mean():.4f}")
+    P(
+        f"splits:      train={len(splits['train'])} "
+        f"val={len(splits['val'])} test={len(splits['test'])}"
+    )
+    P(f"elapsed:     {elapsed:.1f}s ({elapsed / args.n:.2f} s/sample)")
     P(f"Saved {out}")
 
 
@@ -187,6 +282,26 @@ def main(argv=None):
     p_train.add_argument("--epochs", type=int, default=20,
                          help="epochs per training phase (default 20)")
     p_train.set_defaults(func=cmd_train)
+
+    p_gf = sub.add_parser(
+        "generate-fields",
+        help="generate the spatial damage-field dataset (.npz, frequencies-only)",
+    )
+    p_gf.add_argument("--n", type=int, default=100,
+                      help="number of samples (default 100)")
+    p_gf.add_argument("--gy", type=int, default=6,
+                      help="field grid rows (default 6; production 6-8)")
+    p_gf.add_argument("--gx", type=int, default=6,
+                      help="field grid cols (default 6; production 6-8)")
+    p_gf.add_argument("-M", dest="M", type=int, default=6,
+                      help="solver basis order M (default 6; production 6-8)")
+    p_gf.add_argument("-N", dest="N", type=int, default=6,
+                      help="solver basis order N (default 6; production 6-8)")
+    p_gf.add_argument("--out", default=DEFAULT_FIELDS_OUT,
+                      help=f"output .npz path (default {DEFAULT_FIELDS_OUT})")
+    p_gf.add_argument("--seed", type=int, default=SEED,
+                      help="RNG seed (default 42)")
+    p_gf.set_defaults(func=cmd_generate_fields)
 
     args = parser.parse_args(argv)
     try:
