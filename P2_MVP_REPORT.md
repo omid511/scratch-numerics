@@ -1,6 +1,6 @@
 # P2 MVP Report — Spatial Damage-Field Posterior (First Iteration)
 
-Date: 2026-08-23 · Branch: master @ f1f3729+ · Dataset: `data/p2/field_dataset.npz` (400 designs, 8×8 retention grids, 280/60/60 design-level splits)
+Date: 2026-08-23 · Branch: master @ 77d03e4 · Dataset: `data/p2/field_dataset.npz` (400 designs, 8×8 retention grids, 280/60/60 design-level splits)
 
 ## What was built this arc
 
@@ -13,57 +13,61 @@ Date: 2026-08-23 · Branch: master @ f1f3729+ · Dataset: `data/p2/field_dataset
    `generate_field_dataset` (0.55 s/sample) + `run_p2.py generate-fields`.
 3. **Field-CVAE pipeline** — `field_pipeline.py`: two-phase training adapted to
    frequencies-only conditioning, SP-gate evaluator (per-pixel interval coverage;
-   sample-based SBC rank histograms with χ² p-value AND calibration error).
+   sample-based SBC rank histograms with χ² p-value AND calibration error),
+   heteroscedastic head, seed/bootstrap ensembles with BMA combination.
 4. **Baselines** — DirectRegression / BayesianRidge (leverage uncertainty) /
    PixelClassifier per the roadmap comparison protocol.
 5. **Roadmap amendment** — cINN→CVAE substitution recorded; SP4 redefined as
    sample-based SBC + coverage; zarr→npz deviation recorded.
 
-## SP-gate results (validation split, 60 designs)
+## Lever ledger (all run on the real dataset)
 
-| Arm | Coverage (gate >0.80) | SBC p-value | SBC error (<0.10) | Mean-field MSE |
-|---|---|---|---|---|
-| A conditioned decoder | 0.6919 ✗ | 0.000 | 0.0377 ✓(misleading alone) | 0.1202 |
-| B de-conditioned decoder | 0.0193 ✗ | 0.000 | 0.0253 ✓(misleading alone) | **0.0364** |
-| C KL-annealed (25 ep) | 0.6919 ✗ | 0.000 | 0.0377 ✓(misleading alone) | 0.1202 |
-| DirectRegression baseline | — | — | — | 0.1655 |
+| Lever | Coverage | Mean-field MSE | Verdict |
+|---|---|---|---|
+| A point-MSE CVAE (conditioned) | 0.692 | 0.1202 | SP3 fail; collapse at free-bits floor |
+| B de-conditioned decoder | 0.0193 | **0.0364** | reconstruction 3.3× better; posterior still deterministic |
+| C KL-annealed | 0.6919 | 0.1202 | identical to A |
+| D heteroscedastic head (aleatoric σ) | 0.521 | 0.0373 | σ≈0.051 vs residual RMS ≈0.19 — under-dispersed |
+| E seed ensemble + BMA | 0.499 | 0.0366 | seed diversity negligible |
+| F bootstrap bagging + BMA | 0.502 | 0.0364 | genuine data diversity, same converged map |
 
-Posterior-collapse diagnostics that motivated arms B/C: ELBO pinned exactly at the
-free-bits floor (8 nats = 16 dims × 0.5); posterior-head init produced μ≈O(10)
-against the N(0,I) prior (KL ≈ 2.7e4 at step zero; fixed by bounded log-variance
-±10 + small-variance head re-init).
+Posterior-collapse diagnostics: ELBO pinned exactly at the free-bits floor
+(8 nats = 16 dims × 0.5); posterior-head init produced μ≈O(10) against the
+N(0,I) prior (KL ≈ 2.7e4 at step zero; fixed by bounded log-variance ±10 +
+small-variance head re-init).
 
-## Findings
-
-1. **SP3 fails for all three arms** — no calibrated spatial posterior yet. With an
-   MSE-reconstruction objective the optimal q(z|c) variance collapses regardless of
-   de-conditioning or annealing: intervals come out over-confident.
-2. **De-conditioning is real signal, not noise**: routing measurements only through
-   z improves mean-field MSE 3.3× (0.120→0.036), beating the direct-regression
-   baseline by 4.6×. The latent carries measurement information when forced to.
-3. **SBC gate semantics fixed**: mean |bin-prop − uniform| passed at χ² p = 0.0;
-   the gate now requires BOTH error < 0.10 AND p > 0.05.
+SBC gate semantics corrected during this arc: requires χ² p > 0.05 AND
+error < 0.10 (the error statistic alone passed a p = 2.6e-18 histogram).
 
 ## Honest status vs charter
 
 The MVP claim ("90% credible interval contains true damage at >85% of locations")
-is **not met**. What exists and is verified: the full pipeline to measure it
-(solver → fields → CVAE → SBC/coverage gates), a 4.6×-better-than-baseline
-posterior-mean predictor, and a precise diagnosis of why calibration fails
-(point-MSE reconstruction gives a CVAE no incentive for honest spread).
+is **not met** — SP3 fails on every lever. What exists and is verified: the full
+pipeline to measure it (solver → fields → CVAE → SBC/coverage gates), a
+posterior-mean predictor 4.6× better than the direct-regression baseline
+(0.036 vs 0.166 MSE), and a precise diagnosis of why calibration fails.
 
-## Next levers (ranked)
+## Diagnosis and next levers
 
-1. Heteroscedastic Gaussian likelihood head (predict per-pixel μ AND σ; NLL loss)
-   — directly targets calibration, small change to decoder/head.
-2. Diffusion posterior (roadmap's gated upgrade) if 1 stalls.
-3. More HF samples along the severity axis (active learning via the existing
-   sampler machinery).
+Levers D–F isolate the failure: the freq→field residual (~0.19 RMS vs
+learned σ ~0.05) is **structural model bias from frequencies-only
+conditioning**, not sampling noise — every variance-decomposition lever
+converged to the same biased map. Next levers target bias directly:
 
-Reproduce:
+1. Richer conditioning: mode-shape summaries (P1's HF data has them) or
+   learned measurement embeddings instead of 6 log-frequencies.
+2. Capacity/inductive bias on the field side: conv decoder with skips
+   (roadmap Phase-3 architecture), severity-conditional sigma calibration.
+3. If bias remains after 1–2: report that 6 scalar frequencies are
+   information-theoretically insufficient for 8×8 field posteriors —
+   itself a publishable identifiability result tied to the charter's
+   ill-posedness claim.
+
+## Reproduce
 
 ```bash
 uv run python run_p2.py generate-fields --n 400 --gy 8 --gx 8 \
     -M 6 -N 6 --out data/p2/field_dataset.npz --seed 42
-# then: field_pipeline.train_field_cvae + evaluate_sp_gates as in tests
+# then: field_pipeline.train_field_cvae / train_field_cvae_heteroscedastic /
+# train_heteroscedastic_ensemble + evaluate_sp_gates / evaluate_ensemble_sp_gates
 ```
