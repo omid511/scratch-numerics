@@ -7,10 +7,12 @@ import torch
 
 from mechanics.p2_inverse_damage.damage_data import (
     DamageField,
+    generate_field_dataset,
     inject_measurement_noise,
     load_dataset_npz,
     sample_multi_patch,
     sample_single_patch,
+    save_dataset_npz,
     split_designs,
 )
 from mechanics.p2_inverse_damage.eval import (
@@ -293,3 +295,65 @@ class TestGaussianNLL:
         nlls = [float(gaussian_nll(m, logvar, torch.tensor([1.0]))) for m in grid]
         best = grid[int(np.argmin(nlls))]
         assert abs(float(best) - 1.0) < 0.5
+
+
+# ─── 10. Field dataset generation (solver-in-the-loop) ───────────────
+
+class TestGenerateFieldDataset:
+    @classmethod
+    def setup_class(cls):
+        cls.ds = generate_field_dataset(
+            n_samples=3, gy=4, gx=4, M=4, N=4, seed=0,
+        )
+
+    def test_shapes_and_config_echo(self):
+        ds = self.ds
+        assert ds["fields"].shape == (3, 4, 4)
+        assert ds["frequencies"].shape == (3, 6)
+        assert ds["severity"].shape == (3,)
+        cfg = ds["config"]
+        assert cfg["n_samples"] == 3 and (cfg["gy"], cfg["gx"]) == (4, 4)
+        assert (cfg["M"], cfg["N"]) == (4, 4) and cfg["seed"] == 0
+
+    def test_severity_consistent_with_fields(self):
+        fields = self.ds["fields"]
+        severity = self.ds["severity"]
+        assert np.all(severity >= 0.0) and np.all(severity < 1.0)
+        assert np.allclose(severity, 1.0 - fields.mean(axis=(1, 2)))
+
+    def test_frequencies_finite_positive(self):
+        freqs = self.ds["frequencies"]
+        assert np.all(np.isfinite(freqs))
+        assert np.all(freqs > 0.0)
+
+    def test_npz_roundtrip_preserves_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "fields_ds.npz")
+            fields = [
+                DamageField.from_array(self.ds["fields"][i])
+                for i in range(3)
+            ]
+            save_dataset_npz(
+                path,
+                fields=fields,
+                measurements={
+                    "frequencies": self.ds["frequencies"],
+                    "severity": self.ds["severity"],
+                },
+            )
+            loaded_fields, meas = load_dataset_npz(path)
+            assert len(loaded_fields) == 3
+            for orig, back in zip(fields, loaded_fields):
+                assert np.array_equal(orig.to_array(), back.to_array())
+            assert np.array_equal(meas["frequencies"], self.ds["frequencies"])
+            assert np.array_equal(meas["severity"], self.ds["severity"])
+
+    def test_splits_present_disjoint_exhaustive(self):
+        splits = self.ds["splits"]
+        assert set(splits) == {"train", "val", "test"}
+        train, val, test = splits["train"], splits["val"], splits["test"]
+        union = sorted(train + val + test)
+        assert union == list(range(3))
+        assert not (set(train) & set(val))
+        assert not (set(train) & set(test))
+        assert not (set(val) & set(test))

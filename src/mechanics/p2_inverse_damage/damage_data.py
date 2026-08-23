@@ -1,5 +1,5 @@
-"""Damage sampling and synthetic dataset generation using FSDT solver."""
 import json
+import time
 import numpy as np
 from dataclasses import dataclass
 
@@ -320,3 +320,128 @@ def split_designs(
     val = sorted(int(i) for i in idx[n_test:n_test + n_val])
     train = sorted(int(i) for i in idx[n_test + n_val:])
     return train, val, test
+
+
+def generate_field_dataset(
+    n_samples: int,
+    *,
+    gy: int = 6,
+    gx: int = 6,
+    M: int = 6,
+    N: int = 6,
+    seed: int = 0,
+    depth_range: tuple[float, float] = (0.3, 0.9),
+    area_frac: tuple[float, float] = (0.05, 0.3),
+    multi_patch_prob: float = 0.5,
+    store_shapes: bool = False,
+    progress_every: int = 25,
+) -> dict:
+    """Generate a spatial damage-field dataset supervised by modal frequencies.
+
+    Each sample draws a DamageField (single rectangular patch with
+    probability ``1 - multi_patch_prob``, else overlapping multi-patch),
+    feeds it to an FSDTSolver via ``set_damage_field`` on the module's
+    default aluminium-honeycomb sandwich laminate, and solves the first
+    ``n_modes`` eigenfrequencies under fully clamped boundaries (same
+    convention as :func:`generate_damage_dataset`).
+
+    Performance reality: one damaged quadrature stiffness assembly costs
+    ~8 s at M=N=6 with a 16x16 field grid on a laptop CPU, scaling
+    roughly with (M*N)^2 * gy * gx. Production defaults therefore keep
+    M=N=6..8 and field grids 6x6..8x8 (order 1-10 s per sample); budget
+    accordingly before requesting large n_samples.
+
+    Supervision is frequencies-only by default (``store_shapes=False``);
+    pass ``store_shapes=True`` to also keep the mode shapes
+    ``(n_samples, n_modes, gy_eval, gx_eval)`` under key ``mode_shapes``
+    (significantly more memory and disk).
+
+    Returns a dict with keys:
+        fields:      (n_samples, gy, gx) stacked retention arrays
+        frequencies: (n_samples, n_modes) real eigenfrequencies [Hz]
+        severity:    (n_samples,) = 1 - mean(retention), in (0, 1)
+        splits:      {"train": [...], "val": [...], "test": [...]}
+                     design-level index lists from :func:`split_designs`
+        config:      echo of every generation parameter
+        mode_shapes: only when store_shapes=True
+    """
+    if n_samples < 1:
+        raise ValueError("n_samples must be >= 1")
+    if not 0.0 <= multi_patch_prob <= 1.0:
+        raise ValueError("multi_patch_prob must lie in [0, 1]")
+
+    rng = np.random.default_rng(seed)
+    base_lam = _default_laminate()
+    L1 = L2 = 0.3
+    solver = FSDTSolver(
+        L1=L1, L2=L2, M=M, N=N,
+        laminate=base_lam,
+        basis_type="legendre",
+    )
+    solver.set_boundary(
+        left={"type": "clamped"},
+        right={"type": "clamped"},
+        top={"type": "clamped"},
+        bottom={"type": "clamped"},
+    )
+
+    n_modes = 6
+    all_freq = []
+    all_values = []
+    all_severity = []
+    all_shapes = [] if store_shapes else None
+
+    t0 = time.perf_counter()
+    for i in range(n_samples):
+        if rng.random() < multi_patch_prob:
+            field = sample_multi_patch(
+                gy, gx, depth=depth_range, area_frac=area_frac, rng=rng,
+            )
+        else:
+            field = sample_single_patch(
+                gy, gx, depth=depth_range, area_frac=area_frac, rng=rng,
+            )
+
+        solver.set_damage_field(field.to_array())
+        result = solver.solve_modal(n_modes=n_modes)
+
+        all_values.append(field.to_array())
+        all_freq.append(result.frequencies.real)
+        all_severity.append(1.0 - float(np.mean(field.to_array())))
+        if store_shapes:
+            all_shapes.append(result.mode_shapes)
+
+        if progress_every > 0 and ((i + 1) % progress_every == 0 or i + 1 == n_samples):
+            elapsed = time.perf_counter() - t0
+            print(
+                f"[generate_field_dataset] {i + 1}/{n_samples} "
+                f"({elapsed:.1f}s elapsed)",
+                flush=True,
+            )
+
+    fields_arr = np.stack(all_values)                    # (n, gy, gx)
+    freqs_arr = np.array(all_freq)                       # (n, n_modes)
+    severity_arr = np.array(all_severity)                # (n,)
+    train, val, test = split_designs(n_samples, seed=seed)
+
+    dataset = {
+        "fields": fields_arr,
+        "frequencies": freqs_arr,
+        "severity": severity_arr,
+        "splits": {"train": train, "val": val, "test": test},
+        "config": {
+            "n_samples": n_samples,
+            "gy": gy, "gx": gx, "M": M, "N": N,
+            "seed": seed,
+            "depth_range": list(depth_range),
+            "area_frac": list(area_frac),
+            "multi_patch_prob": multi_patch_prob,
+            "store_shapes": store_shapes,
+            "L1": L1, "L2": L2,
+            "basis_type": "legendre",
+            "boundary": "clamped-all-sides",
+        },
+    }
+    if store_shapes:
+        dataset["mode_shapes"] = np.stack(all_shapes)
+    return dataset
