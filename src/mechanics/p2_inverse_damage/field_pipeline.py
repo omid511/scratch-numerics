@@ -260,7 +260,7 @@ def train_field_cvae(
     # Phase 1: autoencoder pre-training (z ~ N(0, I)).
     def _ae_step(bx, by):
         c = encoder.forward_tensor(bx)
-        cc = c if cond_decoder else torch.zeros_like(c)
+        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
         z = torch.randn(bx.shape[0], decoder.d_z)
         pred = decoder.forward_tensor(z, cc)
         return torch.mean((pred - by) ** 2)
@@ -280,7 +280,7 @@ def train_field_cvae(
         if kl_anneal_epochs > 0:
             kl_weight[0] = min(1.0, (step_counter[0] + 1) / kl_anneal_epochs)
         c = encoder.forward_tensor(bx)
-        cc = c if cond_decoder else torch.zeros_like(c)
+        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
         mu, log_var = posterior.forward_tensor(c)
         # Bounded log-variance: an unbounded branch lets KL explode through
         # exp(log_var) early in training and stall the ELBO (observed ~11k
@@ -454,7 +454,10 @@ def evaluate_sp_gates(
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
         "sbc_error": sbc_error,
-        "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE),
+        # Both statistics required: mean |bin prop - uniform| alone can sit
+        # under the gate while a systematically skewed histogram rejects
+        # uniformity (observed: error 0.025 at chi-square p = 0.0).
+        "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE and sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
         "n_val": int(len(val_idx)),
