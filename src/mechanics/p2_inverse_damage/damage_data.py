@@ -303,7 +303,10 @@ def _canonicalize_mode_shape(w: np.ndarray) -> np.ndarray:
     scale (any scalar multiple of an eigenvector is an eigenvector). For
     learning pipelines the stored representation is made canonical:
 
-      * sign: flipped so the element of ``max(|w|)`` is positive;
+      * sign: flipped so the element of ``max(|w|)`` is positive; when the
+        top-two |w| entries are near-tied (relative margin < 1e-3), falls
+        back to the sign of the total sum (robust for antisymmetric
+        patterns whose peak location is solver-noise sensitive);
       * amplitude: divided by ``max(|w|)`` so every stored shape has unit
         peak magnitude.
 
@@ -312,8 +315,21 @@ def _canonicalize_mode_shape(w: np.ndarray) -> np.ndarray:
     Deterministic given ``w``: identical inputs map to identical outputs.
     """
     w = np.array(w, dtype=np.float64)
-    peak_idx = int(np.argmax(np.abs(w)))
-    if w.flat[peak_idx] < 0:
+    abs_w = np.abs(w)
+    if abs_w.max() <= 0.0:
+        return w
+    peak_idx = int(np.argmax(abs_w))
+    sorted_abs = np.sort(abs_w.ravel())[::-1]
+    second = float(sorted_abs[1]) if w.size > 1 else 0.0
+    margin = (float(sorted_abs[0]) - second) / float(sorted_abs[0]) \
+        if second > 0.0 else 1.0
+    if margin < 1e-3:
+        # Near-tied peaks: sign of the total sum is stable where the peak
+        # location is not.
+        total_sign = np.sign(float(w.sum())) or 1.0
+        if w.flat[peak_idx] * total_sign < 0:
+            w = -w
+    elif w.flat[peak_idx] < 0:
         w = -w
     peak = float(np.max(np.abs(w)))
     if peak > 0.0:
@@ -458,9 +474,20 @@ def generate_field_dataset(
             # Canonicalize before storage: sign-fixed (max-|w| element
             # positive) and max-norm 1, removing the eigensolver's
             # arbitrary per-sample sign/scale. See _canonicalize_mode_shape.
+            # Noise gate: eigenmodes dominated by membrane/shear content can
+            # rank into the fixed n_modes window with transverse peaks at
+            # pure solver-noise level (~1e-8); max-norming those would feed
+            # the CNN amplified garbage channels. Modes whose raw peak is
+            # below 1e-4 of the sample's strongest flexural peak are stored
+            # as exact zeros instead (audit finding: 6th mode was noise in
+            # 203/300 samples of the first full-shapes dataset).
+            shapes_raw = np.asarray(result.mode_shapes)
+            peaks = np.max(np.abs(shapes_raw), axis=(1, 2))
+            flex_scale = float(peaks.max())
             all_shapes.append(np.stack([
-                _canonicalize_mode_shape(w)
-                for w in np.asarray(result.mode_shapes)
+                _canonicalize_mode_shape(w) if p > 1e-4 * flex_scale
+                else np.zeros_like(w)
+                for w, p in zip(shapes_raw, peaks)
             ]))
         if store_shapes:
             # Per-mode shape summaries: [RMS(w), max|w|] for each solved

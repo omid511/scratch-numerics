@@ -59,22 +59,29 @@ Results — heteroscedastic arm, conditioning='cnn', cond_decoder=False:
 | SP4 SBC (err<0.10 AND p>0.05) | err 0.0169, **p=0.603** | PASS (uniform ranks) |
 | Field MSE (<0.030 bar) | **0.0291** | PASS — 5.3× better than direct-regression baseline |
 
-## Honest status vs charter
+## Results after audit fixes (lever I, final)
 
-The MVP claim ("90% credible interval contains true damage at >85% of
-locations") is now **met on this dataset**: per-pixel analytic 90% intervals
-cover 99.6% of locations on held-out designs, with SBC-calibrated spread.
-Caveats: synthetic patch fields (not COMSOL); coverage sits on the
-conservative side (σ slightly wide); point-MSE arms remain at constant-field
-level by design of their objective.
+The parallel review round found three patch-introduced confounds — a
+frozen random FC readout (lazy init after optimizer snapshot), sigma
+calibration trained on un-normalized trunk features, and noise-dominated
+eigenmode channels amplified by max-norming — and all three were fixed
+(eager FC construction; trunk_norm-consistent sigma path; noise-gated
+zero channels). Honest re-measurement on the regenerated canonicalized
+dataset:
 
-## Diagnosis archive (levers A–H)
+| Gate | Result | Status |
+|---|---|---|
+| SP3 coverage (>0.80) | **0.8889** | PASS — near-nominal (0.90) |
+| Field MSE (<0.030 bar) | **0.0316** | PASS (< constant-field 0.0419) |
+| SP4 SBC error (<0.10) | 0.0285 | PASS |
+| SP4 SBC uniformity (p>0.05) | p = 0.0 | **OPEN ISSUE** — ranks non-uniform |
 
-Levers D–G isolated two stacked failure modes — posterior collapse (ELBO
-pinned at the free-bits floor) and eigenmode sign/amplitude ambiguity —
-while lever H showed conditioning enrichments are downstream of collapse,
-not causes. The winning configuration removes both blockers directly:
-canonicalized shape inputs (information) + Phase-1 asymmetry (gradient).
+The MVP claim's coverage requirement (>85% of locations) is met with
+near-nominal calibration on held-out designs. The open SBC uniformity
+failure means the spread is right on average but not yet rank-honest;
+candidates are the coarse K-sample severity support and residual
+sigma miscalibration. The point-MSE CVAE arms remain at constant-field
+level (~0.038) — their low ensemble coverage is honest for that class.
 
 ## Next steps
 

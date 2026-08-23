@@ -517,7 +517,10 @@ class TestShapeCanonicalization:
     def test_stored_shapes_max_norm_one(self):
         shapes = self.ds["mode_shapes"]
         peaks = np.max(np.abs(shapes), axis=(-2, -1))
-        assert np.allclose(peaks, 1.0)
+        # Flexural channels are max-norm 1; noise-gated channels (raw peak
+        # below 1e-4 of the sample's strongest mode) are stored as zeros.
+        assert np.all(np.isclose(peaks, 1.0) | (peaks == 0.0))
+        assert np.all(np.max(peaks, axis=1) == 1.0)
 
     def test_sign_fix_on_negative_dominant_shape(self):
         from mechanics.p2_inverse_damage.damage_data import (
