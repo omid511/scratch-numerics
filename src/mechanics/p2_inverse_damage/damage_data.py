@@ -364,6 +364,8 @@ def generate_field_dataset(
                      design-level index lists from :func:`split_designs`
         config:      echo of every generation parameter
         mode_shapes: only when store_shapes=True
+        summaries: only when store_shapes=True — (n_samples, n_modes*2)
+                   per-mode [RMS(w), max|w|] of each solved mode shape
     """
     if n_samples < 1:
         raise ValueError("n_samples must be >= 1")
@@ -390,6 +392,7 @@ def generate_field_dataset(
     all_values = []
     all_severity = []
     all_shapes = [] if store_shapes else None
+    all_summaries = [] if store_shapes else None
 
     t0 = time.perf_counter()
     for i in range(n_samples):
@@ -410,7 +413,18 @@ def generate_field_dataset(
         all_severity.append(1.0 - float(np.mean(field.to_array())))
         if store_shapes:
             all_shapes.append(result.mode_shapes)
-
+            # Per-mode shape summaries: [RMS(w), max|w|] for each solved
+            # mode -> (n_modes, 2), later stacked to (n, n_modes*2).
+            shapes_i = np.asarray(result.mode_shapes)
+            all_summaries.append(
+                np.stack([
+                    np.array([
+                        float(np.sqrt(np.mean(w**2))),
+                        float(np.max(np.abs(w))),
+                    ])
+                    for w in shapes_i
+                ])
+            )
         if progress_every > 0 and ((i + 1) % progress_every == 0 or i + 1 == n_samples):
             elapsed = time.perf_counter() - t0
             print(
@@ -444,4 +458,8 @@ def generate_field_dataset(
     }
     if store_shapes:
         dataset["mode_shapes"] = np.stack(all_shapes)
+    if store_shapes:
+        dataset["summaries"] = np.stack(all_summaries).reshape(
+            n_samples, -1
+        )                                                # (n, n_modes*2)
     return dataset
