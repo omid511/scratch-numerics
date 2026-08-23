@@ -63,6 +63,8 @@ def load_field_dataset(path: str) -> dict:
         log_freqs: (n, n_modes) natural-log frequencies (conditioning input;
                    log compresses the dynamic range, mirroring MeasurementEncoder)
         severity:  (n,) = 1 - mean(retention), in (0, 1)
+        summaries: optional (n, n_modes*2) per-mode [RMS(w), max|w|] mode-
+                   shape summary features, passed through when present
         splits:    {"train": [...], "val": [...], "test": [...]} int index lists
 
     Raises ValueError on missing keys or inconsistent shapes.
@@ -74,6 +76,14 @@ def load_field_dataset(path: str) -> dict:
         fields = np.asarray(data["fields_values"], dtype=np.float64)
         freqs = np.asarray(data["meas_frequencies"], dtype=np.float64)
         severity = np.asarray(data["meas_severity"], dtype=np.float64)
+        # save_dataset_npz prefixes measurement keys with "meas_";
+        # accept both that and a bare "summaries" key.
+        if "meas_summaries" in data.files:
+            summaries = np.asarray(data["meas_summaries"], dtype=np.float64)
+        elif "summaries" in data.files:
+            summaries = np.asarray(data["summaries"], dtype=np.float64)
+        else:
+            summaries = None
         splits = {
             "train": np.asarray(data["split_train"], dtype=int).tolist(),
             "val": np.asarray(data["split_val"], dtype=int).tolist(),
@@ -104,6 +114,12 @@ def load_field_dataset(path: str) -> dict:
         "severity": severity,
         "splits": splits,
     }
+    if summaries is not None:
+        if summaries.shape[0] != n:
+            raise ValueError(
+                f"sample-count mismatch: fields {n}, summaries {summaries.shape}"
+            )
+        out["summaries"] = summaries
     if config_json is not None:
         try:
             out["config"] = json.loads(config_json)
@@ -207,7 +223,74 @@ def _run_epochs(
     return history
 
 
+
+class FreqSummaryEncoder(nn.Module):
+    """Encode concat(log_freqs, summaries) → conditioning vector c ∈ R^{d_c}.
+
+    Input layout (documented dims):
+      * ``log_freqs``:  (B, n_modes)
+      * ``summaries``:  (B, n_modes * d_summary_block), per-mode block of
+        ``d_summary_block`` mode-shape summary statistics
+        ([RMS(w), max|w|] → d_summary_block = 2 in the dataset writer).
+
+    Same MLP trunk / hidden dims / init scheme as
+    :class:`FreqOnlyEncoder`; only the input width grows by
+    ``n_modes * d_summary_block``.
+    """
+
+    def __init__(
+        self,
+        n_modes: int = 6,
+        d_c: int = 64,
+        d_summary_block: int = 2,
+        hidden_dims: list[int] | None = None,
+        seed: int = 42,
+    ):
+        super().__init__()
+        self.n_modes = n_modes
+        self.d_c = d_c
+        self.d_summary_block = d_summary_block
+        self.d_in = n_modes + n_modes * d_summary_block
+        if hidden_dims is None:
+            hidden_dims = [256, 256]
+
+        layers: list[nn.Module] = []
+        dims = [self.d_in] + hidden_dims
+        for i in range(len(dims) - 1):
+            layers.append(nn.Linear(dims[i], dims[i + 1]))
+            layers.append(nn.ReLU())
+        layers.append(nn.Linear(dims[-1], d_c))
+        self.mlp = nn.Sequential(*layers)
+
+        torch.manual_seed(seed)
+        for m in self.mlp:
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)
+                nn.init.zeros_(m.bias)
+
+    def forward_tensor(self, x: torch.Tensor) -> torch.Tensor:
+        """x: (B, n_modes + n_modes*d_summary_block) → c: (B, d_c)."""
+        return self.mlp(x)
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """NumPy inference path. (batch, d_in) → (batch, d_c)."""
+        x_t = torch.as_tensor(x, dtype=torch.float32)
+        with torch.no_grad():
+            return self.mlp(x_t).numpy()
+
+
 # ─── Training ────────────────────────────────────────────────────────
+
+
+def _epoch_means(
+    step_pairs: list[list[float]], n_rows: int, batch_size: int
+) -> list[list[float]]:
+    """Per-step [a, b] pairs → per-epoch means [[a, b], ...]."""
+    if not step_pairs:
+        return []
+    n_batches = max(1, (n_rows + batch_size - 1) // batch_size)
+    arr = np.asarray(step_pairs, dtype=np.float64)
+    return arr.reshape(-1, n_batches, 2).mean(axis=1).tolist()
 
 
 def train_field_cvae(
@@ -223,9 +306,10 @@ def train_field_cvae(
     progress: bool = True,
     cond_decoder: bool = True,
     kl_anneal_epochs: int = 0,
+    use_summaries: bool = False,
+    posterior_init_std: float = 0.01,
 ) -> dict:
     """Train the field CVAE on the train split of a loaded field dataset.
-
     Phase 1 (autoencoder pre-training): c = encoder(log_freqs), z ~ N(0, I),
     decoder(z, c) reconstructed against the true retention field with MSE;
     encoder + decoder receive gradients.
@@ -242,9 +326,21 @@ def train_field_cvae(
         to carry it — the standard CVAE de-conditioning remedy.
       * ``kl_anneal_epochs>0`` ramps the KL weight linearly from zero over
         that many ELBO epochs before full weight.
+      * ``posterior_init_std`` scales the posterior head re-init. The
+        0.01 default puts mu/logvar outputs inside the free-bits clamp
+        (kl_per_dim < 0.5 everywhere) from step zero, so ``torch.clamp``
+        passes zero gradient and the posterior can never escape collapse;
+        larger values (e.g. 0.5-1.0) start the KL above the floor with a
+        live gradient. (The pre-default failure was the opposite extreme:
+        std=default gave mu~O(10), KL~2.7e4 nats at step zero.)
 
     Only ``dataset["splits"]["train"]`` indices are touched.
 
+    ``use_summaries=True`` switches conditioning to
+    :class:`FreqSummaryEncoder` and augments every model input row to
+    ``concat(log_freqs, summaries)`` (width n_modes + n_modes*2); the
+    augmented rows must also be fed at evaluation time (see
+    :func:`evaluate_sp_gates`, which reads the echoed option).
     Returns dict with keys: ``encoder``, ``decoder``, ``posterior`` (modules),
     ``history`` = {"ae": [...], "posterior": [...]}, ``grid_shape`` = (gy, gx),
     ``n_modes``, ``splits`` (echo), ``options`` echo.
@@ -256,13 +352,27 @@ def train_field_cvae(
 
     n, gy, gx = fields.shape
     n_modes = log_freqs.shape[1]
-    x_train = log_freqs[train_idx]
+    if use_summaries:
+        if "summaries" not in dataset:
+            raise ValueError("use_summaries=True requires dataset['summaries']")
+        summaries = np.asarray(dataset["summaries"], dtype=np.float32)
+        x_train = np.concatenate(
+            [log_freqs[train_idx], summaries[train_idx]], axis=1
+        )
+        encoder = FreqSummaryEncoder(
+            n_modes=n_modes,
+            d_c=d_c,
+            d_summary_block=summaries.shape[1] // n_modes,
+            seed=seed,
+        )
+    else:
+        x_train = log_freqs[train_idx]
+        encoder = FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
     y_train = fields[train_idx]
 
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
 
-    encoder = FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
     decoder = DamageDecoder(d_z=d_z,
                             d_c=(d_c if cond_decoder else 0),
                             grid_size=(gy, gx), seed=seed)
@@ -274,14 +384,14 @@ def train_field_cvae(
         if hasattr(head, "parameters"):
             for prm in head.parameters():
                 if prm.requires_grad and prm.ndim > 1:
-                    torch.nn.init.normal_(prm, mean=0.0, std=0.01)
+                    torch.nn.init.normal_(prm, mean=0.0, std=posterior_init_std)
 
 
     # Phase 1: autoencoder pre-training (z ~ N(0, I)).
     def _ae_step(bx, by):
         c = encoder.forward_tensor(bx)
-        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
         z = torch.randn(bx.shape[0], decoder.d_z)
+        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
         pred = decoder.forward_tensor(z, cc)
         return torch.mean((pred - by) ** 2)
 
@@ -312,8 +422,11 @@ def train_field_cvae(
         recon = torch.mean((pred - by) ** 2)
         kl_per_dim = -0.5 * (1 + log_var - mu**2 - torch.exp(log_var))
         kl = torch.mean(torch.sum(torch.clamp(kl_per_dim, min=0.5), dim=-1))
+        comps.append([float(recon.detach()), float(kl.detach())])
         step_counter[0] += 1
         return recon + kl_weight[0] * kl
+
+    comps: list[list[float]] = []
 
     history_post = _run_epochs(
         epochs_post, x_train, y_train,
@@ -333,12 +446,17 @@ def train_field_cvae(
         "encoder": encoder,
         "decoder": decoder,
         "posterior": posterior,
-        "history": {"ae": history_ae, "posterior": history_post},
+        "history": {"ae": history_ae, "posterior": history_post,
+                    # Per-epoch [recon, raw-KL] means (KL before weighting).
+                    "posterior_components": _epoch_means(
+                        comps, len(x_train), batch_size)},
         "grid_shape": (gy, gx),
         "n_modes": n_modes,
         "splits": splits,
         "options": {"cond_decoder": cond_decoder,
-                    "kl_anneal_epochs": kl_anneal_epochs},
+                    "kl_anneal_epochs": kl_anneal_epochs,
+                    "use_summaries": use_summaries,
+                    "posterior_init_std": posterior_init_std},
      }
 
 
@@ -465,6 +583,8 @@ def train_field_cvae_heteroscedastic(
     cond_decoder: bool = True,
     kl_anneal_epochs: int = 0,
     sigma_range: tuple[float, float] = (0.005, 0.5),
+    use_summaries: bool = False,
+    posterior_init_std: float = 0.01,
 ) -> dict:
     """Train a heteroscedastic Gaussian CVAE head on a loaded field dataset.
 
@@ -493,6 +613,10 @@ def train_field_cvae_heteroscedastic(
         chases them to the ceiling).
 
     Only ``dataset["splits"]["train"]`` indices are touched.
+    ``use_summaries=True`` mirrors :func:`train_field_cvae`: conditioning
+    switches to :class:`FreqSummaryEncoder` on concat(log_freqs, summaries)
+    rows; the echoed option tells :func:`evaluate_sp_gates` to feed the
+    same augmented rows back through the interval predictor.
 
     Returns the same models-dict contract as :func:`train_field_cvae`
     (``encoder``/``decoder``/``posterior``, ``history``, ``grid_shape``,
@@ -509,7 +633,15 @@ def train_field_cvae_heteroscedastic(
 
     n, gy, gx = fields.shape
     n_modes = log_freqs.shape[1]
-    x_train = log_freqs[train_idx]
+    if use_summaries:
+        if "summaries" not in dataset:
+            raise ValueError("use_summaries=True requires dataset['summaries']")
+        summaries = np.asarray(dataset["summaries"], dtype=np.float32)
+        x_train = np.concatenate(
+            [log_freqs[train_idx], summaries[train_idx]], axis=1
+        )
+    else:
+        x_train = log_freqs[train_idx]
     y_train = fields[train_idx]
     log_sigma_min = float(np.log(sigma_range[0]))
     log_sigma_max = float(np.log(sigma_range[1]))
@@ -517,7 +649,16 @@ def train_field_cvae_heteroscedastic(
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
 
-    encoder = FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
+    encoder = (
+        FreqSummaryEncoder(
+            n_modes=n_modes,
+            d_c=d_c,
+            d_summary_block=summaries.shape[1] // n_modes,
+            seed=seed,
+        )
+        if use_summaries
+        else FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
+    )
     decoder = HeteroscedasticFieldDecoder(d_z=d_z,
                                           d_c=(d_c if cond_decoder else 0),
                                           grid_size=(gy, gx),
@@ -529,7 +670,7 @@ def train_field_cvae_heteroscedastic(
         if hasattr(head, "parameters"):
             for prm in head.parameters():
                 if prm.requires_grad and prm.ndim > 1:
-                    torch.nn.init.normal_(prm, mean=0.0, std=0.01)
+                    torch.nn.init.normal_(prm, mean=0.0, std=posterior_init_std)
 
     # Phase 1: autoencoder pre-training on the mean head (z ~ N(0, I)).
     def _ae_step(bx, by):
@@ -576,8 +717,11 @@ def train_field_cvae_heteroscedastic(
         recon = torch.mean((pred_mu - by) ** 2)
         kl_per_dim = -0.5 * (1 + log_var - mu**2 - torch.exp(log_var))
         kl = torch.mean(torch.sum(torch.clamp(kl_per_dim, min=0.5), dim=-1))
+        comps.append([float(recon.detach()), float(kl.detach())])
         step_counter[0] += 1
         return recon + kl_weight[0] * kl
+
+    comps: list[list[float]] = []
 
     _main_params = (
         list(encoder.mlp.parameters())
@@ -638,13 +782,19 @@ def train_field_cvae_heteroscedastic(
         "encoder": encoder,
         "decoder": decoder,
         "posterior": posterior,
-        "history": {"ae": history_ae, "posterior": history_post},
+        "history": {"ae": history_ae, "posterior": history_post,
+                    # Per-epoch [recon, raw-KL] means over the mu-warmup
+                    # sub-phase (KL before weighting).
+                    "posterior_components": _epoch_means(
+                        comps, len(x_train), batch_size)},
         "grid_shape": (gy, gx),
         "n_modes": n_modes,
         "splits": splits,
         "options": {"cond_decoder": cond_decoder,
                     "kl_anneal_epochs": kl_anneal_epochs,
-                    "sigma_range": sigma_range},
+                    "sigma_range": sigma_range,
+                    "use_summaries": use_summaries,
+                    "posterior_init_std": posterior_init_std},
         "interval_predictor": interval_predictor,
     }
 
@@ -662,7 +812,8 @@ def _field_ensemble(
 ) -> np.ndarray:
     """Draw n_samples posterior field samples for one observation.
 
-    log_freq_row: (n_modes,) → (n_samples, gy, gx) decoded retention fields.
+    x_row: (n_modes,) log-freqs, or (n_modes + n_modes*2,) augmented row
+    when the encoder is a FreqSummaryEncoder → (n_samples, gy, gx) fields.
     """
     c = np.asarray(encoder.forward(log_freq_row[np.newaxis, :]))       # (1, d_c)
     mu, log_var = posterior(c)                                          # (1, d_z) each
@@ -743,6 +894,20 @@ def evaluate_sp_gates(
 
     options = models.get("options", {}) if isinstance(models, dict) else {}
     cond_decoder = bool(options.get("cond_decoder", True))
+    use_summaries = bool(options.get("use_summaries", False))
+    # Feed the model the SAME rows it was trained on: with use_summaries
+    # the conditioning input is concat(log_freqs, summaries). The
+    # DirectRegressionBaseline below stays on log_freqs only (it is the
+    # no-summaries reference).
+    X = log_freqs
+    if use_summaries:
+        if "summaries" not in dataset:
+            raise ValueError("use_summaries=True requires dataset['summaries']")
+        X = np.concatenate(
+            [log_freqs,
+             np.asarray(dataset["summaries"], dtype=np.float64)],
+            axis=1,
+        )
 
     covered_pixels = []
     severity_ensembles = []
@@ -750,7 +915,7 @@ def evaluate_sp_gates(
     if predictor is not None:
         # Analytic path: closed-form normal SP3 intervals; SBC severities
         # still sampled as mu + sigma * eps per pixel.
-        mu_val, sigma_val = predictor(log_freqs[val_idx])
+        mu_val, sigma_val = predictor(X[val_idx])
         lower = mu_val - z_crit * sigma_val
         upper = mu_val + z_crit * sigma_val
         truth = fields[val_idx]
@@ -763,13 +928,14 @@ def evaluate_sp_gates(
             )
             severity_ensembles.append(_severity(ens))
         mean_field_preds = list(mu_val)
+
     else:
         encoder = models["encoder"]
         decoder = models["decoder"]
         posterior_m = models["posterior"]
         for i in val_idx:
             ens = _field_ensemble(
-                encoder, decoder, posterior_m, log_freqs[i], n_samples, rng,
+                encoder, decoder, posterior_m, X[i], n_samples, rng,
                 cond_decoder=cond_decoder,
             )
             lower = np.quantile(ens, lower_q, axis=0)
