@@ -13,9 +13,13 @@ import torch
 from mechanics.p2_inverse_damage.damage_data import split_designs
 from mechanics.p2_inverse_damage.field_pipeline import (
     FreqOnlyEncoder,
+    _bma_combine,
+    evaluate_ensemble_sp_gates,
     evaluate_sp_gates,
     load_field_dataset,
     train_field_cvae,
+    train_field_cvae_heteroscedastic,
+    train_heteroscedastic_ensemble,
 )
 
 
@@ -323,3 +327,199 @@ class TestEndToEndSmoke:
         assert 0.0 <= res["sbc_pvalue"] <= 1.0
         assert res["cvae_mse"] >= 0.0
         assert res["baseline_mse"] >= 0.0
+
+
+# ─── 7. Heteroscedastic Gaussian head ────────────────────────────────
+
+
+def _noisy_field_dataset(n=192, gy=1, gx=1, n_modes=3, sigma_true=0.05,
+                         seed=13):
+    """Toy dataset with KNOWN aleatoric noise: field = smooth(freq) + N(0, s).
+
+    The smooth mapping is monotone in mean frequency, so a converged head
+    should drive its predicted per-pixel sigma toward ``sigma_true`` (the
+    residual std after the mean is learned). Large default ``n`` keeps the
+    trunk from memorizing the train split (which would collapse sigma).
+    """
+    rng = np.random.default_rng(seed)
+    freqs = rng.uniform(20.0, 80.0, size=(n, n_modes))
+    base = np.clip(0.6 + 0.002 * freqs.mean(axis=1), 0.05, 0.95)
+    fields = base[:, None, None] + sigma_true * rng.standard_normal((n, gy, gx))
+    fields = np.clip(fields, 1e-3, 1.0)
+    severity = 1.0 - fields.mean(axis=(1, 2))
+    train, val, test = split_designs(n, seed=seed)
+    return {
+        "fields": fields,
+        "freqs": freqs,
+        "log_freqs": np.log(freqs),
+        "severity": severity,
+        "splits": {"train": train, "val": val, "test": test},
+    }
+
+
+class TestHeteroscedasticHead:
+    def test_sigma_tracks_residual_std_on_known_noise(self):
+        ds = _noisy_field_dataset()
+        models = train_field_cvae_heteroscedastic(
+            ds, d_c=8, d_z=4, epochs_ae=40, epochs_post=120,
+            batch_size=8, seed=0, progress=False,
+        )
+        val_idx = np.asarray(ds["splits"]["val"], dtype=int)
+        mu, sigma = models["interval_predictor"](ds["log_freqs"][val_idx])
+        assert mu.shape == (len(val_idx), 1, 1)
+        assert sigma.shape == (len(val_idx), 1, 1)
+        assert (sigma > 0).all()
+        residual_std = float(
+            np.std(ds["fields"][val_idx][:, 0, 0] - mu[:, 0, 0])
+        )
+        pred_sigma = float(np.median(sigma))
+        assert 0.5 <= pred_sigma / residual_std <= 2.0, (
+            f"pred sigma {pred_sigma:.4f} vs residual std {residual_std:.4f}"
+        )
+
+    def test_analytic_interval_coverage_on_calibrated_fixture(self):
+        ds = _noisy_field_dataset(n=64, gy=2, gx=2, sigma_true=0.05, seed=17)
+        models = train_field_cvae_heteroscedastic(
+            ds, d_c=8, d_z=4, epochs_ae=40, epochs_post=120,
+            batch_size=8, seed=0, progress=False,
+        )
+        res = evaluate_sp_gates(models, ds, alpha=0.10, seed=5,
+                                baseline_epochs=10)
+        assert 0.80 <= res["coverage"] <= 1.0, f"coverage {res['coverage']:.3f}"
+        # SBC ranks still produced from mu + sigma*eps ensembles.
+        assert ((res["ranks"] >= 0) & (res["ranks"] <= res["n_samples"])).all()
+
+
+class _ConstIntervalPredictor:
+    """Duck-typed interval predictor: constant mu/sigma grids."""
+
+    def __init__(self, mu=0.5, sigma=0.05, gy=2, gx=2):
+        self.mu, self.sigma = mu, sigma
+        self.gy, self.gx = gy, gx
+
+    def __call__(self, log_freqs):
+        shape = (log_freqs.shape[0], self.gy, self.gx)
+        return (np.full(shape, self.mu), np.full(shape, self.sigma))
+
+
+class TestAnalyticPathValOnlyLeakage:
+    def test_nonval_corruption_leaves_coverage_unchanged(self):
+        ds = _gate_dataset(0.5)
+        models = {"interval_predictor": _ConstIntervalPredictor(0.5, 0.05)}
+        res_clean = evaluate_sp_gates(
+            models, ds, n_samples=6, seed=3, baseline_epochs=5,
+        )
+
+        corrupted = {k: (v.copy() if isinstance(v, np.ndarray) else v)
+                     for k, v in ds.items()}
+        non_val = [i for i in range(len(ds["fields"]))
+                   if i not in set(ds["splits"]["val"])]
+        corrupted["fields"][non_val] = 0.0          # garbage fields
+        corrupted["severity"][non_val] = np.nan     # poison severities
+        res_corrupt = evaluate_sp_gates(
+            models, corrupted, n_samples=6, seed=3, baseline_epochs=5,
+        )
+
+        assert res_corrupt["coverage"] == pytest.approx(res_clean["coverage"])
+        for key in ("cvae_mse", "baseline_mse", "sbc_error"):
+            assert np.isfinite(res_corrupt[key]), f"{key} poisoned by non-val"
+
+
+# ─── 8. Heteroscedastic ensemble with BMA ────────────────────────────
+
+
+class TestHeteroscedasticEnsemble:
+    def test_bma_coverage_on_calibrated_fixture(self):
+        ds = _noisy_field_dataset(n=64, gy=2, gx=2, sigma_true=0.05, seed=17)
+        ens = train_heteroscedastic_ensemble(
+            ds, n_models=3, d_c=8, d_z=4, epochs_ae=40, epochs_post=120,
+            batch_size=8, progress=False,
+        )
+        assert len(ens["members"]) == 3
+        res = evaluate_ensemble_sp_gates(ens, ds, alpha=0.10, seed=5,
+                                         baseline_epochs=10)
+        assert 0.80 <= res["coverage"] <= 1.0, f"coverage {res['coverage']:.3f}"
+        assert len(res["per_member_coverage"]) == 3
+        assert all(0.0 <= c <= 1.0 for c in res["per_member_coverage"])
+        assert res["cvae_mse"] >= 0.0
+
+    def test_total_variance_law_of_total_variance_hand_check(self):
+        # Two members with known constant mu/sigma:
+        #   mu_bar = 0.6; E[sigma^2 + mu^2] = (0.01 + 0.25 + 0.04 + 0.49)/2
+        #   total_var = 0.395 - 0.36 = 0.035 -> total_sigma = sqrt(0.035)
+        mus = np.array([[[[0.5]]], [[[0.7]]]])
+        sigmas = np.array([[[[0.1]]], [[[0.2]]]])
+        mu_bar, total_sigma = _bma_combine(mus, sigmas)
+        assert float(mu_bar[0, 0, 0]) == pytest.approx(0.6)
+        assert float(total_sigma[0, 0, 0]) == pytest.approx(np.sqrt(0.035))
+
+        # End-to-end through the evaluator: truth 0.5 lies inside
+        # 0.6 ± z*sqrt(0.035) -> full coverage; a pair centered at 0.9
+        # with tiny sigma covers nothing.
+        ds = _gate_dataset(0.5)
+        ens_in = {"members": [
+            {"interval_predictor": _ConstIntervalPredictor(0.5, 0.1)},
+            {"interval_predictor": _ConstIntervalPredictor(0.7, 0.2)},
+        ]}
+        res_in = evaluate_ensemble_sp_gates(ens_in, ds, alpha=0.10, seed=3,
+                                            baseline_epochs=5)
+        assert res_in["coverage"] == pytest.approx(1.0)
+        ens_out = {"members": [
+            {"interval_predictor": _ConstIntervalPredictor(0.9, 0.001)},
+            {"interval_predictor": _ConstIntervalPredictor(0.9, 0.002)},
+        ]}
+        res_out = evaluate_ensemble_sp_gates(ens_out, ds, alpha=0.10, seed=3,
+                                             baseline_epochs=5)
+        assert res_out["coverage"] == pytest.approx(0.0)
+
+
+class TestEnsembleValOnlyLeakage:
+    def test_nonval_corruption_leaves_coverage_unchanged(self):
+        ds = _gate_dataset(0.5)
+        ens = {"members": [
+            {"interval_predictor": _ConstIntervalPredictor(0.5, 0.05)},
+            {"interval_predictor": _ConstIntervalPredictor(0.55, 0.05)},
+        ]}
+        res_clean = evaluate_ensemble_sp_gates(
+            ens, ds, alpha=0.10, seed=3, baseline_epochs=5,
+        )
+
+        corrupted = {k: (v.copy() if isinstance(v, np.ndarray) else v)
+                     for k, v in ds.items()}
+        non_val = [i for i in range(len(ds["fields"]))
+                   if i not in set(ds["splits"]["val"])]
+        corrupted["fields"][non_val] = 0.0          # garbage fields
+        corrupted["severity"][non_val] = np.nan     # poison severities
+        res_corrupt = evaluate_ensemble_sp_gates(
+            ens, corrupted, alpha=0.10, seed=3, baseline_epochs=5,
+        )
+
+        assert res_corrupt["coverage"] == pytest.approx(res_clean["coverage"])
+        for key in ("cvae_mse", "baseline_mse", "sbc_error"):
+            assert np.isfinite(res_corrupt[key]), f"{key} poisoned by non-val"
+
+
+class TestBootstrapBagging:
+    def test_bootstrap_members_resample_train_rows(self):
+        ds = _synthetic_dataset(n=48)
+        orig_train = ds["splits"]["train"]
+        ens = train_heteroscedastic_ensemble(
+            ds, n_models=3, seeds=[0, 1, 2], bootstrap_resample=True,
+            d_c=8, d_z=4, epochs_ae=1, epochs_post=1, batch_size=8,
+            progress=False,
+        )
+        draws = [m["bootstrap_indices"] for m in ens["members"]]
+        # Same size as the train split, drawn only from train rows.
+        for b in draws:
+            assert len(b) == len(orig_train)
+            assert set(b.tolist()) <= set(orig_train)
+        # Genuine resampling: at least two members differ pairwise.
+        assert len({tuple(sorted(b.tolist())) for b in draws}) >= 2
+
+        # Default off: no bootstrap bookkeeping on members.
+        ens0 = train_heteroscedastic_ensemble(
+            ds, n_models=2, seeds=[0, 1],
+            d_c=8, d_z=4, epochs_ae=1, epochs_post=1, batch_size=8,
+            progress=False,
+        )
+        assert all("bootstrap_indices" not in m for m in ens0["members"])
