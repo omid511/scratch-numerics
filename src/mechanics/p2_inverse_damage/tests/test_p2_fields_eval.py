@@ -495,3 +495,39 @@ class TestGenerateFieldDataset:
         assert not (set(train) & set(val))
         assert not (set(train) & set(test))
         assert not (set(val) & set(test))
+
+
+# ─── 14. Mode-shape canonicalization (sign-fix + max-norm) ────────────
+
+class TestShapeCanonicalization:
+    @classmethod
+    def setup_class(cls):
+        cls.ds = generate_field_dataset(
+            n_samples=2, gy=4, gx=4, M=4, N=4, seed=3,
+            store_full_shapes=True,
+        )
+
+    def test_deterministic_across_calls(self):
+        ds2 = generate_field_dataset(
+            n_samples=2, gy=4, gx=4, M=4, N=4, seed=3,
+            store_full_shapes=True,
+        )
+        assert np.array_equal(self.ds["mode_shapes"], ds2["mode_shapes"])
+
+    def test_stored_shapes_max_norm_one(self):
+        shapes = self.ds["mode_shapes"]
+        peaks = np.max(np.abs(shapes), axis=(-2, -1))
+        assert np.allclose(peaks, 1.0)
+
+    def test_sign_fix_on_negative_dominant_shape(self):
+        from mechanics.p2_inverse_damage.damage_data import (
+            _canonicalize_mode_shape,
+        )
+        w = np.array([[0.5, -0.25], [-2.0, 0.1]])   # peak is negative
+        c = _canonicalize_mode_shape(w)
+        # Peak element becomes +1 after the flip and normalization.
+        assert c[1, 0] == 1.0
+        assert np.allclose(c, w / -2.0)
+        # Already-positive-dominant input is unchanged up to normalization.
+        c2 = _canonicalize_mode_shape(-w)
+        assert np.allclose(c2, c)

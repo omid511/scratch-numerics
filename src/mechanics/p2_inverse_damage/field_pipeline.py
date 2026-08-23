@@ -357,6 +357,71 @@ def _epoch_means(
     return arr.reshape(-1, n_batches, 2).mean(axis=1).tolist()
 
 
+def cnn_regression_probe(
+    dataset: dict,
+    *,
+    d_c: int = 64,
+    epochs: int = 300,
+    batch_size: int = 16,
+    lr: float = 1e-3,
+    seed: int = 0,
+) -> dict:
+    """Learnability anchor: direct CNN mode-shapes -> field regression.
+
+    Trains the :class:`ModeShapeCNNEncoder` trunk plus a linear head to
+    map canonicalized stacked mode shapes ``(n, n_modes, gy, gx)`` straight
+    to retention fields by MSE on the train split — no latent, no ELBO.
+    A few hundred steps suffice: if this probe cannot beat the
+    frequencies-only reference (~0.0317 MSE), the shapes carry no
+    exploitable signal and the CVAE route is hopeless; if it can
+    (ridge-on-canonicalized-shapes reaches ~0.0248), any remaining gap is
+    a pipeline problem, not a data problem.
+
+    Requires ``dataset['mode_shapes']`` (canonicalized at emission since
+    the sign/scale fix in :mod:`mechanics.p2_inverse_damage.damage_data`).
+    Returns ``{"val_mse": ..., "train_mse": ..., "epochs": ...}``.
+    """
+    if "mode_shapes" not in dataset:
+        raise ValueError("cnn_regression_probe requires dataset['mode_shapes']")
+    fields = np.asarray(dataset["fields"], dtype=np.float32)
+    shapes = np.asarray(dataset["mode_shapes"], dtype=np.float32)
+    splits = dataset["splits"]
+    train_idx = np.asarray(splits["train"], dtype=int)
+    val_idx = np.asarray(splits["val"], dtype=int)
+    gy, gx = fields.shape[-2], fields.shape[-1]
+
+    torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+    encoder = ModeShapeCNNEncoder(n_modes=shapes.shape[1], d_c=d_c, seed=seed)
+    # Linear head built eagerly so its parameters are known before training.
+    encoder._ensure_fc(encoder.conv(torch.zeros(1, shapes.shape[1], gy, gx)))
+    head = nn.Linear(d_c, gy * gx)
+    params = (
+        list(encoder.parameters()) + list(head.parameters())
+    )
+    opt = torch.optim.Adam(params, lr=lr)
+    x_tr = torch.as_tensor(shapes[train_idx])
+    y_tr = torch.as_tensor(fields[train_idx].reshape(-1, gy * gx))
+    for epoch in range(epochs):
+        perm = rng.permutation(len(x_tr))
+        for s in range(0, len(x_tr), batch_size):
+            b = perm[s:s + batch_size]
+            pred = head(encoder.forward_tensor(x_tr[b]))
+            loss = torch.mean((pred - y_tr[b]) ** 2)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    def _mse(idx):
+        with torch.no_grad():
+            pred = head(
+                encoder.forward_tensor(torch.as_tensor(shapes[idx]))
+            ).numpy().reshape(-1, gy, gx)
+        return float(np.mean((pred - fields[idx]) ** 2))
+
+    return {"train_mse": _mse(train_idx), "val_mse": _mse(val_idx),
+            "epochs": epochs}
+
 def train_field_cvae(
     dataset: dict,
     *,
@@ -466,8 +531,10 @@ def train_field_cvae(
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
 
-    decoder = DamageDecoder(d_z=d_z,
-                            d_c=(d_c if cond_decoder else 0),
+    # The decoder ALWAYS carries the d_c conditioning block: Phase 1 must
+    # feed it the real measurement-derived c (see _ae_step below). With
+    # cond_decoder=False only the Phase-2 ELBO de-conditions.
+    decoder = DamageDecoder(d_z=d_z, d_c=d_c,
                             grid_size=(gy, gx), seed=seed)
     posterior = ConditionalPosterior(d_z=d_z, d_c=d_c, seed=seed)
     # Small-variance re-init of the posterior heads: their default init
@@ -482,10 +549,15 @@ def train_field_cvae(
 
     # Phase 1: autoencoder pre-training (z ~ N(0, I)).
     def _ae_step(bx, by):
+        # Phase 1 trains encoder + decoder NORMALLY with the real
+        # measurement-derived c: the reconstruction path c -> decoder(z, c)
+        # is the ONLY route by which a CNN shape encoder receives live
+        # gradient here. De-conditioning is an anti-collapse device for
+        # Phase 2 (force information through z); applying it in Phase 1 as
+        # well left the encoder with zero gradient and its features random.
         c = encoder.forward_tensor(bx)
         z = torch.randn(bx.shape[0], decoder.d_z)
-        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
-        pred = decoder.forward_tensor(z, cc)
+        pred = decoder.forward_tensor(z, c)
         return torch.mean((pred - by) ** 2)
 
     comps: list[list[float]] = []
@@ -515,7 +587,14 @@ def train_field_cvae(
                 kl_weight_final * (step_counter[0] + 1) / kl_anneal_epochs,
             )
         c = encoder.forward_tensor(bx)
-        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
+        # Asymmetry rationale: de-conditioning ONLY in Phase 2 forces all
+        # measurement information through z (anti-collapse remedy), while
+        # Phase 1 already shaped the encoder/decoder pair with live c
+        # gradients. The zeros block matches the decoder's d_c-wide input.
+        cc = (
+            c if cond_decoder
+            else torch.zeros(bx.shape[0], d_c)
+        )
         mu, log_var = posterior.forward_tensor(c)
         # Bounded log-variance: an unbounded branch lets KL explode through
         # exp(log_var) early in training and stall the ELBO (observed ~11k
@@ -784,8 +863,11 @@ def train_field_cvae_heteroscedastic(
             else FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
         )
     )
+    # Same Phase-1/Phase-2 asymmetry as train_field_cvae: the decoder
+    # always carries the d_c block; Phase 1 feeds it the real c, only the
+    # Phase-2 ELBO de-conditions when cond_decoder=False.
     decoder = HeteroscedasticFieldDecoder(d_z=d_z,
-                                          d_c=(d_c if cond_decoder else 0),
+                                          d_c=d_c,
                                           grid_size=(gy, gx),
                                           sigma_range=sigma_range, seed=seed)
     posterior = ConditionalPosterior(d_z=d_z, d_c=d_c, seed=seed)
@@ -800,7 +882,9 @@ def train_field_cvae_heteroscedastic(
     # Phase 1: autoencoder pre-training on the mean head (z ~ N(0, I)).
     def _ae_step(bx, by):
         c = encoder.forward_tensor(bx)
-        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
+        # Phase 1 uses the REAL measurement-derived c (live encoder
+        # gradient); de-conditioning applies only in Phase 2.
+        cc = c
         z = torch.randn(bx.shape[0], decoder.d_z)
         pred_mu, _ = decoder.forward_tensor(z, cc)
         return torch.mean((pred_mu - by) ** 2)
@@ -840,7 +924,10 @@ def train_field_cvae_heteroscedastic(
         if kl_anneal_epochs > 0:
             kl_weight[0] = min(1.0, (step_counter[0] + 1) / kl_anneal_epochs)
         c = encoder.forward_tensor(bx)
-        cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
+        cc = (
+            c if cond_decoder
+            else torch.zeros(bx.shape[0], d_c)
+        )
         mu, log_var = posterior.forward_tensor(c)
         log_var = torch.clamp(log_var, min=-10.0, max=10.0)
         pred_mu, _ = decoder.forward_tensor(mu, cc)
@@ -875,7 +962,10 @@ def train_field_cvae_heteroscedastic(
     def _nll_sigma_step(bx, by):
         with torch.no_grad():
             c = encoder.forward_tensor(bx)
-            cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
+            cc = (
+                c if cond_decoder
+                else torch.zeros(bx.shape[0], d_c)
+            )
             mu, _ = posterior.forward_tensor(c)
             pred_mu, _ = decoder.forward_tensor(mu, cc)
             x = torch.cat([mu, cc], dim=-1) if cc.shape[1] else mu
@@ -902,7 +992,7 @@ def train_field_cvae_heteroscedastic(
         """
         lf = np.asarray(X, dtype=np.float32)
         c_np = np.asarray(encoder.forward(lf))
-        cc = c_np if cond_decoder else np.zeros((len(lf), 0))
+        cc = c_np if cond_decoder else np.zeros((len(lf), d_c))
         mu_z, log_var = posterior(c_np)
         mu_grid, log_sigma_grid = decoder.forward(mu_z, cc)
         sigma_grid = np.exp(log_sigma_grid)   # already bounded by construction
@@ -953,7 +1043,9 @@ def _field_ensemble(
     if cond_decoder:
         dec_in_cond = np.repeat(c, n_samples, axis=0)
     else:
-        dec_in_cond = np.zeros((n_samples, 0))
+        # De-conditioned decoder still has a d_c-wide input block
+        # (Phase 1 trains it with real c); feed structural zeros.
+        dec_in_cond = np.zeros((n_samples, getattr(decoder, "d_c", c.shape[-1])))
     return np.asarray(decoder.forward(z, dec_in_cond))                  # (S, gy, gx)
 
 
