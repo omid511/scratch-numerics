@@ -175,6 +175,8 @@ def train_field_cvae(
     seed: int = 0,
     lr: float = 1e-3,
     progress: bool = True,
+    cond_decoder: bool = True,
+    kl_anneal_epochs: int = 0,
 ) -> dict:
     """Train the field CVAE on the train split of a loaded field dataset.
 
@@ -187,11 +189,19 @@ def train_field_cvae(
     decoder and posterior all receive gradients. Mirrors ``train.py``
     conventions adapted to frequencies-only conditioning.
 
+    Anti-collapse options (posterior collapse observed with defaults —
+    ELBO pinned at the free-bits floor, SP3 coverage 0.69):
+      * ``cond_decoder=False`` routes measurement information ONLY through
+        z (decoder receives a zero conditioning block), forcing the latent
+        to carry it — the standard CVAE de-conditioning remedy.
+      * ``kl_anneal_epochs>0`` ramps the KL weight linearly from zero over
+        that many ELBO epochs before full weight.
+
     Only ``dataset["splits"]["train"]`` indices are touched.
 
     Returns dict with keys: ``encoder``, ``decoder``, ``posterior`` (modules),
     ``history`` = {"ae": [...], "posterior": [...]}, ``grid_shape`` = (gy, gx),
-    ``n_modes``, ``splits`` (echo).
+    ``n_modes``, ``splits`` (echo), ``options`` echo.
     """
     fields = np.asarray(dataset["fields"], dtype=np.float32)
     log_freqs = np.asarray(dataset["log_freqs"], dtype=np.float32)
@@ -207,8 +217,18 @@ def train_field_cvae(
     rng = np.random.default_rng(seed)
 
     encoder = FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
-    decoder = DamageDecoder(d_z=d_z, d_c=d_c, grid_size=(gy, gx), seed=seed)
+    decoder = DamageDecoder(d_z=d_z,
+                            d_c=(d_c if cond_decoder else 0),
+                            grid_size=(gy, gx), seed=seed)
     posterior = ConditionalPosterior(d_z=d_z, d_c=d_c, seed=seed)
+    # Small-variance re-init of the posterior heads: their default init
+    # produced mu~O(10) against the N(0,I) prior -> KL ~2.7e4 nats at step
+    # zero, drowning the reconstruction term (empirically measured).
+    for head in (posterior.trunk, posterior.mu_head, posterior.logvar_head):
+        if hasattr(head, "parameters"):
+            for prm in head.parameters():
+                if prm.requires_grad and prm.ndim > 1:
+                    torch.nn.init.normal_(prm, mean=0.0, std=0.01)
 
     def _epochs(n_epochs, params, step_fn, tag):
         optim = torch.optim.Adam(params, lr=lr)
@@ -240,9 +260,13 @@ def train_field_cvae(
     # Phase 1: autoencoder pre-training (z ~ N(0, I)).
     def _ae_step(bx, by):
         c = encoder.forward_tensor(bx)
+        cc = c if cond_decoder else torch.zeros_like(c)
         z = torch.randn(bx.shape[0], decoder.d_z)
-        pred = decoder.forward_tensor(z, c)
+        pred = decoder.forward_tensor(z, cc)
         return torch.mean((pred - by) ** 2)
+
+    kl_weight = [1.0 if kl_anneal_epochs == 0 else 0.0]
+    step_counter = [0]
 
     history_ae = _epochs(
         epochs_ae,
@@ -253,14 +277,22 @@ def train_field_cvae(
 
     # Phase 2: ELBO with free-bits KL (matches train.train_posterior).
     def _elbo_step(bx, by):
+        if kl_anneal_epochs > 0:
+            kl_weight[0] = min(1.0, (step_counter[0] + 1) / kl_anneal_epochs)
         c = encoder.forward_tensor(bx)
+        cc = c if cond_decoder else torch.zeros_like(c)
         mu, log_var = posterior.forward_tensor(c)
+        # Bounded log-variance: an unbounded branch lets KL explode through
+        # exp(log_var) early in training and stall the ELBO (observed ~11k
+        # nats flat). +-10 nats is far beyond any calibrated posterior here.
+        log_var = torch.clamp(log_var, min=-10.0, max=10.0)
         z = mu + torch.exp(0.5 * log_var) * torch.randn_like(mu)
-        pred = decoder.forward_tensor(z, c)
+        pred = decoder.forward_tensor(z, cc)
         recon = torch.mean((pred - by) ** 2)
         kl_per_dim = -0.5 * (1 + log_var - mu**2 - torch.exp(log_var))
         kl = torch.mean(torch.sum(torch.clamp(kl_per_dim, min=0.5), dim=-1))
-        return recon + kl
+        step_counter[0] += 1
+        return recon + kl_weight[0] * kl
 
     history_post = _epochs(
         epochs_post,
@@ -283,11 +315,12 @@ def train_field_cvae(
         "grid_shape": (gy, gx),
         "n_modes": n_modes,
         "splits": splits,
-    }
+        "options": {"cond_decoder": cond_decoder,
+                    "kl_anneal_epochs": kl_anneal_epochs},
+     }
 
 
 # ─── SP-gate evaluation ──────────────────────────────────────────────
-
 
 def _field_ensemble(
     encoder,
@@ -296,6 +329,7 @@ def _field_ensemble(
     log_freq_row: np.ndarray,
     n_samples: int,
     rng: np.random.Generator,
+    cond_decoder: bool = True,
 ) -> np.ndarray:
     """Draw n_samples posterior field samples for one observation.
 
@@ -305,8 +339,11 @@ def _field_ensemble(
     mu, log_var = posterior(c)                                          # (1, d_z) each
     eps = rng.standard_normal((n_samples, mu.shape[-1]))
     z = mu + np.exp(0.5 * log_var) * eps                                # (S, d_z)
-    c_rep = np.repeat(c, n_samples, axis=0)
-    return np.asarray(decoder.forward(z, c_rep))                        # (S, gy, gx)
+    if cond_decoder:
+        dec_in_cond = np.repeat(c, n_samples, axis=0)
+    else:
+        dec_in_cond = np.zeros((n_samples, 0))
+    return np.asarray(decoder.forward(z, dec_in_cond))                  # (S, gy, gx)
 
 
 def _severity(field_stack: np.ndarray) -> np.ndarray:
@@ -363,12 +400,16 @@ def evaluate_sp_gates(
     rng = np.random.default_rng(seed)
     lower_q, upper_q = alpha / 2.0, 1.0 - alpha / 2.0
 
+    options = models.get("options", {}) if isinstance(models, dict) else {}
+    cond_decoder = bool(options.get("cond_decoder", True))
+
     covered_pixels = []
     severity_ensembles = []
     mean_field_preds = []
     for i in val_idx:
         ens = _field_ensemble(
-            encoder, decoder, posterior_m, log_freqs[i], n_samples, rng
+            encoder, decoder, posterior_m, log_freqs[i], n_samples, rng,
+            cond_decoder=cond_decoder,
         )
         lower = np.quantile(ens, lower_q, axis=0)
         upper = np.quantile(ens, upper_q, axis=0)
