@@ -306,6 +306,8 @@ def train_field_cvae(
     progress: bool = True,
     cond_decoder: bool = True,
     kl_anneal_epochs: int = 0,
+    kl_weight_final: float = 1.0,
+    free_bits: bool = True,
     use_summaries: bool = False,
     posterior_init_std: float = 0.01,
 ) -> dict:
@@ -324,6 +326,12 @@ def train_field_cvae(
       * ``cond_decoder=False`` routes measurement information ONLY through
         z (decoder receives a zero conditioning block), forcing the latent
         to carry it — the standard CVAE de-conditioning remedy.
+      * ``free_bits=False`` drops the per-dim ``clamp(min=0.5)`` (plain
+        KL) and holds the KL weight at ``kl_weight_final`` for all of
+        Phase 2 (``kl_anneal_epochs`` is ignored on this path). With a
+        small final weight the posterior can carry information without
+        the floor's dead-gradient regime — but also without its collapse
+        protection.
       * ``kl_anneal_epochs>0`` ramps the KL weight linearly from zero over
         that many ELBO epochs before full weight.
       * ``posterior_init_std`` scales the posterior head re-init. The
@@ -395,7 +403,11 @@ def train_field_cvae(
         pred = decoder.forward_tensor(z, cc)
         return torch.mean((pred - by) ** 2)
 
-    kl_weight = [1.0 if kl_anneal_epochs == 0 else 0.0]
+    comps: list[list[float]] = []
+    if not free_bits:
+        kl_weight = [kl_weight_final]
+    else:
+        kl_weight = [kl_weight_final if kl_anneal_epochs == 0 else 0.0]
     step_counter = [0]
 
     history_ae = _run_epochs(
@@ -408,8 +420,11 @@ def train_field_cvae(
 
     # Phase 2: ELBO with free-bits KL (matches train.train_posterior).
     def _elbo_step(bx, by):
-        if kl_anneal_epochs > 0:
-            kl_weight[0] = min(1.0, (step_counter[0] + 1) / kl_anneal_epochs)
+        if free_bits and kl_anneal_epochs > 0:
+            kl_weight[0] = min(
+                kl_weight_final,
+                kl_weight_final * (step_counter[0] + 1) / kl_anneal_epochs,
+            )
         c = encoder.forward_tensor(bx)
         cc = c if cond_decoder else torch.zeros(bx.shape[0], 0)
         mu, log_var = posterior.forward_tensor(c)
@@ -421,12 +436,12 @@ def train_field_cvae(
         pred = decoder.forward_tensor(z, cc)
         recon = torch.mean((pred - by) ** 2)
         kl_per_dim = -0.5 * (1 + log_var - mu**2 - torch.exp(log_var))
-        kl = torch.mean(torch.sum(torch.clamp(kl_per_dim, min=0.5), dim=-1))
+        if free_bits:
+            kl_per_dim = torch.clamp(kl_per_dim, min=0.5)
+        kl = torch.mean(torch.sum(kl_per_dim, dim=-1))
         comps.append([float(recon.detach()), float(kl.detach())])
         step_counter[0] += 1
         return recon + kl_weight[0] * kl
-
-    comps: list[list[float]] = []
 
     history_post = _run_epochs(
         epochs_post, x_train, y_train,
@@ -456,7 +471,9 @@ def train_field_cvae(
         "options": {"cond_decoder": cond_decoder,
                     "kl_anneal_epochs": kl_anneal_epochs,
                     "use_summaries": use_summaries,
-                    "posterior_init_std": posterior_init_std},
+                    "posterior_init_std": posterior_init_std,
+                    "kl_weight_final": kl_weight_final,
+                    "free_bits": free_bits},
      }
 
 
