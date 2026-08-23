@@ -84,6 +84,14 @@ def load_field_dataset(path: str) -> dict:
             summaries = np.asarray(data["summaries"], dtype=np.float64)
         else:
             summaries = None
+        if "meas_mode_shapes" in data.files:
+            mode_shapes = np.asarray(
+                data["meas_mode_shapes"], dtype=np.float64
+            )
+        elif "mode_shapes" in data.files:
+            mode_shapes = np.asarray(data["mode_shapes"], dtype=np.float64)
+        else:
+            mode_shapes = None
         splits = {
             "train": np.asarray(data["split_train"], dtype=int).tolist(),
             "val": np.asarray(data["split_val"], dtype=int).tolist(),
@@ -120,6 +128,13 @@ def load_field_dataset(path: str) -> dict:
                 f"sample-count mismatch: fields {n}, summaries {summaries.shape}"
             )
         out["summaries"] = summaries
+    if mode_shapes is not None:
+        if mode_shapes.shape[0] != n:
+            raise ValueError(
+                f"sample-count mismatch: fields {n}, "
+                f"mode_shapes {mode_shapes.shape}"
+            )
+        out["mode_shapes"] = mode_shapes
     if config_json is not None:
         try:
             out["config"] = json.loads(config_json)
@@ -279,6 +294,55 @@ class FreqSummaryEncoder(nn.Module):
             return self.mlp(x_t).numpy()
 
 
+class ModeShapeCNNEncoder(nn.Module):
+    """Encode stacked mode shapes (B, n_modes, gy, gx) → c ∈ R^{d_c}.
+
+    Small conv trunk: Conv2d(n_modes→16→32→16, 3x3, stride 2, pad 1)
+    with ReLU, then a Linear head to d_c (built lazily on the first
+    forward so any gy×gx works). Input rows are the per-sample mode
+    shapes evaluated on the FIELD grid.
+    """
+
+    def __init__(self, n_modes: int = 6, d_c: int = 64, seed: int = 42):
+        super().__init__()
+        self.n_modes = n_modes
+        self.d_c = d_c
+        self.conv = nn.Sequential(
+            nn.Conv2d(n_modes, 16, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 16, 3, stride=2, padding=1),
+            nn.ReLU(),
+        )
+        self.fc: nn.Linear | None = None
+        torch.manual_seed(seed)
+        for m in self.conv:
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+                nn.init.zeros_(m.bias)
+
+    def _ensure_fc(self, h: torch.Tensor) -> None:
+        if self.fc is None:
+            flat = h.shape[1] * h.shape[2] * h.shape[3]
+            self.fc = nn.Linear(flat, self.d_c).to(h.device)
+            torch.manual_seed(0)
+            nn.init.kaiming_normal_(self.fc.weight)
+            nn.init.zeros_(self.fc.bias)
+
+    def forward_tensor(self, shapes: torch.Tensor) -> torch.Tensor:
+        """shapes: (B, n_modes, gy, gx) → c: (B, d_c), grad-preserving."""
+        h = self.conv(shapes)
+        self._ensure_fc(h)
+        return self.fc(h.flatten(1))
+
+    def forward(self, shapes: np.ndarray) -> np.ndarray:
+        """NumPy inference path. (batch, n_modes, gy, gx) → (batch, d_c)."""
+        x_t = torch.as_tensor(shapes, dtype=torch.float32)
+        with torch.no_grad():
+            return self.forward_tensor(x_t).numpy()
+
+
 # ─── Training ────────────────────────────────────────────────────────
 
 
@@ -310,6 +374,7 @@ def train_field_cvae(
     free_bits: bool = True,
     use_summaries: bool = False,
     posterior_init_std: float = 0.01,
+    conditioning: str = "freq_only",
 ) -> dict:
     """Train the field CVAE on the train split of a loaded field dataset.
     Phase 1 (autoencoder pre-training): c = encoder(log_freqs), z ~ N(0, I),
@@ -341,6 +406,12 @@ def train_field_cvae(
         larger values (e.g. 0.5-1.0) start the KL above the floor with a
         live gradient. (The pre-default failure was the opposite extreme:
         std=default gave mu~O(10), KL~2.7e4 nats at step zero.)
+      * ``conditioning='cnn'`` encodes the FULL mode shapes
+        ``(n, n_modes, gy, gx)`` (field-grid aligned; requires
+        ``dataset['mode_shapes']``) through :class:`ModeShapeCNNEncoder`;
+        ``'freq_only'`` (default) and ``'freq_summary'`` preserve the
+        previous behavior. ``use_summaries=True`` is a legacy alias for
+        ``conditioning='freq_summary'``.
 
     Only ``dataset["splits"]["train"]`` indices are touched.
 
@@ -358,11 +429,15 @@ def train_field_cvae(
     splits = dataset["splits"]
     train_idx = np.asarray(splits["train"], dtype=int)
 
+    use_summaries = use_summaries or conditioning == "freq_summary"
+    cond = "freq_summary" if use_summaries else (
+        "cnn" if conditioning == "cnn" else "freq_only"
+    )
     n, gy, gx = fields.shape
     n_modes = log_freqs.shape[1]
-    if use_summaries:
+    if cond == "freq_summary":
         if "summaries" not in dataset:
-            raise ValueError("use_summaries=True requires dataset['summaries']")
+            raise ValueError("summaries conditioning requires dataset['summaries']")
         summaries = np.asarray(dataset["summaries"], dtype=np.float32)
         x_train = np.concatenate(
             [log_freqs[train_idx], summaries[train_idx]], axis=1
@@ -373,6 +448,16 @@ def train_field_cvae(
             d_summary_block=summaries.shape[1] // n_modes,
             seed=seed,
         )
+    elif cond == "cnn":
+        if "mode_shapes" not in dataset:
+            raise ValueError("cnn conditioning requires dataset['mode_shapes']")
+        mode_shapes = np.asarray(dataset["mode_shapes"], dtype=np.float32)
+        if mode_shapes.ndim != 4 or mode_shapes.shape[0] != n:
+            raise ValueError(
+                f"mode_shapes must be (n, n_modes, gy, gx); got {mode_shapes.shape}"
+            )
+        x_train = mode_shapes[train_idx]
+        encoder = ModeShapeCNNEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
     else:
         x_train = log_freqs[train_idx]
         encoder = FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
@@ -410,9 +495,13 @@ def train_field_cvae(
         kl_weight = [kl_weight_final if kl_anneal_epochs == 0 else 0.0]
     step_counter = [0]
 
+    enc_params = (
+        list(encoder.mlp.parameters())
+        if hasattr(encoder, "mlp") else list(encoder.parameters())
+    )
     history_ae = _run_epochs(
         epochs_ae, x_train, y_train,
-        list(encoder.mlp.parameters()) + list(decoder.mlp.parameters()),
+        enc_params + list(decoder.mlp.parameters()),
         _ae_step,
         batch_size=batch_size, lr=lr, rng=rng, progress=progress,
         tag="train_field_cvae ae",
@@ -446,7 +535,7 @@ def train_field_cvae(
     history_post = _run_epochs(
         epochs_post, x_train, y_train,
         (
-            list(encoder.mlp.parameters())
+            enc_params
             + list(decoder.mlp.parameters())
             + list(posterior.trunk.parameters())
             + list(posterior.mu_head.parameters())
@@ -469,6 +558,7 @@ def train_field_cvae(
         "n_modes": n_modes,
         "splits": splits,
         "options": {"cond_decoder": cond_decoder,
+                    "conditioning": cond,
                     "kl_anneal_epochs": kl_anneal_epochs,
                     "use_summaries": use_summaries,
                     "posterior_init_std": posterior_init_std,
@@ -602,6 +692,7 @@ def train_field_cvae_heteroscedastic(
     sigma_range: tuple[float, float] = (0.005, 0.5),
     use_summaries: bool = False,
     posterior_init_std: float = 0.01,
+    conditioning: str = "freq_only",
 ) -> dict:
     """Train a heteroscedastic Gaussian CVAE head on a loaded field dataset.
 
@@ -650,13 +741,26 @@ def train_field_cvae_heteroscedastic(
 
     n, gy, gx = fields.shape
     n_modes = log_freqs.shape[1]
-    if use_summaries:
+    cond = (
+        "freq_summary" if use_summaries else
+        ("cnn" if conditioning == "cnn" else "freq_only")
+    )
+    if cond == "freq_summary":
         if "summaries" not in dataset:
-            raise ValueError("use_summaries=True requires dataset['summaries']")
+            raise ValueError("summaries conditioning requires dataset['summaries']")
         summaries = np.asarray(dataset["summaries"], dtype=np.float32)
         x_train = np.concatenate(
             [log_freqs[train_idx], summaries[train_idx]], axis=1
         )
+    elif cond == "cnn":
+        if "mode_shapes" not in dataset:
+            raise ValueError("cnn conditioning requires dataset['mode_shapes']")
+        mode_shapes = np.asarray(dataset["mode_shapes"], dtype=np.float32)
+        if mode_shapes.ndim != 4 or mode_shapes.shape[0] != n:
+            raise ValueError(
+                f"mode_shapes must be (n, n_modes, gy, gx); got {mode_shapes.shape}"
+            )
+        x_train = mode_shapes[train_idx]
     else:
         x_train = log_freqs[train_idx]
     y_train = fields[train_idx]
@@ -673,8 +777,12 @@ def train_field_cvae_heteroscedastic(
             d_summary_block=summaries.shape[1] // n_modes,
             seed=seed,
         )
-        if use_summaries
-        else FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
+        if cond == "freq_summary"
+        else (
+            ModeShapeCNNEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
+            if cond == "cnn"
+            else FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
+        )
     )
     decoder = HeteroscedasticFieldDecoder(d_z=d_z,
                                           d_c=(d_c if cond_decoder else 0),
@@ -697,12 +805,17 @@ def train_field_cvae_heteroscedastic(
         pred_mu, _ = decoder.forward_tensor(z, cc)
         return torch.mean((pred_mu - by) ** 2)
 
+    enc_params = (
+        list(encoder.mlp.parameters())
+        if hasattr(encoder, "mlp") else list(encoder.parameters())
+    )
     kl_weight = [1.0 if kl_anneal_epochs == 0 else 0.0]
     step_counter = [0]
 
+
     history_ae = _run_epochs(
         epochs_ae, x_train, y_train,
-        (list(encoder.mlp.parameters())
+        (enc_params
          + list(decoder.trunk.parameters())
          + list(decoder.mu_head.parameters())),
         _ae_step,
@@ -741,7 +854,7 @@ def train_field_cvae_heteroscedastic(
     comps: list[list[float]] = []
 
     _main_params = (
-        list(encoder.mlp.parameters())
+        enc_params
         + list(decoder.trunk.parameters())
         + list(decoder.mu_head.parameters())
         + list(posterior.trunk.parameters())
@@ -811,7 +924,8 @@ def train_field_cvae_heteroscedastic(
                     "kl_anneal_epochs": kl_anneal_epochs,
                     "sigma_range": sigma_range,
                     "use_summaries": use_summaries,
-                    "posterior_init_std": posterior_init_std},
+                    "posterior_init_std": posterior_init_std,
+                    "conditioning": cond},
         "interval_predictor": interval_predictor,
     }
 
@@ -917,7 +1031,11 @@ def evaluate_sp_gates(
     # DirectRegressionBaseline below stays on log_freqs only (it is the
     # no-summaries reference).
     X = log_freqs
-    if use_summaries:
+    if options.get("conditioning") == "cnn":
+        if "mode_shapes" not in dataset:
+            raise ValueError("cnn conditioning requires dataset['mode_shapes']")
+        X = np.asarray(dataset["mode_shapes"], dtype=np.float64)
+    elif use_summaries:
         if "summaries" not in dataset:
             raise ValueError("use_summaries=True requires dataset['summaries']")
         X = np.concatenate(

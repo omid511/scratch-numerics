@@ -127,6 +127,7 @@ def cmd_generate_fields(args):
         N=args.N,
         seed=args.seed,
         store_shapes=bool(args.summaries),
+        store_full_shapes=bool(args.full_shapes),
     )
 
     out = Path(args.out)
@@ -148,6 +149,10 @@ def cmd_generate_fields(args):
             **(
                 {"summaries": dataset["summaries"]}
                 if args.summaries else {}
+            ),
+            **(
+                {"mode_shapes": dataset["mode_shapes"]}
+                if args.full_shapes else {}
             ),
         },
     )
@@ -309,6 +314,9 @@ def main(argv=None):
     p_gf.add_argument("--summaries", action="store_true",
                       help="also solve and store mode shapes; writes per-mode "
                            "[RMS, max|w|] summary rows (n, n_modes*2)")
+    p_gf.add_argument("--full-shapes", action="store_true",
+                      help="store full mode shapes on the field grid "
+                           "(n, n_modes, gy, gx)")
     p_gf.set_defaults(func=cmd_generate_fields)
 
     args = parser.parse_args(argv)

@@ -31,6 +31,7 @@ from mechanics.p2_inverse_damage.losses import (
 
 from mechanics.p2_inverse_damage.field_pipeline import (
     FreqSummaryEncoder,
+    ModeShapeCNNEncoder,
     evaluate_sp_gates,
     load_field_dataset,
     train_field_cvae,
@@ -123,6 +124,46 @@ class TestTrainWithSummaries:
             progress=False,
         )
         assert models["options"]["use_summaries"] is True
+        ev = evaluate_sp_gates(models, dataset, n_samples=5, baseline_epochs=1)
+        assert np.isfinite(ev["cvae_mse"]) and ev["n_val"] > 0
+
+
+class TestFullShapeConditioning:
+    def test_store_full_shapes_field_grid(self):
+        ds = generate_field_dataset(
+            n_samples=2, gy=4, gx=4, M=4, N=4, seed=3,
+            store_full_shapes=True,
+        )
+        assert ds["mode_shapes"].shape == (2, 6, 4, 4)
+        assert np.all(np.isfinite(ds["mode_shapes"]))
+        assert "summaries" not in ds  # summaries tied to store_shapes only
+        assert ds["config"]["store_full_shapes"] is True
+
+    def test_cnn_encoder_shapes(self):
+        enc = ModeShapeCNNEncoder(n_modes=6, d_c=32, seed=0)
+        x = torch.randn(5, 6, 8, 8)
+        c = enc.forward_tensor(x)
+        assert c.shape == (5, 32)
+        c_np = enc.forward(x.detach().numpy())
+        assert c_np.shape == (5, 32)
+
+    def test_tiny_end_to_end_cnn(self):
+        ds = generate_field_dataset(
+            n_samples=6, gy=4, gx=4, M=4, N=4, seed=3,
+            store_full_shapes=True,
+        )
+        dataset = {
+            "fields": ds["fields"],
+            "log_freqs": np.log(np.maximum(ds["frequencies"], 1e-12)),
+            "severity": ds["severity"],
+            "splits": ds["splits"],
+            "mode_shapes": ds["mode_shapes"],
+        }
+        models = train_field_cvae(
+            dataset, conditioning="cnn", cond_decoder=False,
+            epochs_ae=1, epochs_post=1, progress=False,
+        )
+        assert models["options"]["conditioning"] == "cnn"
         ev = evaluate_sp_gates(models, dataset, n_samples=5, baseline_epochs=1)
         assert np.isfinite(ev["cvae_mse"]) and ev["n_val"] > 0
 
