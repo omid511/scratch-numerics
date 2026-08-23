@@ -126,6 +126,7 @@ def cmd_generate_fields(args):
         M=args.M,
         N=args.N,
         seed=args.seed,
+        store_shapes=bool(args.summaries),
     )
 
     out = Path(args.out)
@@ -144,6 +145,10 @@ def cmd_generate_fields(args):
         measurements={
             "frequencies": dataset["frequencies"],
             "severity": dataset["severity"],
+            **(
+                {"summaries": dataset["summaries"]}
+                if args.summaries else {}
+            ),
         },
     )
 
@@ -301,6 +306,9 @@ def main(argv=None):
                       help=f"output .npz path (default {DEFAULT_FIELDS_OUT})")
     p_gf.add_argument("--seed", type=int, default=SEED,
                       help="RNG seed (default 42)")
+    p_gf.add_argument("--summaries", action="store_true",
+                      help="also solve and store mode shapes; writes per-mode "
+                           "[RMS, max|w|] summary rows (n, n_modes*2)")
     p_gf.set_defaults(func=cmd_generate_fields)
 
     args = parser.parse_args(argv)

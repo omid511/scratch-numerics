@@ -29,6 +29,103 @@ from mechanics.p2_inverse_damage.losses import (
     pinball_loss,
 )
 
+from mechanics.p2_inverse_damage.field_pipeline import (
+    FreqSummaryEncoder,
+    evaluate_sp_gates,
+    load_field_dataset,
+    train_field_cvae,
+)
+
+
+# ─── 11. Mode-shape summaries (lever 1: conditioning enrichment) ──────
+
+class TestSummaries:
+    @classmethod
+    def setup_class(cls):
+        cls.ds = generate_field_dataset(
+            n_samples=2, gy=4, gx=4, M=4, N=4, seed=1, store_shapes=True,
+        )
+
+    def test_summaries_shape_and_content(self):
+        ds = self.ds
+        assert "summaries" in ds
+        n_modes = ds["frequencies"].shape[1]
+        assert ds["summaries"].shape == (2, n_modes * 2)
+        assert np.all(np.isfinite(ds["summaries"]))
+        # max|w| >= RMS(w) >= 0 for every mode block.
+        s = ds["summaries"].reshape(2, n_modes, 2)
+        assert np.all(s[..., 0] >= 0.0)
+        assert np.all(s[..., 1] >= s[..., 0] - 1e-12)
+
+    def test_no_summaries_without_store_shapes(self):
+        ds = generate_field_dataset(
+            n_samples=2, gy=4, gx=4, M=4, N=4, seed=1, store_shapes=False,
+        )
+        assert "summaries" not in ds and "mode_shapes" not in ds
+
+    def test_npz_roundtrip_and_loader_passthrough(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "fields_ds_sum.npz")
+            fields = [
+                DamageField.from_array(self.ds["fields"][i])
+                for i in range(2)
+            ]
+            save_dataset_npz(
+                path,
+                fields=fields,
+                measurements={
+                    "frequencies": self.ds["frequencies"],
+                    "severity": self.ds["severity"],
+                    "summaries": self.ds["summaries"],
+                },
+            )
+            import json as _json
+            with np.load(path, allow_pickle=False) as data:
+                payload = {k: data[k] for k in data.files}
+            payload.update(
+                {
+                    "split_train": np.asarray(self.ds["splits"]["train"]),
+                    "split_val": np.asarray(self.ds["splits"]["val"]),
+                    "split_test": np.asarray(self.ds["splits"]["test"]),
+                    "config": np.array(_json.dumps({"seed": 1})),
+                }
+            )
+            np.savez(path, **payload)
+            loaded = load_field_dataset(path)
+            assert "summaries" in loaded
+            assert np.array_equal(loaded["summaries"], self.ds["summaries"])
+
+
+class TestFreqSummaryEncoder:
+    def test_accepts_concat_input(self):
+        enc = FreqSummaryEncoder(n_modes=6, d_c=32, d_summary_block=2, seed=0)
+        x = torch.randn(5, 6 + 6 * 2)
+        c = enc.forward_tensor(x)
+        assert c.shape == (5, 32)
+        c_np = enc.forward(x.detach().numpy())
+        assert c_np.shape == (5, 32)
+
+
+class TestTrainWithSummaries:
+    def test_tiny_end_to_end_use_summaries(self):
+        ds = generate_field_dataset(
+            n_samples=6, gy=4, gx=4, M=4, N=4, seed=2, store_shapes=True,
+        )
+        dataset = {
+            "fields": ds["fields"],
+            "log_freqs": np.log(np.maximum(ds["frequencies"], 1e-12)),
+            "severity": ds["severity"],
+            "splits": ds["splits"],
+            "summaries": ds["summaries"],
+        }
+        models = train_field_cvae(
+            dataset, use_summaries=True, epochs_ae=1, epochs_post=1,
+            progress=False,
+        )
+        assert models["options"]["use_summaries"] is True
+        ev = evaluate_sp_gates(models, dataset, n_samples=5, baseline_epochs=1)
+        assert np.isfinite(ev["cvae_mse"]) and ev["n_val"] > 0
+
 
 # ─── 1. Single-patch sampler bounds ──────────────────────────────────
 
