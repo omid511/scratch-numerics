@@ -567,6 +567,13 @@ def train_field_cvae(
         kl_weight = [kl_weight_final if kl_anneal_epochs == 0 else 0.0]
     step_counter = [0]
 
+    # Eagerly materialize the CNN encoder's lazy FC head so its parameters
+    # are inside the optimizer (a first-forward-later snapshot froze the
+    # readout at random init through entire trainings — review finding).
+    if hasattr(encoder, "_ensure_fc") and not getattr(encoder, "_fc_built", True):
+        encoder._ensure_fc(
+            encoder.conv(torch.zeros(1, shapes.shape[1], gy, gx))
+        )
     enc_params = (
         list(encoder.mlp.parameters())
         if hasattr(encoder, "mlp") else list(encoder.parameters())
@@ -889,6 +896,13 @@ def train_field_cvae_heteroscedastic(
         pred_mu, _ = decoder.forward_tensor(z, cc)
         return torch.mean((pred_mu - by) ** 2)
 
+    # Eagerly materialize the CNN encoder's lazy FC head so its parameters
+    # are inside the optimizer (a first-forward-later snapshot froze the
+    # readout at random init through entire trainings — review finding).
+    if hasattr(encoder, "_ensure_fc") and not getattr(encoder, "_fc_built", True):
+        encoder._ensure_fc(
+            encoder.conv(torch.zeros(1, shapes.shape[1], gy, gx))
+        )
     enc_params = (
         list(encoder.mlp.parameters())
         if hasattr(encoder, "mlp") else list(encoder.parameters())
@@ -969,7 +983,7 @@ def train_field_cvae_heteroscedastic(
             mu, _ = posterior.forward_tensor(c)
             pred_mu, _ = decoder.forward_tensor(mu, cc)
             x = torch.cat([mu, cc], dim=-1) if cc.shape[1] else mu
-            h = decoder.trunk(x)
+            h = decoder.trunk_norm(decoder.trunk(x))  # match deployment path
         sigma, log_sigma = decoder.sigma_tensor(h.detach())
         return torch.mean(
             log_sigma + (by - pred_mu) ** 2 / (2.0 * sigma**2)
