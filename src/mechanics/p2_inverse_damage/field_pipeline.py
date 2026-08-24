@@ -700,6 +700,16 @@ class HeteroscedasticFieldDecoder(nn.Module):
         # gradient, predictions frozen at 1.0 — observed). The norm keeps
         # logits in the live-gradient region for any latent scale.
         self.trunk_norm = nn.LayerNorm(hidden_dims[-1])
+        # Deliberately FROZEN at init (gamma=1, beta=0): this norm is a
+        # fixed feature stabilizer, not a learned component. Its affine
+        # parameters are excluded from every optimizer parameter list by
+        # construction (requires_grad_(False)), closing the audit finding
+        # that LayerNorm affine params silently never trained anywhere
+        # (I3-class failure mode). Recorded as decision D-row in
+        # RESEARCH_LOG.md. If per-feature scale adaptation is ever wanted,
+        # make it an explicit measured lever, not a silent side effect.
+        self.trunk_norm.weight.requires_grad_(False)
+        self.trunk_norm.bias.requires_grad_(False)
         self.mu_head = nn.Linear(hidden_dims[-1], self._out_dim)
         # Sigma branch: narrow projection -> per-pixel head (trunk features
         # are already unit-scale via trunk_norm). The narrow bottleneck
