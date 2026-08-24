@@ -567,12 +567,16 @@ def train_field_cvae(
         kl_weight = [kl_weight_final if kl_anneal_epochs == 0 else 0.0]
     step_counter = [0]
 
-    # Eagerly materialize the CNN encoder's lazy FC head so its parameters
-    # are inside the optimizer (a first-forward-later snapshot froze the
-    # readout at random init through entire trainings — review finding).
-    if hasattr(encoder, "_ensure_fc") and not getattr(encoder, "_fc_built", True):
+    # Eagerly materialize the CNN encoder's lazy FC head BEFORE the
+    # optimizer parameter snapshot — _ensure_fc is self-guarded (idempotent),
+    # so call it unconditionally. (A previous guard keyed on an _fc_built
+    # attribute that is never set made this a no-op: the FC readout trained
+    # frozen at random init through entire runs — review finding.)
+    if hasattr(encoder, "_ensure_fc"):
         encoder._ensure_fc(
-            encoder.conv(torch.zeros(1, shapes.shape[1], gy, gx))
+            encoder.conv(torch.zeros(
+                1, x_train.shape[1], gy, gx,
+            ))
         )
     enc_params = (
         list(encoder.mlp.parameters())
@@ -896,12 +900,16 @@ def train_field_cvae_heteroscedastic(
         pred_mu, _ = decoder.forward_tensor(z, cc)
         return torch.mean((pred_mu - by) ** 2)
 
-    # Eagerly materialize the CNN encoder's lazy FC head so its parameters
-    # are inside the optimizer (a first-forward-later snapshot froze the
-    # readout at random init through entire trainings — review finding).
-    if hasattr(encoder, "_ensure_fc") and not getattr(encoder, "_fc_built", True):
+    # Eagerly materialize the CNN encoder's lazy FC head BEFORE the
+    # optimizer parameter snapshot — _ensure_fc is self-guarded (idempotent),
+    # so call it unconditionally. (A previous guard keyed on an _fc_built
+    # attribute that is never set made this a no-op: the FC readout trained
+    # frozen at random init through entire runs — review finding.)
+    if hasattr(encoder, "_ensure_fc"):
         encoder._ensure_fc(
-            encoder.conv(torch.zeros(1, shapes.shape[1], gy, gx))
+            encoder.conv(torch.zeros(
+                1, x_train.shape[1], gy, gx,
+            ))
         )
     enc_params = (
         list(encoder.mlp.parameters())
