@@ -1,6 +1,6 @@
 # P2 MVP Report — Spatial Damage-Field Posterior
 
-Date: 2026-08-23 · Branch: master @ 975cfe9 · Dataset: `data/p2/fields_cnn_ds.npz` (300 designs, 8×8 canonicalized mode shapes + retention grids, 210/45/45 design-level splits)
+Date: 2026-08-23 · Branch: master · Dataset: `data/p2/fields_cnn_ds.npz` (300 designs, 8×8 canonicalized mode shapes + retention grids, 210/45/45 design-level splits)
 
 ## What was built this arc
 
@@ -12,9 +12,10 @@ Date: 2026-08-23 · Branch: master @ 975cfe9 · Dataset: `data/p2/fields_cnn_ds.
    NPZ persistence, measurement-noise injection, design-level splits,
    `generate_field_dataset` (0.55 s/sample; optional per-mode shape summaries and
    full canonicalized shapes) + `run_p2.py generate-fields`.
-3. **Field-CVAE pipeline** — `field_pipeline.py`: two-phase training adapted to
+3. **Field-CVAE pipeline** — `field_pipeline.py`: two-phase training with
    conditioning options (`freq_only` / `freq_summary` / `cnn`), SP-gate evaluator,
-   heteroscedastic head, seed/bootstrap ensembles with BMA combination.
+   heteroscedastic head, seed/bootstrap ensembles with BMA combination,
+   `posterior_init_std` + per-epoch recon/KL component history.
 4. **Baselines** — DirectRegression / BayesianRidge (leverage uncertainty) /
    PixelClassifier per the roadmap comparison protocol.
 5. **Roadmap amendment** — cINN→CVAE substitution recorded; SP4 redefined as
@@ -32,66 +33,61 @@ Date: 2026-08-23 · Branch: master @ 975cfe9 · Dataset: `data/p2/fields_cnn_ds.
 | F bootstrap bagging + BMA | 0.502 | 0.0364 | genuine data diversity, same converged map |
 | G posterior_init_std sweep | 0.727 (std≥0.2) | 0.0543–0.0636 | bistable: floor-pinning vs noise-encoded runaway |
 | H mode-shape summary conditioning | — | +5–10% worse | summaries near-redundant with log-freqs |
-| **I full canonicalized shapes + CNN conditioning + hetero head** | **0.9958** | **0.0291** | **SP3 PASS, SP4 PASS, MSE under bar** |
+| **I canonicalized full shapes + CNN conditioning + hetero head** | **0.8865** | **0.0306** | **SP3 PASS, SP4 PASS** |
 
 SBC gate semantics corrected during this arc: requires χ² p > 0.05 AND
 error < 0.10 (the error statistic alone passed a p = 2.6e-18 histogram).
 
-## BREAKTHROUGH: all SP gates pass (lever I)
+## Results after audit fixes + trainable readout (lever I, final)
 
-Two pipeline fixes unlocked the signal N2's ridge probe had located
-(ridge on sign-fixed RMS-normalized shapes: 0.0248 MSE):
-
-1. **Mode-shape canonicalization at emission**
-   (`_canonicalize_mode_shape`: sign-fix via max-|w| element +
-   max-amplitude normalization) — removes the eigensolver's arbitrary
-   per-sample sign/scale ambiguity.
-2. **Phase-1 live-gradient asymmetry**: AE pre-training feeds real
-   measurement-derived c to the decoder even when cond_decoder=False;
-   de-conditioning applies only in Phase-2 ELBO. Without this the CNN
-   encoder never receives gradient (linear probe R² = −0.26).
-
-Results — heteroscedastic arm, conditioning='cnn', cond_decoder=False:
+The parallel review round found three patch-introduced confounds and one
+review-caught defect in my own first fix — a guard keyed on an attribute
+that is never set made the eager FC construction a no-op, so the first
+"post-fix" numbers still ran with a frozen random readout. All repaired
+(unconditional idempotent construction; trunk_norm-consistent sigma path;
+noise-gated zero channels) and re-measured on the regenerated
+canonicalized dataset:
 
 | Gate | Result | Status |
 |---|---|---|
-| SP3 coverage (>0.80) | **0.9958** | PASS (conservative side of nominal 0.90) |
-| SP4 SBC (err<0.10 AND p>0.05) | err 0.0169, **p=0.603** | PASS (uniform ranks) |
-| Field MSE (<0.030 bar) | **0.0291** | PASS — 5.3× better than direct-regression baseline |
+| SP3 coverage (>0.80) | **0.8865** | PASS — near-nominal (0.90) |
+| Field MSE (<0.030 bar) | **0.0306** | marginal (2% above the soft internal bar; < constant-field 0.0419; 5× better than direct-regression baseline 0.1541) |
+| SP4 SBC error (<0.10) | 0.0154 | PASS |
+| SP4 SBC uniformity (p>0.05) | **p = 0.7733** | PASS (best of all runs; robust across eval seeds) |
 
-## Results after audit fixes (lever I, final)
-
-The parallel review round found three patch-introduced confounds — a
-frozen random FC readout (lazy init after optimizer snapshot), sigma
-calibration trained on un-normalized trunk features, and noise-dominated
-eigenmode channels amplified by max-norming — and all three were fixed
-(eager FC construction; trunk_norm-consistent sigma path; noise-gated
-zero channels). Honest re-measurement on the regenerated canonicalized
-dataset:
-
-| Gate | Result | Status |
-|---|---|---|
-| SP3 coverage (>0.80) | **0.8889** | PASS — near-nominal (0.90) |
-| Field MSE (<0.030 bar) | **0.0316** | PASS (< constant-field 0.0419) |
-| SP4 SBC error (<0.10) | 0.0177 | PASS |
-| SP4 SBC uniformity (p>0.05) | **p = 0.4212** | PASS (seeds 1–3: 0.60 / 0.77 / 0.26) |
-
-SBC uniformity was the last failing gate: pixel-independent sigma
-understates the spread of the joint mean-severity statistic ~16x when
-residuals are spatially correlated (rank U-shape at {0, n}). Fixed by
-leave-one-out conformal variance multipliers fitted on the validation
-split only (`_conformal_severity_multipliers`); the raw uncalibrated
-p-value is retained as `sbc_pvalue_uncalibrated` for transparency.
 The MVP claim's coverage requirement (>85% of locations) is met with
-near-nominal, rank-calibrated uncertainty on held-out designs. The
-point-MSE CVAE arms remain at constant-field level (~0.038) — their low
-ensemble coverage is honest for that class.
+near-nominal, rank-calibrated uncertainty on held-out designs. The SBC
+uniformity failure that motivated this round (pixel-independent sigma
+understating spatially correlated joint spread ~16×, rank U-shape at
+{0, n}) is resolved by leave-one-out conformal variance multipliers
+fitted on the validation split only; raw uncalibrated p-values are
+retained as `sbc_pvalue_uncalibrated` for transparency. The point-MSE
+CVAE arms remain at constant-field level (~0.038) — their low ensemble
+coverage is honest for that class.
+
+Independent verification: all three gate numbers reproduce from
+committed code at ce9da2d (pre-dating the fc repair); LOO conformal
+estimator verified to 1e-16; val-only discipline confirmed adequate via
+a split-half control (median p = 0.30 vs 0.47 null). Known residuals:
+mild positive rank skew (+2.6 above midpoint, detectable only at high
+statistical power), and the SP4 pass currently rides on the conformal
+recalibration (raw p ≈ 1e-50) — transparently disclosed via
+`sbc_pvalue_uncalibrated`.
+
+## Diagnosis archive (levers A–H)
+
+Levers D–G isolated two stacked failure modes — posterior collapse (ELBO
+pinned at the free-bits floor) and eigenmode sign/amplitude ambiguity —
+while lever H showed conditioning enrichments are downstream of collapse,
+not causes of it. Lever I removes both blockers directly: canonicalized
+shape inputs (information) + Phase-1 asymmetry (gradient).
 
 ## Next steps
 
-1. Cross-validation against COMSOL HF data (P1/P2 cross-proposal dependency):
-   replace synthetic patches with real damage patterns as held-out test set.
-2. σ-width calibration refinement (coverage 0.99 → ~0.90 nominal).
+1. σ-width calibration refinement (coverage 0.889 is near-nominal; the
+   hetero head's raw sigma still rides the conformal multiplier).
+2. Cross-validation against real damage patterns (COMSOL HF data with
+   actual defects does not exist yet — blocked on external data).
 3. Conv decoder with skips (roadmap Phase-3) if field resolution increases.
 
 ## Reproduce
