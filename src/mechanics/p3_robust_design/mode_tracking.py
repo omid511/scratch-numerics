@@ -141,6 +141,104 @@ def track_modes_across_velocity(
     }
 
 
+def track_modes_across_parameter(
+    solver_factory,
+    param_name: str,
+    param_values,
+    *,
+    velocity: float = 1.0,
+    n_modes: int = 6,
+    freq_weight: float = 0.1,
+) -> dict:
+    """Track mode identity as ONE design parameter varies.
+
+    Design-space generalization of :func:`track_modes_across_velocity`: the
+    sweep coordinate is built by ``solver_factory(value)`` instead of a
+    velocity on a fixed solver. Matching uses the identical cost model
+    (MAC distance plus frequency-proximity term) as the velocity tracker.
+
+    Args:
+        solver_factory: Callable ``value -> FSDTSolver`` with boundary
+            conditions already configured.
+        param_name: Label for the swept parameter (reporting only).
+        param_values: Sequence of parameter values, one solver build per value.
+        velocity: Free-stream velocity in m/s passed to
+            ``solve_complex_modal`` (must be supersonic, Mach > 1).
+        n_modes: Number of modes to track.
+        freq_weight: Weight of the frequency-proximity term in the
+            assignment cost (same convention as ``_optimal_match``).
+
+    Returns:
+        dict with keys:
+            'param_name': the swept parameter label
+            'param_values': (n_steps,) swept values
+            'frequencies': (n_steps, n_modes) tracked frequencies (Hz);
+                rows after the first are reordered onto the previous step's
+                branch labels via the Hungarian assignment
+            'mac_values': (n_steps-1, n_modes) MAC between consecutive steps
+            'mode_labels': (n_steps, n_modes) integer branch labels
+            'summary': {'n_steps', 'median_step_mac', 'worst_step_mac'}
+    """
+    param_values = [float(v) for v in param_values]
+    n_steps = len(param_values)
+    if n_steps < 1:
+        raise ValueError("param_values must contain at least one value")
+
+    freqs_all = np.zeros((n_steps, n_modes))
+    mac_all = np.zeros((max(n_steps - 1, 0), n_modes))
+    labels = np.zeros((n_steps, n_modes), dtype=int)
+
+    prev_modes = None
+    prev_freqs = None
+    current_labels = np.arange(n_modes)
+
+    for si, value in enumerate(param_values):
+        solver = solver_factory(value)
+        result = solver.solve_complex_modal(velocity, n_modes=n_modes)
+        if len(result.frequencies) < n_modes:
+            raise ValueError(
+                f"solver returned {len(result.frequencies)} modes at "
+                f"{param_name}={value}, expected >= {n_modes}"
+            )
+        freqs = result.frequencies[:n_modes]
+        # Complex shapes: MAC is phase-invariant, matching the velocity
+        # tracker's convention.
+        complex_shapes = getattr(result, "mode_shapes_complex", None)
+        mode_shapes = (
+            complex_shapes[:n_modes]
+            if complex_shapes is not None
+            else result.mode_shapes[:n_modes]
+        )
+
+        if prev_modes is not None:
+            mac_vals, assignment = _optimal_match(
+                prev_modes, mode_shapes, prev_freqs, freqs, w_f=freq_weight
+            )
+            freqs_all[si] = freqs[assignment]
+            mac_all[si - 1] = mac_vals
+            labels[si] = current_labels[assignment]
+            current_labels = labels[si].copy()
+        else:
+            freqs_all[si] = freqs
+            labels[si] = current_labels
+
+        prev_modes = mode_shapes
+        prev_freqs = freqs_all[si]
+
+    return {
+        "param_name": param_name,
+        "param_values": np.asarray(param_values),
+        "frequencies": freqs_all,
+        "mac_values": mac_all,
+        "mode_labels": labels,
+        "summary": {
+            "n_steps": n_steps,
+            "median_step_mac": float(np.median(mac_all)) if n_steps > 1 else 1.0,
+            "worst_step_mac": float(mac_all.min()) if n_steps > 1 else 1.0,
+        },
+    }
+
+
 def extract_mode_data(
     solver: FSDTSolver,
     velocity: float,

@@ -632,3 +632,47 @@ class TestGPUncertaintyShrinks:
             assert stds[i + 1] < stds[i], (
                 f"std did not decrease: {stds}"
             )
+
+
+class TestPhase2Feasibility:
+    def test_run_phase2_feasibility_toy(self, tmp_path):
+        """Toy-scale study returns a structurally complete report."""
+        from mechanics.p3_robust_design.feasibility import (
+            run_phase2_feasibility,
+        )
+
+        report = run_phase2_feasibility(
+            n_points=4,
+            seed=42,
+            velocity=1.05,
+            n_modes=4,
+            ladder_steps=3,
+            M=6,
+            N=6,
+            output_path=str(tmp_path / "feasibility_report.json"),
+            verbose=False,
+        )
+        for key in ("n_points", "gate_threshold", "median_cross_design_mac",
+                    "median_velocity_tracking_mac", "per_design",
+                    "gate_pass", "decision", "config"):
+            assert key in report
+        assert isinstance(report["gate_pass"], bool)
+        assert report["decision"] in ("phase5_proceeds", "phase5_skipped")
+        assert all(np.isfinite(d["median_step_mac"]) for d in report["per_design"])
+        assert (tmp_path / "feasibility_report.json").exists()
+
+    def test_track_modes_across_parameter_shapes(self):
+        """Parameter-space tracker returns per-step arrays of right length."""
+        from mechanics.p3_robust_design.mode_tracking import (
+            track_modes_across_parameter,
+        )
+        from mechanics.p3_robust_design.sweep import _make_solver
+
+        lam = _sandwich_laminate()
+        values = [1e8, 1e10, 1e12]
+        out = track_modes_across_parameter(
+            lambda k: _make_solver(lam, k_stiffness=k),
+            "k_stiffness", values, velocity=700.0, n_modes=4,
+        )
+        assert len(out["mac_values"]) == len(values) - 1
+        assert len(out["frequencies"]) == len(values)
