@@ -98,3 +98,16 @@ uv run python run_p2.py generate-fields --n 300 --gy 8 --gx 8 \
 # then: field_pipeline.train_field_cvae_heteroscedastic(conditioning='cnn',
 #       cond_decoder=False) + evaluate_sp_gates
 ```
+
+---
+
+## Appendix: P3 Phase-5 near-crossing SKIP confirmation
+
+Independent mode-tracking across V∈[700, 3000] m/s (20 steps, 4 modes,
+CFCF sandwich + elastic edges k=1e10, M=N=8) shows smooth frequency
+evolution with no branch crossings. Combined with the Phase-2 feasibility
+result (cross-design MAC 0.996 over 50 design points), this confirms that
+flutter branches are well-separated in the accessible supersonic range
+for this plate class. The Phase-5 mode-decomposition surrogate's
+near-crossing advantage is therefore not realizable here, and the
+standard scalar GP (Phase 3) is sufficient.
