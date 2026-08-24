@@ -97,6 +97,69 @@ def sbc_rank_uniformity_pvalue(
     return _chi2_sf(stat, n_bins - 1)
 
 
+def sbc_rank_uniformity_pvalue_exact(
+    ranks: np.ndarray,
+    n_bins: int,
+    *,
+    n_mc: int = 20000,
+    seed: int = 0,
+) -> float:
+    """Monte-Carlo exact uniformity p-value for SBC rank histograms.
+
+    The asymptotic χ² used by :func:`sbc_rank_uniformity_pvalue` is only
+    valid when the expected count per bin is large enough (the Cochran
+    rule of thumb: ≥ 5 in ~80% of bins, all ≥ 1). It breaks down badly
+    in sparse regimes: e.g. n_obs=45 ranks across 51 bins has an
+    expected count of only 0.88/bin, so the χ²(k-1) reference
+    distribution does not describe the actual null distribution of X².
+    This function instead simulates ``n_mc`` uniform multinomial draws
+    of ``len(ranks)`` balls into ``n_bins`` bins, computes the same
+    statistic X² = Σ (O - E)² / E for each simulated draw, and returns
+    the fraction of simulated statistics >= the observed one. This is
+    finite-sample-valid regardless of sparsity. A fixed-seed RNG keeps
+    results deterministic.
+    """
+    ranks = np.asarray(ranks)
+    observed = np.histogram(ranks, bins=n_bins, range=(0, n_bins))[0].astype(float)
+    n = ranks.size
+    expected = n / n_bins
+    obs_stat = float(np.sum((observed - expected) ** 2 / expected))
+    rng = np.random.default_rng(seed)
+    probs = np.full(n_bins, 1.0 / n_bins)
+    sims = rng.multinomial(n, probs, size=n_mc).astype(float)
+    sim_stats = np.sum((sims - expected) ** 2 / expected, axis=1)
+    return float(np.mean(sim_stats >= obs_stat))
+
+
+def sbc_rank_uniformity_pvalue_pooled(
+    ranks: np.ndarray,
+    n_bins: int,
+    *,
+    target_bins: int = 10,
+) -> float:
+    """Decile-pooled asymptotic χ² uniformity p-value for SBC ranks.
+
+    Merges adjacent rank bins into ≈``target_bins`` contiguous groups so
+    each group's expected count reaches ≈ len(ranks)/target_bins (e.g.
+    ≥ ~4.5/bin at n_obs=45), restoring the validity of the asymptotic
+    χ² approximation under the Cochran rule. Fully deterministic — no
+    simulation. With ``target_bins=10`` the trade-off against
+    :func:`sbc_rank_uniformity_pvalue_exact` is reduced sensitivity:
+    only coarse departures from uniformity (e.g. overall U-shapes)
+    remain detectable.
+    """
+    ranks = np.asarray(ranks)
+    k = min(n_bins, target_bins)
+    per_bin = np.histogram(
+        ranks, bins=n_bins, range=(0, n_bins),
+    )[0].astype(float)
+    edges = np.linspace(0, n_bins, k + 1).astype(int)
+    grouped = np.add.reduceat(per_bin, edges[:-1])
+    expected = ranks.size / k
+    stat = float(np.sum((grouped - expected) ** 2 / expected))
+    return _chi2_sf(stat, k - 1)
+
+
 def interval_coverage(
     lower: np.ndarray,
     upper: np.ndarray,

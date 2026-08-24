@@ -1141,8 +1141,9 @@ def evaluate_sp_gates(
     alpha: float = 0.10,
     seed: int | None = None,
     baseline_epochs: int = 200,
+    split: str = "val",
 ) -> dict:
-    """Evaluate the P2 SP-gates on the **validation split only**.
+    """Evaluate the P2 SP-gates on a chosen dataset split (default ``val``).
 
     Two model paths, selected by the presence of ``interval_predictor`` in
     ``models``:
@@ -1197,15 +1198,23 @@ def evaluate_sp_gates(
     ``sbc_pvalue``, ``sbc_pvalue_uncalibrated``, ``sbc_error``,
     ``sbc_gate_pass``, ``severity_sigma_multiplier``, ``cvae_mse``,
     ``baseline_mse``, ``n_val``, ``alpha``, ``n_samples``.
+    ``split`` selects which entry of ``dataset["splits"]`` the gates are
+    computed on. Audit use: pass ``split="test"`` on a model trained ONLY
+    on the train rows — the caller is responsible for split discipline;
+    nothing here prevents evaluating on a split the model saw.
     """
     predictor = models.get("interval_predictor")
 
     fields = np.asarray(dataset["fields"], dtype=np.float64)
     log_freqs = np.asarray(dataset["log_freqs"], dtype=np.float64)
     severity = np.asarray(dataset["severity"], dtype=np.float64)
-    val_idx = np.asarray(dataset["splits"]["val"], dtype=int)
-    if len(val_idx) == 0:
-        raise ValueError("validation split is empty")
+    if split not in dataset["splits"]:
+        raise ValueError(
+            f"unknown split {split!r}; available: {sorted(dataset['splits'])}"
+        )
+    eval_idx = np.asarray(dataset["splits"][split], dtype=int)
+    if len(eval_idx) == 0:
+        raise ValueError(f"{split!r} split is empty")
 
     rng = np.random.default_rng(seed)
     lower_q, upper_q = alpha / 2.0, 1.0 - alpha / 2.0
@@ -1235,14 +1244,14 @@ def evaluate_sp_gates(
     covered_pixels = []
     severity_ensembles = []
     mean_field_preds = []
-    mult = np.ones(len(val_idx))   # ensemble path: no recalibration
+    mult = np.ones(len(eval_idx))   # ensemble path: no recalibration
     if predictor is not None:
         # Analytic path: closed-form normal SP3 intervals; SBC severities
         # still sampled as mu + sigma * eps per pixel.
-        mu_val, sigma_val = predictor(X[val_idx])
+        mu_val, sigma_val = predictor(X[eval_idx])
         lower = mu_val - z_crit * sigma_val
         upper = mu_val + z_crit * sigma_val
-        truth = fields[val_idx]
+        truth = fields[eval_idx]
         covered_pixels = np.mean(
             (truth >= lower) & (truth <= upper), axis=(1, 2)
         ).tolist()
@@ -1260,17 +1269,17 @@ def evaluate_sp_gates(
         pred_sev = 1.0 - mu_val.mean(axis=(1, 2))
         stat_std = np.sqrt((sigma_val ** 2).sum(axis=(1, 2))) / n_pix
         mult = _conformal_severity_multipliers(
-            pred_sev, severity[val_idx], stat_std,
+            pred_sev, severity[eval_idx], stat_std,
         )
         raw_severity_ensembles = []
-        for j in range(len(val_idx)):
+        for j in range(len(eval_idx)):
             eps = rng.standard_normal((n_samples, *mu_val[j].shape))
             raw_severity_ensembles.append(_severity(
                 mu_val[j][np.newaxis] + sigma_val[j][np.newaxis] * eps))
             severity_ensembles.append(_severity(
                 mu_val[j][np.newaxis]
                 + (mult[j] * sigma_val[j])[np.newaxis] * eps))
-        raw_ranks = sbc_ranks(raw_severity_ensembles, severity[val_idx])
+        raw_ranks = sbc_ranks(raw_severity_ensembles, severity[eval_idx])
         sbc_pvalue_uncalibrated = sbc_rank_uniformity_pvalue(
             raw_ranks, n_bins=n_samples + 1)
         mean_field_preds = list(mu_val)
@@ -1279,7 +1288,7 @@ def evaluate_sp_gates(
         encoder = models["encoder"]
         decoder = models["decoder"]
         posterior_m = models["posterior"]
-        for i in val_idx:
+        for i in eval_idx:
             ens = _field_ensemble(
                 encoder, decoder, posterior_m, X[i], n_samples, rng,
                 cond_decoder=cond_decoder,
@@ -1294,7 +1303,7 @@ def evaluate_sp_gates(
             mean_field_preds.append(ens.mean(axis=0))
 
     coverage = float(np.mean(covered_pixels))
-    ranks = sbc_ranks(severity_ensembles, severity[val_idx])
+    ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
     sbc_pvalue = sbc_rank_uniformity_pvalue(ranks, n_bins=n_samples + 1)
     if predictor is None:
         # Ensemble path applies no sigma recalibration: raw == calibrated.
@@ -1307,7 +1316,7 @@ def evaluate_sp_gates(
 
     cvae_mse = float(np.mean(
         [posterior_mean_mse(pred, fields[i])
-         for pred, i in zip(mean_field_preds, val_idx)]
+         for pred, i in zip(mean_field_preds, eval_idx)]
     ))
 
     baseline = DirectRegressionBaseline(
@@ -1320,10 +1329,10 @@ def evaluate_sp_gates(
         fields[train_idx].reshape(len(train_idx), -1),
         epochs=baseline_epochs,
     )
-    baseline_preds = baseline.predict(log_freqs[val_idx])
+    baseline_preds = baseline.predict(log_freqs[eval_idx])
     baseline_mse = float(np.mean(
         [posterior_mean_mse(pred, fields[i])
-         for pred, i in zip(baseline_preds, val_idx)]
+         for pred, i in zip(baseline_preds, eval_idx)]
     ))
     return {
         "coverage": coverage,
@@ -1343,7 +1352,7 @@ def evaluate_sp_gates(
         "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE and sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
-        "n_val": int(len(val_idx)),
+        "n_val": int(len(eval_idx)),
         "alpha": alpha,
         "n_samples": n_samples,
     }
@@ -1449,10 +1458,12 @@ def evaluate_ensemble_sp_gates(
     alpha: float = 0.10,
     seed: int | None = None,
     baseline_epochs: int = 200,
+    split: str = "val",
 ) -> dict:
-    """SP-gates for a heteroscedastic ensemble on the **validation split**.
+    """SP-gates for a heteroscedastic ensemble on a chosen dataset split
+    (default ``val``).
 
-    BMA combination per val observation:
+    BMA combination per evaluated observation:
       * predictive mean ``mu_bar = mean_k(mu_k)``;
       * per-pixel total variance by the law of total variance
         ``mean_k(sigma_k^2 + mu_k^2) - mu_bar^2``;
@@ -1469,13 +1480,22 @@ def evaluate_ensemble_sp_gates(
 
     Returns the evaluate_sp_gates key set plus ``per_member_coverage``
     (each member's own analytic-interval coverage, transparency).
+
+    ``split`` selects which entry of ``dataset["splits"]`` the gates are
+    computed on. Audit use: pass ``split="test"`` on an ensemble trained
+    ONLY on the train rows — the caller is responsible for split
+    discipline; nothing here prevents evaluating on a seen split.
     """
     fields = np.asarray(dataset["fields"], dtype=np.float64)
     log_freqs = np.asarray(dataset["log_freqs"], dtype=np.float64)
     severity = np.asarray(dataset["severity"], dtype=np.float64)
-    val_idx = np.asarray(dataset["splits"]["val"], dtype=int)
-    if len(val_idx) == 0:
-        raise ValueError("validation split is empty")
+    if split not in dataset["splits"]:
+        raise ValueError(
+            f"unknown split {split!r}; available: {sorted(dataset['splits'])}"
+        )
+    eval_idx = np.asarray(dataset["splits"][split], dtype=int)
+    if len(eval_idx) == 0:
+        raise ValueError(f"{split!r} split is empty")
 
     rng = np.random.default_rng(seed)
     z_crit = float(_normal.ppf(1.0 - alpha / 2.0))
@@ -1485,14 +1505,14 @@ def evaluate_ensemble_sp_gates(
     else:
         # Duck-typed ensembles: members carrying interval_predictor only.
         predictors = [m["interval_predictor"] for m in ensemble["members"]]
-    pred_stack = [predictor(log_freqs[val_idx]) for predictor in predictors]
+    pred_stack = [predictor(log_freqs[eval_idx]) for predictor in predictors]
     mu_stack = np.stack([p[0] for p in pred_stack], axis=0)      # (K,n,gy,gx)
     sigma_stack = np.stack([p[1] for p in pred_stack], axis=0)
     k_members = mu_stack.shape[0]
 
     mu_bar, total_sigma = _bma_combine(mu_stack, sigma_stack)
     lower, upper = mu_bar - z_crit * total_sigma, mu_bar + z_crit * total_sigma
-    truth = fields[val_idx]
+    truth = fields[eval_idx]
     coverage = float(np.mean((truth >= lower) & (truth <= upper)))
 
     # Transparency: each member judged alone on its own intervals.
@@ -1512,15 +1532,15 @@ def evaluate_ensemble_sp_gates(
     pred_sev = 1.0 - mu_bar.mean(axis=(1, 2))
     stat_std = np.sqrt((total_sigma ** 2).sum(axis=(1, 2))) / n_pix
     mult = _conformal_severity_multipliers(
-        pred_sev, severity[val_idx], stat_std,
+        pred_sev, severity[eval_idx], stat_std,
     )
     severity_ensembles = []
     eps = rng.standard_normal(sigma_stack.shape)
     samples = mu_stack + (mult[np.newaxis, :, np.newaxis, np.newaxis]
                           * sigma_stack) * eps                # (K,n,gy,gx)
-    for j in range(len(val_idx)):
+    for j in range(len(eval_idx)):
         severity_ensembles.append(_severity(samples[:, j]))
-    ranks = sbc_ranks(severity_ensembles, severity[val_idx])
+    ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
     sbc_pvalue = sbc_rank_uniformity_pvalue(ranks, n_bins=k_members + 1)
     counts = np.bincount(ranks, minlength=k_members + 1).astype(float)
     props = counts / counts.sum()
@@ -1528,7 +1548,7 @@ def evaluate_ensemble_sp_gates(
 
     cvae_mse = float(np.mean(
         [posterior_mean_mse(mu_bar[j], fields[i])
-         for j, i in enumerate(val_idx)]
+         for j, i in enumerate(eval_idx)]
     ))
 
     baseline = DirectRegressionBaseline(
@@ -1541,10 +1561,10 @@ def evaluate_ensemble_sp_gates(
         fields[train_idx].reshape(len(train_idx), -1),
         epochs=baseline_epochs,
     )
-    baseline_preds = baseline.predict(log_freqs[val_idx])
+    baseline_preds = baseline.predict(log_freqs[eval_idx])
     baseline_mse = float(np.mean(
         [posterior_mean_mse(pred, fields[i])
-         for pred, i in zip(baseline_preds, val_idx)]
+         for pred, i in zip(baseline_preds, eval_idx)]
     ))
 
     return {
@@ -1562,7 +1582,6 @@ def evaluate_ensemble_sp_gates(
         "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE and sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
-        "n_val": int(len(val_idx)),
-        "n_models": int(k_members),
+        "n_val": int(len(eval_idx)),
         "alpha": alpha,
     }

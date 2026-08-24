@@ -21,6 +21,8 @@ from mechanics.p2_inverse_damage.eval import (
     oracle_bound_mse,
     posterior_mean_mse,
     sbc_rank_uniformity_pvalue,
+    sbc_rank_uniformity_pvalue_exact,
+    sbc_rank_uniformity_pvalue_pooled,
     sbc_ranks,
 )
 from mechanics.p2_inverse_damage.losses import (
@@ -534,3 +536,50 @@ class TestShapeCanonicalization:
         # Already-positive-dominant input is unchanged up to normalization.
         c2 = _canonicalize_mode_shape(-w)
         assert np.allclose(c2, c)
+
+
+# ─── 15. Finite-sample SBC uniformity statistics ──────────────────────
+
+class TestSBCUniformityFiniteSample:
+    def test_uniform_ranks_yield_uniform_exact_pvalues(self):
+        # Under the null, exact p-values are themselves ~U(0,1): of 100
+        # seeded uniform draws roughly half should exceed 0.5.
+        rng = np.random.default_rng(123)
+        ps = np.array([
+            sbc_rank_uniformity_pvalue_exact(
+                rng.integers(0, 51, size=45), n_bins=51, n_mc=2000,
+            )
+            for _ in range(100)
+        ])
+        frac_above_half = float(np.mean(ps > 0.5))
+        assert 0.3 < frac_above_half < 0.7
+
+    def test_ushape_ranks_detected_by_both_statistics(self):
+        # Pinned U-shape: mass at both extremes of 51 bins, none in the
+        # middle (the classic SBC miscalibration signature).
+        ranks = np.concatenate([np.zeros(23), np.full(22, 50)]).astype(int)
+        p_exact = sbc_rank_uniformity_pvalue_exact(ranks, n_bins=51)
+        p_pooled = sbc_rank_uniformity_pvalue_pooled(ranks, n_bins=51)
+        assert p_exact < 0.001, f"exact missed U-shape: p={p_exact:.4g}"
+        assert p_pooled < 0.001, f"pooled missed U-shape: p={p_pooled:.4g}"
+
+    def test_pooled_not_extreme_on_uniform_draw(self):
+        rng = np.random.default_rng(7)
+        ranks = rng.integers(0, 51, size=45)
+        p = sbc_rank_uniformity_pvalue_pooled(ranks, n_bins=51)
+        assert 0.05 < p < 0.95, f"pooled extreme on uniform draw: p={p:.4g}"
+
+    def test_exact_deterministic_given_seed(self):
+        rng = np.random.default_rng(42)
+        ranks = rng.integers(0, 51, size=45)
+        p1 = sbc_rank_uniformity_pvalue_exact(ranks, n_bins=51, seed=0)
+        p2 = sbc_rank_uniformity_pvalue_exact(ranks, n_bins=51, seed=0)
+        assert p1 == p2
+        # A different seed is allowed to differ but stays a valid p-value.
+        p3 = sbc_rank_uniformity_pvalue_exact(ranks, n_bins=51, seed=1)
+        assert 0.0 <= p3 <= 1.0
+
+    def test_pooled_handles_more_target_bins_than_n_bins(self):
+        ranks = np.arange(0, 45) % 8  # spread over 8 bins only
+        p = sbc_rank_uniformity_pvalue_pooled(ranks, n_bins=8, target_bins=10)
+        assert 0.0 <= p <= 1.0
