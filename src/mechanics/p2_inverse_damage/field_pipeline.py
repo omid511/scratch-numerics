@@ -793,6 +793,7 @@ def train_field_cvae_heteroscedastic(
     use_summaries: bool = False,
     posterior_init_std: float = 0.01,
     conditioning: str = "freq_only",
+    sigma_calibration: str = "none",
 ) -> dict:
     """Train a heteroscedastic Gaussian CVAE head on a loaded field dataset.
 
@@ -1028,7 +1029,28 @@ def train_field_cvae_heteroscedastic(
         mu_z, log_var = posterior(c_np)
         mu_grid, log_sigma_grid = decoder.forward(mu_z, cc)
         sigma_grid = np.exp(log_sigma_grid)   # already bounded by construction
+
         return mu_grid, sigma_grid
+    # Optional in-training sigma calibration: fit the same leave-one-out
+    # conformal multiplier the SP-gate path applies post-hoc, but on the
+    # TRAIN split so the deployed interval_predictor is self-calibrated
+    # (evaluate_sp_gates scales its analytic intervals by this scalar).
+    sigma_multiplier = None
+    if sigma_calibration == "conformal":
+        mu_tr, sig_tr = interval_predictor(x_train)
+        pred_sev = 1.0 - mu_tr.mean(axis=(1, 2))
+        n_pix = mu_tr.shape[1] * mu_tr.shape[2]
+        stat_std = np.sqrt((sig_tr ** 2).sum(axis=(1, 2))) / n_pix
+        truth_sev = np.asarray(
+            dataset["severity"], dtype=np.float64)[train_idx]
+        ks = _conformal_severity_multipliers(
+            pred_sev, truth_sev, stat_std)
+        sigma_multiplier = float(np.median(ks))
+    elif sigma_calibration != "none":
+        raise ValueError(
+            f"unknown sigma_calibration {sigma_calibration!r}; "
+            "expected 'none' or 'conformal'"
+        )
 
     return {
         "encoder": encoder,
@@ -1049,6 +1071,7 @@ def train_field_cvae_heteroscedastic(
                     "posterior_init_std": posterior_init_std,
                     "conditioning": cond},
         "interval_predictor": interval_predictor,
+        "sigma_multiplier": sigma_multiplier,
     }
 
 
@@ -1246,9 +1269,14 @@ def evaluate_sp_gates(
     mean_field_preds = []
     mult = np.ones(len(eval_idx))   # ensemble path: no recalibration
     if predictor is not None:
-        # Analytic path: closed-form normal SP3 intervals; SBC severities
-        # still sampled as mu + sigma * eps per pixel.
         mu_val, sigma_val = predictor(X[eval_idx])
+        # In-training calibration (train_field_cvae_heteroscedastic with
+        # sigma_calibration='conformal'): scale sigma by the multiplier
+        # fitted on the train split BEFORE computing analytic SP3
+        # intervals and SBC ensembles — conformal moves into training.
+        trained_mult = models.get("sigma_multiplier")
+        if trained_mult is not None:
+            sigma_val = sigma_val * float(trained_mult)
         lower = mu_val - z_crit * sigma_val
         upper = mu_val + z_crit * sigma_val
         truth = fields[eval_idx]

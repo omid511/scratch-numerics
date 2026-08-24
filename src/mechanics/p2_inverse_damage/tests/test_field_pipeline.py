@@ -630,3 +630,40 @@ class TestConformalSeverityCalibration:
             models, ds, n_samples=6, seed=3, baseline_epochs=5,
         )
         assert res["severity_sigma_multiplier"]["median"] == 1.0
+
+
+class TestInTrainingSigmaCalibration:
+    def test_multiplier_none_when_calibration_off(self):
+        ds = _noisy_field_dataset(n=64, gy=2, gx=2, sigma_true=0.05, seed=17)
+        models = train_field_cvae_heteroscedastic(
+            ds, d_c=8, d_z=4, epochs_ae=4, epochs_post=8,
+            batch_size=8, seed=0, progress=False,
+        )
+        assert "sigma_multiplier" in models
+        assert models["sigma_multiplier"] is None
+
+    def test_multiplier_positive_when_conformal(self):
+        ds = _noisy_field_dataset(n=96, gy=2, gx=2, sigma_true=0.05, seed=17)
+        models = train_field_cvae_heteroscedastic(
+            ds, d_c=8, d_z=4, epochs_ae=4, epochs_post=8,
+            batch_size=8, seed=0, progress=False,
+            sigma_calibration="conformal",
+        )
+        mult = models["sigma_multiplier"]
+        assert isinstance(mult, float)
+        assert mult > 0.0
+
+    def test_conformal_coverage_at_least_uncalibrated(self):
+        # Same seed/data: the in-training multiplier only ever widens the
+        # analytic intervals, so coverage cannot drop vs calibration='none'.
+        ds = _noisy_field_dataset(n=64, gy=1, gx=1, sigma_true=0.05, seed=17)
+        kwargs = dict(d_c=8, d_z=4, epochs_ae=10, epochs_post=20,
+                      batch_size=8, seed=0, progress=False)
+        none_models = train_field_cvae_heteroscedastic(ds, **kwargs)
+        conf_models = train_field_cvae_heteroscedastic(
+            ds, sigma_calibration="conformal", **kwargs)
+        res_none = evaluate_sp_gates(
+            none_models, ds, n_samples=6, seed=3, baseline_epochs=1)
+        res_conf = evaluate_sp_gates(
+            conf_models, ds, n_samples=6, seed=3, baseline_epochs=1)
+        assert res_conf["coverage"] >= res_none["coverage"] - 1e-9
