@@ -73,15 +73,19 @@ dataset:
 |---|---|---|
 | SP3 coverage (>0.80) | **0.8889** | PASS — near-nominal (0.90) |
 | Field MSE (<0.030 bar) | **0.0316** | PASS (< constant-field 0.0419) |
-| SP4 SBC error (<0.10) | 0.0285 | PASS |
-| SP4 SBC uniformity (p>0.05) | p = 0.0 | **OPEN ISSUE** — ranks non-uniform |
+| SP4 SBC error (<0.10) | 0.0177 | PASS |
+| SP4 SBC uniformity (p>0.05) | **p = 0.4212** | PASS (seeds 1–3: 0.60 / 0.77 / 0.26) |
 
+SBC uniformity was the last failing gate: pixel-independent sigma
+understates the spread of the joint mean-severity statistic ~16x when
+residuals are spatially correlated (rank U-shape at {0, n}). Fixed by
+leave-one-out conformal variance multipliers fitted on the validation
+split only (`_conformal_severity_multipliers`); the raw uncalibrated
+p-value is retained as `sbc_pvalue_uncalibrated` for transparency.
 The MVP claim's coverage requirement (>85% of locations) is met with
-near-nominal calibration on held-out designs. The open SBC uniformity
-failure means the spread is right on average but not yet rank-honest;
-candidates are the coarse K-sample severity support and residual
-sigma miscalibration. The point-MSE CVAE arms remain at constant-field
-level (~0.038) — their low ensemble coverage is honest for that class.
+near-nominal, rank-calibrated uncertainty on held-out designs. The
+point-MSE CVAE arms remain at constant-field level (~0.038) — their low
+ensemble coverage is honest for that class.
 
 ## Next steps
 
