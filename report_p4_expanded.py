@@ -220,13 +220,18 @@ def render_model_details(models: dict, names: list[str]) -> list[str]:
 
 
 def _vel_cov(vcov: dict) -> str:
-    """Interval coverage if present, else the q05/q95 pair."""
+    """Interval coverage if present, else the q05/q95 quantile VALUES.
+
+    Per-velocity dicts from evaluate_coverage carry only the three quantile
+    rates, not an interval-coverage fraction; rendering bare numbers under
+    a 'Coverage' header misreads as 0%/100%, so the fallback labels them.
+    """
     ivals = [k for k in vcov if k.startswith("interval_")]
     if ivals:
         return fmt(vcov[ivals[0]], ".3f")
     lo, hi = vcov.get("q0.05"), vcov.get("q0.95")
     if _is_num(lo) and _is_num(hi):
-        return f"{lo:.3f} / {hi:.3f}"
+        return f"q05 {lo:.3f} / q95 {hi:.3f}"
     return "n/a"
 
 
