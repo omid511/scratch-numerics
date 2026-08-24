@@ -523,3 +523,110 @@ class TestBootstrapBagging:
             progress=False,
         )
         assert all("bootstrap_indices" not in m for m in ens0["members"])
+
+
+# ─── 9. Analytic-path SBC conformal recalibration ────────────────────
+
+
+class TestConformalSeverityCalibration:
+    """Pin the leave-one-out conformal fix for the analytic-path SBC.
+
+    Real-data failure (data/p2/fields_cnn_ds.npz): iid pixel noise makes
+    the mean-severity ensemble ~16x too narrow, piling ranks at {0, S}
+    (chi-square p ~ 0) while per-pixel coverage stayed nominal. Fix:
+    resample each observation's severity ensemble at sigma * k_j with k_j
+    the LOO RMS of standardized residuals over the OTHER val observations
+    (_conformal_severity_multipliers), val-only, documented in the gate.
+    """
+
+    def test_loo_multiplier_known_answer(self):
+        from mechanics.p2_inverse_damage.field_pipeline import (
+            _conformal_severity_multipliers,
+        )
+
+        # stat_std = 1; observation 0 excluded from its own multiplier.
+        truth = np.array([3.0, -1.0, 2.0, -2.0, 1.0, -3.0, 0.5, -0.5])
+        pred = np.zeros(8)
+        k = _conformal_severity_multipliers(pred, truth, np.ones(8))
+        assert k[0] == pytest.approx(np.sqrt(19.5 / 7))
+        # Every multiplier excludes its own residual: k_j differs from
+        # the pooled RMS whenever observation j's residual is atypical.
+        pooled = np.sqrt(np.mean(truth ** 2))
+        assert not np.allclose(k, pooled)
+
+    def test_multiplier_fallbacks(self):
+        from mechanics.p2_inverse_damage.field_pipeline import (
+            _conformal_severity_multipliers,
+        )
+
+        ones = np.ones(4)
+        # Too few observations (< min_obs=8) → no recalibration.
+        assert _conformal_severity_multipliers(
+            np.zeros(4), np.arange(4.0), ones).tolist() == [1.0] * 4
+        # Degenerate scale or NaN inputs → no recalibration.
+        assert _conformal_severity_multipliers(
+            np.zeros(8), np.arange(8.0), np.zeros(8)).tolist() == [1.0] * 8
+        bad = np.full(8, np.nan); bad[3] = 1.0
+        assert _conformal_severity_multipliers(
+            np.zeros(8), bad, np.ones(8)).tolist() == [1.0] * 8
+
+    def test_extreme_offset_ranks_rescued_and_gate_passes(self):
+        from mechanics.p2_inverse_damage.field_pipeline import evaluate_sp_gates as _ev
+
+        # 12 val observations miss the constant prediction by exactly
+        # 20x the iid mean-statistic spread, at standard-normal decile
+        # offsets: raw ranks pile at {0, 50}; the LOO multiplier (~20)
+        # re-centers them across the whole rank axis.
+        rng = np.random.default_rng(7)
+        n = 80
+        fields = rng.random((n, 2, 2)) * 0.2 + 0.4
+        freqs = rng.uniform(20.0, 80.0, (n, 3))
+        train, val, test = split_designs(n, seed=5)
+        ds = {
+            "fields": fields,
+            "freqs": freqs,
+            "log_freqs": np.log(freqs),
+            "severity": 1.0 - fields.mean(axis=(1, 2)),
+            "splits": {"train": list(train), "val": list(val),
+                       "test": list(test)},
+        }
+        assert len(val) == 12
+        quantiles = np.array([
+            -1.7317, -1.1503, -0.8122, -0.5485, -0.3186, -0.1046,
+            0.1046, 0.3186, 0.5485, 0.8122, 1.1503, 1.7317,
+        ])
+        for i, q in zip(val, quantiles):
+            v = 0.5 - 0.1 * float(q)     # severity offset 0.1*q = 20 * stat_std * q
+            ds["fields"][i, :, :] = v
+            ds["severity"][i] = 1.0 - v
+
+        class _ConstPredictor:
+            def __call__(self, log_freqs):
+                shape = (log_freqs.shape[0], 2, 2)
+                return np.full(shape, 0.5), np.full(shape, 0.01)
+
+        res = evaluate_sp_gates(
+            {"interval_predictor": _ConstPredictor()}, ds,
+            n_samples=50, seed=3, baseline_epochs=1,
+        )
+        # The raw ensembles are catastrophically narrow: chi-square rejects.
+        assert res["sbc_pvalue_uncalibrated"] < 0.05
+        # The conformal multipliers recover the 20x offset scale...
+        med = res["severity_sigma_multiplier"]["median"]
+        assert 15.0 < med < 26.0
+        # ...no rank stays pinned at an extreme, and uniformity holds.
+        ranks = np.asarray(res["ranks"])
+        assert ((ranks > 0) & (ranks < res["n_samples"])).all()
+        assert res["sbc_pvalue"] > 0.05
+        assert res["sbc_error"] < 0.10
+        assert res["sbc_gate_pass"]
+
+    def test_small_val_split_falls_back_to_raw_sigma(self):
+        # n_total=24 gives a 4-row val split (< min_obs): the gate must
+        # fall back to multiplier 1.0 and keep the historical behavior.
+        ds = _gate_dataset(0.5)
+        models = {"interval_predictor": _ConstIntervalPredictor(0.5, 0.05)}
+        res = evaluate_sp_gates(
+            models, ds, n_samples=6, seed=3, baseline_epochs=5,
+        )
+        assert res["severity_sigma_multiplier"]["median"] == 1.0

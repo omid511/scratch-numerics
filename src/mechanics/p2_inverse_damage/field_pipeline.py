@@ -1068,6 +1068,53 @@ def _severity(field_stack: np.ndarray) -> np.ndarray:
     return 1.0 - field_stack.mean(axis=(-2, -1))
 
 
+def _conformal_severity_multipliers(
+    pred_severity: np.ndarray,
+    truth_severity: np.ndarray,
+    stat_std: np.ndarray,
+    min_obs: int = 8,
+) -> np.ndarray:
+    """Leave-one-out conformal variance multipliers for the mean-severity
+    statistic.
+
+    The analytic SP-gate path draws severity ensembles as
+    ``mu + sigma * eps`` with eps INDEPENDENT across pixels, so the
+    implied spread of the joint mean-severity statistic is
+    ``stat_std = sqrt(sum(sigma^2)) / n_pixels``. When pixel residuals
+    are spatially correlated (or sigma collapses on hard observations)
+    that spread understates the actual residual scale and SBC ranks pile
+    up at {0, n_samples} — observed on data/p2/fields_cnn_ds.npz as a
+    rank U-shape with per-pixel coverage still nominal.
+
+    Remedy (conformal-style calibration fitted on the validation split
+    ONLY — never test): for observation j draw the multiplier from the
+    OTHER val observations' standardized mean-statistic residuals,
+
+        k_j = sqrt( mean_{l != j} [ ((y_l - mu_stat_l) / stat_std_l)^2 ] )
+
+    and resample its ensemble at ``sigma * k_j``. Leave-one-out keeps
+    every rank honest: no observation's own residual inflates the scale
+    it is judged against. Falls back to 1.0 (no recalibration) when the
+    val split is too small to estimate a scale (< min_obs) or when any
+    input is degenerate. A floor of 1e-6 on k^2 prevents zero-width
+    ensembles, which would degenerate ranks via ties.
+    """
+    n = len(truth_severity)
+    if (
+        n < min_obs
+        or not np.all(np.isfinite(pred_severity))
+        or not np.all(np.isfinite(truth_severity))
+        or not np.all(np.isfinite(stat_std))
+        or np.any(stat_std <= 0.0)
+    ):
+        return np.ones(n)
+    z = (np.asarray(truth_severity, dtype=np.float64)
+         - np.asarray(pred_severity, dtype=np.float64)) / np.asarray(
+            stat_std, dtype=np.float64)
+    loo_ms = (float(z @ z) - z ** 2) / (n - 1)
+    return np.sqrt(np.maximum(loo_ms, 1e-6))
+
+
 def evaluate_sp_gates(
     models: dict,
     dataset: dict,
@@ -1108,12 +1155,29 @@ def evaluate_sp_gates(
     (large p ⇒ calibrated) and the calibration error mean(|bin proportion -
     uniform proportion|). Gate: error < 0.10.
 
+    ANALYTIC-PATH CALIBRATION (explicit part of this gate, val-only): iid
+    pixel noise understates the spread of the joint mean-severity statistic
+    when pixel residuals are spatially correlated, which collapsed real-data
+    ranks into a {0, n_samples} U-shape (chi-square p ~ 0) while per-pixel
+    coverage stayed nominal. Each observation's severity ensemble is
+    therefore resampled at ``sigma * k_j`` where k_j is a leave-one-out
+    conformal multiplier estimated from the OTHER validation observations'
+    standardized mean-statistic residuals (:func:
+    `_conformal_severity_multipliers`). Per-observation LOO keeps each rank
+    honest — no observation is judged against a scale its own residual
+    inflated. SP3 intervals are NOT recalibrated (per-pixel calibration was
+    never the failure). The uncalibrated chi-square p-value is reported as
+    ``sbc_pvalue_uncalibrated`` and the multiplier summary as
+    ``severity_sigma_multiplier`` for transparency; on splits with < 8 val
+    observations the multiplier falls back to 1.0 (raw sigma).
+
     Point accuracy: mean-field MSE against the truth (ensemble mean or mu),
     reported next to a :class:`DirectRegressionBaseline` (MLP log-freqs →
     field) fitted on the train split.
 
     Returns dict with keys: ``coverage``, ``coverage_gate_pass``, ``ranks``,
-    ``sbc_pvalue``, ``sbc_error``, ``sbc_gate_pass``, ``cvae_mse``,
+    ``sbc_pvalue``, ``sbc_pvalue_uncalibrated``, ``sbc_error``,
+    ``sbc_gate_pass``, ``severity_sigma_multiplier``, ``cvae_mse``,
     ``baseline_mse``, ``n_val``, ``alpha``, ``n_samples``.
     """
     predictor = models.get("interval_predictor")
@@ -1153,6 +1217,7 @@ def evaluate_sp_gates(
     covered_pixels = []
     severity_ensembles = []
     mean_field_preds = []
+    mult = np.ones(len(val_idx))   # ensemble path: no recalibration
     if predictor is not None:
         # Analytic path: closed-form normal SP3 intervals; SBC severities
         # still sampled as mu + sigma * eps per pixel.
@@ -1163,11 +1228,33 @@ def evaluate_sp_gates(
         covered_pixels = np.mean(
             (truth >= lower) & (truth <= upper), axis=(1, 2)
         ).tolist()
+        # SBC severity ensembles. Per-pixel sigma does NOT calibrate the
+        # joint mean-severity statistic when pixel residuals correlate
+        # (iid-eps averaging shrinks var by n_pixels while the true
+        # residual variance of the mean does not) — on the real
+        # fields_cnn_ds.npz this collapsed the rank histogram into a
+        # U-shape at {0, S} with chi-square p ~ 0 despite nominal
+        # per-pixel coverage. Recalibrate each observation's ensemble
+        # spread with a leave-one-out conformal multiplier fitted on val
+        # ONLY (see _conformal_severity_multipliers); per-pixel SP3
+        # intervals above stay exactly as trained.
+        n_pix = mu_val.shape[1] * mu_val.shape[2]
+        pred_sev = 1.0 - mu_val.mean(axis=(1, 2))
+        stat_std = np.sqrt((sigma_val ** 2).sum(axis=(1, 2))) / n_pix
+        mult = _conformal_severity_multipliers(
+            pred_sev, severity[val_idx], stat_std,
+        )
+        raw_severity_ensembles = []
         for j in range(len(val_idx)):
-            ens = mu_val[j][np.newaxis] + sigma_val[j][np.newaxis] * (
-                rng.standard_normal((n_samples, *mu_val[j].shape))
-            )
-            severity_ensembles.append(_severity(ens))
+            eps = rng.standard_normal((n_samples, *mu_val[j].shape))
+            raw_severity_ensembles.append(_severity(
+                mu_val[j][np.newaxis] + sigma_val[j][np.newaxis] * eps))
+            severity_ensembles.append(_severity(
+                mu_val[j][np.newaxis]
+                + (mult[j] * sigma_val[j])[np.newaxis] * eps))
+        raw_ranks = sbc_ranks(raw_severity_ensembles, severity[val_idx])
+        sbc_pvalue_uncalibrated = sbc_rank_uniformity_pvalue(
+            raw_ranks, n_bins=n_samples + 1)
         mean_field_preds = list(mu_val)
 
     else:
@@ -1191,6 +1278,9 @@ def evaluate_sp_gates(
     coverage = float(np.mean(covered_pixels))
     ranks = sbc_ranks(severity_ensembles, severity[val_idx])
     sbc_pvalue = sbc_rank_uniformity_pvalue(ranks, n_bins=n_samples + 1)
+    if predictor is None:
+        # Ensemble path applies no sigma recalibration: raw == calibrated.
+        sbc_pvalue_uncalibrated = sbc_pvalue
 
     # Calibration error over the exact discrete support {0..n_samples}.
     counts = np.bincount(ranks, minlength=n_samples + 1).astype(float)
@@ -1217,12 +1307,17 @@ def evaluate_sp_gates(
         [posterior_mean_mse(pred, fields[i])
          for pred, i in zip(baseline_preds, val_idx)]
     ))
-
     return {
         "coverage": coverage,
         "coverage_gate_pass": bool(coverage > SP3_COVERAGE_GATE),
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
+        "sbc_pvalue_uncalibrated": float(sbc_pvalue_uncalibrated),
+        "severity_sigma_multiplier": {
+            "median": float(np.median(mult)),
+            "min": float(mult.min()),
+            "max": float(mult.max()),
+        },
         "sbc_error": sbc_error,
         # Both statistics required: mean |bin prop - uniform| alone can sit
         # under the gate while a systematically skewed histogram rejects
@@ -1390,10 +1485,21 @@ def evaluate_ensemble_sp_gates(
         for mu_k, sig_k in zip(mu_stack, sigma_stack)
     ]
 
-    # SBC: one sample per member -> K-sample severity ensembles.
+    # SBC: one sample per member -> K-sample severity ensembles, spread
+    # recalibrated with the same val-only leave-one-out conformal
+    # multipliers as :func:`evaluate_sp_gates` (iid member/pixel noise
+    # understates the joint mean-severity spread; per-pixel SP3 intervals
+    # above stay untouched).
+    n_pix = mu_bar.shape[1] * mu_bar.shape[2]
+    pred_sev = 1.0 - mu_bar.mean(axis=(1, 2))
+    stat_std = np.sqrt((total_sigma ** 2).sum(axis=(1, 2))) / n_pix
+    mult = _conformal_severity_multipliers(
+        pred_sev, severity[val_idx], stat_std,
+    )
     severity_ensembles = []
     eps = rng.standard_normal(sigma_stack.shape)
-    samples = mu_stack + sigma_stack * eps                     # (K,n,gy,gx)
+    samples = mu_stack + (mult[np.newaxis, :, np.newaxis, np.newaxis]
+                          * sigma_stack) * eps                # (K,n,gy,gx)
     for j in range(len(val_idx)):
         severity_ensembles.append(_severity(samples[:, j]))
     ranks = sbc_ranks(severity_ensembles, severity[val_idx])
@@ -1430,6 +1536,11 @@ def evaluate_ensemble_sp_gates(
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
         "sbc_error": sbc_error,
+        "severity_sigma_multiplier": {
+            "median": float(np.median(mult)),
+            "min": float(mult.min()),
+            "max": float(mult.max()),
+        },
         "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE and sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
