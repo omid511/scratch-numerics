@@ -34,7 +34,10 @@ MVP iteration, (c) unblocked Proposal-3's mode-identity feasibility study, and
 | D20 | `HeteroscedasticFieldDecoder.trunk_norm` affine parameters **explicitly frozen** (`requires_grad_(False)` at construction) | Robust-lane audit found a live I3-class instance: the LayerNorm sits on both the deployed forward path and the sigma-calibration path but was in no optimizer list — its γ/β silently never trained. Freeze keeps numerics identical to all reported results while making the disposition explicit; per-feature scale adaptation would be a new measured lever | If adaptation is ever needed it must be introduced deliberately, not by silently adding params to an optimizer |
 
 ### I19. Gradient-flow regression gate
-The I3 class (module on the forward path, absent from the optimizer) is structural and bit the project twice (fc head; trunk_norm). New `tests/test_optimizer_coverage.py` pins: (a) every trainer moves its declared-trainable parameters over ≥2 epochs on toy fixtures; (b) the I3 regression specifically — a short conditioning='cnn' run must move the CNN encoder's fc weights; (c) deliberately frozen params (trunk_norm affine) stay frozen.
+The I3 class (module on the forward path, absent from the optimizer) is structural and bit the project twice (fc head; trunk_norm). Fixed by eager `_ensure_fc` + explicit `requires_grad_(False)` freeze; pinned by `tests/test_optimizer_coverage.py` (7 tests: fc-movement pin, trunk_norm freeze pin, per-trainer optimizer-membership + all-trainable-move assertions via optimizer spy).
+
+### I20. Pre-registered held-out audit: PASS
+The flagship P2 claim was validated on the untouched 45-design test split with 5 fresh seeds (100–104, never used in development), exact MC multinomial SBC p-values (finite-sample-valid at n=45/51 bins), and a recorded dataset hash. All gates pass on every seed: coverage 0.892–0.905 (mean 0.897 vs nominal 0.90), SBC error 0.015–0.018, SBC p 0.147–0.885. Results: `data/p2_heldout_audit/heldout_audit_results.json`; harness: `scripts_p2_heldout_audit.py` (pre-registered thresholds in docstring).
 
 ---
 
