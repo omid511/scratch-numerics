@@ -1,0 +1,94 @@
+{
+  "config": {
+    "dataset": "data/p2/fields_cnn_ds.npz",
+    "dataset_sha256": "0a76bb6aa6dfd5d2f2b5920d60ce76b6f312b3d07b9fed52611350f36337702a",
+    "seeds": [
+      100,
+      101,
+      102,
+      103,
+      104
+    ],
+    "split": "test",
+    "n_samples": 50,
+    "alpha": 0.1,
+    "epochs": {
+      "epochs_ae": 30,
+      "epochs_post": 50,
+      "baseline_epochs": 200
+    }
+  },
+  "pvalue_statistic": "exact MC multinomial (eval.sbc_rank_uniformity_pvalue_exact)",
+  "per_seed": [
+    {
+      "seed": 100,
+      "coverage": 0.8920138888888889,
+      "coverage_gate_pass": true,
+      "sbc_error": 0.014609765474817378,
+      "sbc_error_gate_pass": true,
+      "sbc_p": 0.64415,
+      "sbc_p_gate_pass": true,
+      "cvae_mse": 0.029283105428014475,
+      "baseline_mse": 0.1532143224636822,
+      "all_gates_pass": true
+    },
+    {
+      "seed": 101,
+      "coverage": 0.8930555555555556,
+      "coverage_gate_pass": true,
+      "sbc_error": 0.01537870049980777,
+      "sbc_error_gate_pass": true,
+      "sbc_p": 0.8854,
+      "sbc_p_gate_pass": true,
+      "cvae_mse": 0.031188189841904544,
+      "baseline_mse": 0.1532143224636822,
+      "all_gates_pass": true
+    },
+    {
+      "seed": 102,
+      "coverage": 0.9052083333333333,
+      "coverage_gate_pass": true,
+      "sbc_error": 0.01768550557477893,
+      "sbc_error_gate_pass": true,
+      "sbc_p": 0.14695,
+      "sbc_p_gate_pass": true,
+      "cvae_mse": 0.029130007165477704,
+      "baseline_mse": 0.1532143224636822,
+      "all_gates_pass": true
+    },
+    {
+      "seed": 103,
+      "coverage": 0.8923611111111112,
+      "coverage_gate_pass": true,
+      "sbc_error": 0.01768550557477893,
+      "sbc_error_gate_pass": true,
+      "sbc_p": 0.22065,
+      "sbc_p_gate_pass": true,
+      "cvae_mse": 0.029314883234410234,
+      "baseline_mse": 0.1532143224636822,
+      "all_gates_pass": true
+    },
+    {
+      "seed": 104,
+      "coverage": 0.9027777777777778,
+      "coverage_gate_pass": true,
+      "sbc_error": 0.016916570549788547,
+      "sbc_error_gate_pass": true,
+      "sbc_p": 0.1907,
+      "sbc_p_gate_pass": true,
+      "cvae_mse": 0.027846127930575726,
+      "baseline_mse": 0.1532143224636822,
+      "all_gates_pass": true
+    }
+  ],
+  "aggregate": {
+    "mean_coverage": 0.8970833333333333,
+    "mean_sbc_error": 0.01645520953479431,
+    "min_sbc_p": 0.14695,
+    "max_sbc_p": 0.8854,
+    "coverage_gate_pass": true,
+    "sbc_error_gate_pass": true,
+    "sbc_p_gate_pass": true,
+    "verdict": "PASS"
+  }
+}
