@@ -1362,7 +1362,16 @@ def evaluate_sp_gates(
         [posterior_mean_mse(pred, fields[i])
          for pred, i in zip(baseline_preds, eval_idx)]
     ))
+
+    # Constant-field baseline: predict the train-set mean field for every
+    # input. Any trained model must beat this to demonstrate skill.
+    const_field = fields[train_idx].mean(axis=0)
+    const_mse = float(np.mean(
+        [posterior_mean_mse(const_field, fields[i]) for i in eval_idx]
+    ))
+
     return {
+        "constant_field_mse": const_mse,
         "coverage": coverage,
         "coverage_gate_pass": bool(coverage > SP3_COVERAGE_GATE),
         "ranks": ranks,
