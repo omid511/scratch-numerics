@@ -6,14 +6,24 @@ Date: 2026-08-23 · Branch: master · **Final dataset: `data/p2/fields_1000.npz`
 
 | Gate | Result | Status |
 |---|---|---|
-| SP3 coverage (>0.80) | **0.9281** | PASS |
-| SP4 SBC error (<0.10) | **0.0098** | PASS |
-| SP4 SBC uniformity (p>0.05) | **0.1409** | PASS |
-| Field MSE (<0.030 bar) | **0.0229** | **PASS** |
+| SP3 coverage (>0.80) | 0.9281 | PASS (but see pooling artifact below) |
+| SP4 SBC error (<0.10) | 0.0098 | PASS (but vacuous — ~null level, see below) |
+| SP4 SBC uniformity (p>0.05) | 0.003–0.049 | **FAIL** on all 5 audit seeds |
+| Field MSE (<0.030 bar) | **0.0229** | PASS |
 
-Scaling from 300 to 1000 designs improved every metric: MSE dropped 25%
-(0.0306→0.0229, now below the internal bar), coverage moved closer to
-nominal (0.887→0.928), and SBC error improved (0.015→0.010).
+**CORRECTION (post-adversarial-review):** The pre-registered held-out audit
+(`data/p2_heldout_audit/heldout_audit_1000.json`) shows SBC uniformity
+**FAILING on all 5 seeds** (exact MC p = 0.003–0.049; Fisher combined
+p ≈ 5e-6). The earlier report of p = 0.1409 PASS was a favorable draw
+written before the audit ran and never amended. Additionally:
+- Coverage 0.928 is a **pooling artifact**: pristine pixels 0.988 vs
+  damaged pixels 0.786 (the model's sigma is 4× too wide on intact cells
+  and 2× too narrow on damaged ones).
+- The conformal multipliers consume **test-split ground-truth labels**,
+  violating the documented val-only discipline.
+- The SBC error gate (threshold 0.10) is vacuous: the null level is
+  ~0.009, so the threshold is ~11× the null distortion and can never
+  reject anything short of catastrophic miscalibration.
 
 ## What was built this arc
 
