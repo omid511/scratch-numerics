@@ -20,12 +20,19 @@ htmlcov/
 *.swp
 *.swo
 
-# Data and profiling
+# Data and profiling (bulk datasets, model weights, raw solver output)
 data/*
 !data/p1_part1/
+!data/p2_heldout_audit/
+!data/proposal3/
 data/p1_part1/**
 !data/p1_part1/*.csv
 !data/p1_part1/*.md
+!data/p1_part1/*.json
+data/p2_heldout_audit/**
+!data/p2_heldout_audit/*.json
+data/proposal3/**
+!data/proposal3/feasibility_report.json
 *.npz
 *.npy
 !src/**/tests/**/*.npy
@@ -37,6 +44,17 @@ memray-*.html
 *.pkl
 *.pickle
 
+# Model checkpoints (large, regenerable from committed code)
+*.pt
+*.pth
+*.ckpt
+
+# Plots and figures (regenerable; committed docs/figures are whitelisted below)
+*.png
+*.jpg
+*.svg
+!docs/figures/*.png
+
 # Graphify
 graphify-out/
 tests/graphify-out/
@@ -45,13 +63,6 @@ src/graphify-out/
 
 # Serena
 serena/
-
-# P4 artifacts
-p4_dataset/
-p4_dataset_legacy/
-p4_*.pt
-p4_results.png
-p4_train_results.json
 
 # Large binaries (also enforced by pre-commit hook)
 plate-main.zip
@@ -63,3 +74,9 @@ node_modules/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Scratch and temp
+*.tmp
+*.bak
+*~
+.pytest_cache/
