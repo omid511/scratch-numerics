@@ -161,22 +161,22 @@ class TestFindFlutterBoundary:
         cfap = s.find_flutter_boundary(lambda_lower=1.0, lambda_upper=5.0, tol=0.01, n_modes=4)
         assert abs(cfap - 3.0) < 0.02
 
-    def test_large_rightmost_eigenvalue_failure_raises(self):
-        """_max_real_eigenvalue raises RuntimeError when no physical modes pass filtering."""
-        s = _solver()
-        # Monkeypatch assemble_aeroelastic_system to return a singular system
-        # where no physical eigenvalues survive filtering
+    def test_degenerate_system_returns_finite_abscissa(self):
+        """Zero-stiffness system computes successfully instead of raising:
+        the QEP dynamic scaling + participation gates fixed the conditioning
+        that previously filtered out every mode."""
         import numpy as np
+        s = _solver()
         original = s.assemble_aeroelastic_system
 
         def broken_system(*args, **kwargs):
             M, K, C = original(*args, **kwargs)
-            # Make K singular so all modes have zero frequency → filtered out
+            # Singular K: all modes have zero frequency
             return M, np.zeros_like(K), np.zeros_like(C)
 
         s.assemble_aeroelastic_system = broken_system
-        with pytest.raises(RuntimeError, match="No physical eigenvalues found"):
-            s._max_real_eigenvalue(400.0)
+        alpha = s._max_real_eigenvalue(400.0)
+        assert isinstance(alpha, float) and math.isfinite(alpha)
 
     def test_returns_none_when_no_crossing(self):
         """With corrected D11 (~3245), lambda ranges [50,500] are far above the
@@ -427,15 +427,15 @@ class TestBoundarySprings:
 class TestPistonValueErrors:
 
     def test_piston_pressure_subsonic(self):
-        with pytest.raises(ValueError, match="Supersonic flow required"):
+        with pytest.raises(ValueError, match="First-order piston model configured for M"):
             piston_pressure(100.0, 0.0, 1.0, 0.0, 0.0)
 
     def test_piston_pressure_sonic(self):
-        with pytest.raises(ValueError, match="Supersonic flow required"):
+        with pytest.raises(ValueError, match="First-order piston model configured for M"):
             piston_pressure(340.0, 0.0, 1.0, 0.0, 0.0)
 
     def test_piston_pressure_negative(self):
-        with pytest.raises(ValueError, match="Supersonic flow required"):
+        with pytest.raises(ValueError, match="velocity must be positive"):
             piston_pressure(0.0, 0.0, 1.0, 0.0, 0.0)
 
     def test_lambda_subsonic(self):
@@ -461,7 +461,7 @@ class TestPistonValueErrors:
 
     def test_piston_pressure_dw_dt_contribution(self):
         """dw_dt term contributes to pressure via coeff * dw_dt / velocity."""
-        V = 400.0
+        V = 800.0
         p0 = piston_pressure(V, 0.0, 0.0, 0.0, 0.0)
         p1 = piston_pressure(V, 0.0, 0.0, 0.0, 10.0)
         assert abs(p1 - p0) > 0  # dw_dt should change pressure
@@ -471,7 +471,7 @@ class TestPistonValueErrors:
 
     def test_piston_pressure_dw_dy_with_flow_angle(self):
         """dw_dy contributes only when flow_angle != 0."""
-        V = 400.0
+        V = 800.0
         alpha = math.pi / 6  # 30 degrees
         p_no_dy = piston_pressure(V, alpha, 1.0, 0.0, 0.0)
         p_with_dy = piston_pressure(V, alpha, 1.0, 1.0, 0.0)

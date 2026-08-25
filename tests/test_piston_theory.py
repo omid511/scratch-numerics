@@ -9,48 +9,48 @@ from mechanics.laminate import Material, Laminate
 
 
 def test_piston_pressure_zero_slope():
-    p = piston_pressure(400.0, 0.0, 0.0, 0.0, 0.0)
+    p = piston_pressure(800.0, 0.0, 0.0, 0.0, 0.0)
     assert abs(p) < 1e-10
 
 
 def test_piston_pressure_positive_dw_dx():
-    p = piston_pressure(400.0, 0.0, 1.0, 0.0, 0.0)
-    assert p > 0
+    p = piston_pressure(800.0, 0.0, 1.0, 0.0, 0.0)
+    assert p < 0  # pressure_sign=-1 convention
 
 
 def test_piston_pressure_direction():
-    p1 = piston_pressure(400.0, 0.0, 1.0, 0.0, 0.0)
-    p2 = piston_pressure(400.0, 0.0, -1.0, 0.0, 0.0)
+    p1 = piston_pressure(800.0, 0.0, 1.0, 0.0, 0.0)
+    p2 = piston_pressure(800.0, 0.0, -1.0, 0.0, 0.0)
     assert abs(p1 + p2) < 1e-10
 
 
 def test_piston_pressure_units():
-    V = 400.0
+    V = 800.0
     rho = 1.2
     c = 340.0
     M = V / c
-    expected_coeff = rho * V**2 / math.sqrt(M**2 - 1)
+    expected_coeff = -rho * V**2 / math.sqrt(M**2 - 1)
     p = piston_pressure(V, 0.0, 1.0, 0.0, 0.0)
-    assert abs(p - expected_coeff) / expected_coeff < 1e-10
+    assert abs(p - expected_coeff) / abs(expected_coeff) < 1e-10
 
 
 def test_piston_pressure_flow_angle():
     alpha = math.pi / 4
-    p = piston_pressure(400.0, alpha, 1.0, 1.0, 0.0)
-    assert p > 0
+    p = piston_pressure(800.0, alpha, 1.0, 1.0, 0.0)
+    assert p < 0  # cos(alpha)+sin(alpha) > 0 with pressure_sign=-1
 
 
 def test_piston_pressure_scales_with_dw_dx():
-    p1 = piston_pressure(400.0, 0.0, 1.0, 0.0, 0.0)
-    p2 = piston_pressure(400.0, 0.0, 2.0, 0.0, 0.0)
+    p1 = piston_pressure(800.0, 0.0, 1.0, 0.0, 0.0)
+    p2 = piston_pressure(800.0, 0.0, 2.0, 0.0, 0.0)
     assert abs(p2 - 2 * p1) / p1 < 1e-10
 
 
 def test_piston_pressure_dw_dt_factor():
-    V = 400.0
+    V = 800.0
     M = V / 340.0
     coeff = 1.2 * V**2 / math.sqrt(M**2 - 1)
-    expected = coeff * (M**2 - 2) / (M**2 - 1) * 10.0 / V
+    expected = -coeff * (M**2 - 2) / (M**2 - 1) * 10.0 / V
     p = piston_pressure(V, 0.0, 0.0, 0.0, 10.0)
     assert abs(p - expected) / abs(expected) < 1e-10
 
