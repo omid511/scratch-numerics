@@ -48,7 +48,8 @@ memray-*.html
 *.pt
 *.pth
 *.ckpt
-
+p4_dataset/
+p4_dataset_legacy/
 # Plots and figures (regenerable; committed docs/figures are whitelisted below)
 *.png
 *.jpg
