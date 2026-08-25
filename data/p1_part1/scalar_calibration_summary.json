@@ -1,0 +1,65 @@
+{
+  "model_type": "scalar_frequency_error_gp",
+  "params": [
+    "alpha",
+    "beta",
+    "theta_c",
+    "eta1",
+    "eta2"
+  ],
+  "mean_loo_rmse_pct": 5.345,
+  "baseline_mean_rmse_pct": 9.4468,
+  "improvement_pct": 43.4,
+  "per_mode": [
+    {
+      "mode": 1,
+      "loo_rmse_pct": 4.9154,
+      "baseline_rmse_pct": 9.5011
+    },
+    {
+      "mode": 2,
+      "loo_rmse_pct": 6.056,
+      "baseline_rmse_pct": 9.9741
+    },
+    {
+      "mode": 3,
+      "loo_rmse_pct": 4.2909,
+      "baseline_rmse_pct": 9.7133
+    },
+    {
+      "mode": 4,
+      "loo_rmse_pct": 5.1492,
+      "baseline_rmse_pct": 9.3776
+    },
+    {
+      "mode": 5,
+      "loo_rmse_pct": 6.4279,
+      "baseline_rmse_pct": 9.8078
+    },
+    {
+      "mode": 6,
+      "loo_rmse_pct": 4.6293,
+      "baseline_rmse_pct": 9.46
+    },
+    {
+      "mode": 7,
+      "loo_rmse_pct": 5.476,
+      "baseline_rmse_pct": 9.0401
+    },
+    {
+      "mode": 8,
+      "loo_rmse_pct": 5.1782,
+      "baseline_rmse_pct": 8.9593
+    },
+    {
+      "mode": 9,
+      "loo_rmse_pct": 6.1953,
+      "baseline_rmse_pct": 9.1915
+    },
+    {
+      "mode": 10,
+      "loo_rmse_pct": 5.1321,
+      "baseline_rmse_pct": 9.4437
+    }
+  ]
+}
