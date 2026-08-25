@@ -80,3 +80,5 @@ Thumbs.db
 *.bak
 *~
 .pytest_cache/
+p4_train_results.json
+docs/figures/
