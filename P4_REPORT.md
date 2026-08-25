@@ -1,5 +1,11 @@
 # P4 Aeroelastic Margin Estimation — Summary Report
 
+> **⚠ SUPERSEDED**: This report covers the LEGACY single-design
+> (nominal CFCF 1×1 m plate, velocity-grouped train/val split, no test
+> set). The conclusions about generalization are NOT supported by
+> held-out-design evidence. See `P4_REPORT_EXPANDED.md` for the current
+> results on the expanded 160-design dataset with design-level splits.
+
 ## Problem Setup
 
 | Parameter | Value |
