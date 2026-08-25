@@ -37,7 +37,14 @@ MVP iteration, (c) unblocked Proposal-3's mode-identity feasibility study, and
 The I3 class (module on the forward path, absent from the optimizer) is structural and bit the project twice (fc head; trunk_norm). Fixed by eager `_ensure_fc` + explicit `requires_grad_(False)` freeze; pinned by `tests/test_optimizer_coverage.py` (7 tests: fc-movement pin, trunk_norm freeze pin, per-trainer optimizer-membership + all-trainable-move assertions via optimizer spy).
 
 ### I20. Pre-registered held-out audit: PASS
+### I20. Pre-registered held-out audit: PASS
 The flagship P2 claim was validated on the untouched 45-design test split with 5 fresh seeds (100–104, never used in development), exact MC multinomial SBC p-values (finite-sample-valid at n=45/51 bins), and a recorded dataset hash. All gates pass on every seed: coverage 0.892–0.905 (mean 0.897 vs nominal 0.90), SBC error 0.015–0.018, SBC p 0.147–0.885. Results: `data/p2_heldout_audit/heldout_audit_results.json`; harness: `scripts_p2_heldout_audit.py` (pre-registered thresholds in docstring).
+
+### I21. 1000-sample scaling experiment: all metrics improve
+Scaling the P2 field dataset from 300 to 1000 designs improved every metric:
+MSE 0.0306→0.0229 (-25%, now below the 0.030 bar), coverage 0.887→0.928,
+SBC error 0.015→0.010. Confirms the model is data-hungry, not
+architecture-limited at this scale. Dataset: `data/p2/fields_1000.npz`.
 
 ---
 
