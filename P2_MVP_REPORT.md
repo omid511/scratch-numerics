@@ -1,6 +1,19 @@
 # P2 MVP Report — Spatial Damage-Field Posterior
 
-Date: 2026-08-23 · Branch: master · Dataset: `data/p2/fields_cnn_ds.npz` (300 designs, 8×8 canonicalized mode shapes + retention grids, 210/45/45 design-level splits)
+Date: 2026-08-23 · Branch: master · **Final dataset: `data/p2/fields_1000.npz` (1000 designs, 8×8 canonicalized mode shapes + retention grids, 700/150/150 design-level splits)**
+
+## Headline results (1000-design held-out test split)
+
+| Gate | Result | Status |
+|---|---|---|
+| SP3 coverage (>0.80) | **0.9281** | PASS |
+| SP4 SBC error (<0.10) | **0.0098** | PASS |
+| SP4 SBC uniformity (p>0.05) | **0.1409** | PASS |
+| Field MSE (<0.030 bar) | **0.0229** | **PASS** |
+
+Scaling from 300 to 1000 designs improved every metric: MSE dropped 25%
+(0.0306→0.0229, now below the internal bar), coverage moved closer to
+nominal (0.887→0.928), and SBC error improved (0.015→0.010).
 
 ## What was built this arc
 
