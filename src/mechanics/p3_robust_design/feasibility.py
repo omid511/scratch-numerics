@@ -144,7 +144,14 @@ def run_phase2_feasibility(
     tracking = [d["median_step_mac"] for d in per_design]
     median_cross = float(np.median(np.concatenate(cross)))
     median_tracking = float(np.median(tracking))
-    gate_pass = bool(median_cross >= GATE_THRESHOLD)
+
+    # Roadmap gate: fraction of design points with ALL tracked modes
+    # MAC > 0.8 must be >= 70%. Per-design criterion, not pooled median.
+    frac_above = float(np.mean([
+        np.min(d["cross_design_macs"]) >= GATE_THRESHOLD
+        for d in per_design
+    ]))
+    gate_pass = bool(frac_above >= 0.70)
 
     out = {
         "study": "proposal3_phase2_mode_identity_feasibility",
@@ -152,6 +159,7 @@ def run_phase2_feasibility(
         "n_successful_points": len(per_design),
         "gate_threshold": GATE_THRESHOLD,
         "median_cross_design_mac": median_cross,
+        "frac_designs_above_gate": frac_above,
         "median_velocity_tracking_mac": median_tracking,
         "per_design": per_design,
         "gate_pass": gate_pass,

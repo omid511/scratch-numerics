@@ -64,7 +64,7 @@ def _optimal_match(
     macs = np.empty(n)
     for curr_i, prev_i in zip(rows, cols):
         assignment[prev_i] = curr_i
-        macs[prev_i] = 1.0 - cost[curr_i, prev_i]
+        macs[prev_i] = mac(curr[curr_i], prev[prev_i])
     return macs, assignment
 
 
@@ -128,7 +128,12 @@ def track_modes_across_velocity(
             damp_all[vi] = damp
             labels[vi] = current_labels
 
-        prev_modes = mode_shapes
+        # Reorder shapes to tracked branch order so prev_modes aligns with
+        # prev_freqs (which is already in tracked order via freqs_all).
+        if vi > 0:
+            prev_modes = mode_shapes[assignment]
+        else:
+            prev_modes = mode_shapes
 
         prev_freqs = freqs_all[vi]
         prev_damp = damp_all[vi]
