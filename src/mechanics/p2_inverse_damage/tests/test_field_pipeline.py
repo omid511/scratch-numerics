@@ -226,6 +226,63 @@ class TestSP3Coverage:
         assert res["coverage"] == pytest.approx(0.0)
         assert not res["coverage_gate_pass"]
 
+    def test_stratified_coverage_reports_pristine_and_damaged(self):
+        # Val: 6 pristine observations (truth ≡ 1.0), 4 damaged (truth 0.5).
+        # A constant decoder at 0.5 covers every damaged pixel and no
+        # pristine pixel: pooled coverage 16/40 = 0.4 fails the old pooled
+        # gate, while damaged-cell coverage 1.0 passes SP3.
+        ds = _synthetic_dataset(n=24, gy=2, gx=2)
+        val = list(range(10))
+        ds["splits"] = {"train": list(range(10, 24)), "val": val, "test": []}
+        for pos, i in enumerate(val):
+            v = 1.0 if pos < 6 else 0.5
+            ds["fields"][i, :, :] = v
+            ds["severity"][i] = 1.0 - v
+
+        res = evaluate_sp_gates(
+            _fake_models(_ConstFieldDecoder(0.5)), ds,
+            n_samples=6, seed=0, baseline_epochs=5,
+        )
+        assert res["coverage"] == pytest.approx(0.4)
+        assert res["coverage_pristine"] == pytest.approx(0.0)
+        assert res["coverage_damaged"] == pytest.approx(1.0)
+        assert res["coverage_gate_pass"]     # bound on damaged cells only
+
+    def test_sp3_gate_ignores_trivially_covered_pristine_cells(self):
+        # Pooling artifact pinned: 9 pristine + 1 damaged val observation
+        # with a decoder at 1.0 gives pooled coverage 36/40 = 0.90 (> 0.80),
+        # yet every damaged cell is missed — the gate must FAIL on the
+        # damaged stratum alone.
+        ds = _synthetic_dataset(n=24, gy=2, gx=2)
+        val = list(range(10))
+        ds["splits"] = {"train": list(range(10, 24)), "val": val, "test": []}
+        for pos, i in enumerate(val):
+            v = 1.0 if pos < 9 else 0.5
+            ds["fields"][i, :, :] = v
+            ds["severity"][i] = 1.0 - v
+
+        res = evaluate_sp_gates(
+            _fake_models(_ConstFieldDecoder(1.0)), ds,
+            n_samples=6, seed=0, baseline_epochs=5,
+        )
+        assert res["coverage"] == pytest.approx(0.9)
+        assert res["coverage_pristine"] == pytest.approx(1.0)
+        assert res["coverage_damaged"] == pytest.approx(0.0)
+        assert not res["coverage_gate_pass"]
+
+    def test_all_pristine_split_falls_back_to_pooled_gate(self):
+        # No damaged cells in the split: the stratum is undefined (NaN) and
+        # the SP3 gate falls back to pooled coverage.
+        ds = _gate_dataset(1.0)
+        res = evaluate_sp_gates(
+            _fake_models(_ConstFieldDecoder(0.5)), ds,
+            n_samples=6, seed=0, baseline_epochs=5,
+        )
+        assert np.isnan(res["coverage_damaged"])
+        assert res["coverage_pristine"] == pytest.approx(0.0)
+        assert res["coverage"] == pytest.approx(0.0)
+        assert not res["coverage_gate_pass"]
+
 
 # ─── 4. Sample-based SBC with known answers ─────────────────────────
 
@@ -260,8 +317,9 @@ class TestSampleBasedSBC:
         assert res["sbc_gate_pass"]
 
     def test_degenerate_posterior_skewed_ranks_detected(self):
-        # Truth always above every posterior sample → all ranks 0 → both the
-        # chi-square p-value and the calibration-error gate must flag it.
+        # Truth always above every posterior sample → all ranks 0 → the
+        # exact-MC uniformity p-value must flag it (sbc_error stays
+        # reported as a descriptive statistic only).
         ds = _gate_dataset(0.9)  # val severity 0.1 ≫ ensemble severity 0.5
         res = evaluate_sp_gates(
             _fake_models(_ConstFieldDecoder(0.5)), ds,
@@ -316,9 +374,10 @@ class TestEndToEndSmoke:
             models, ds, n_samples=5, seed=0, baseline_epochs=10,
         )
         expected_keys = {
-            "coverage", "coverage_gate_pass", "ranks", "sbc_pvalue",
-            "sbc_error", "sbc_gate_pass", "cvae_mse", "baseline_mse",
-            "n_val", "alpha", "n_samples",
+            "coverage", "coverage_pristine", "coverage_damaged",
+            "coverage_gate_pass", "ranks", "sbc_pvalue", "sbc_error",
+            "sbc_gate_pass", "cvae_mse", "baseline_mse",
+            "constant_field_mse", "n_val", "alpha", "n_samples",
         }
         assert expected_keys <= set(res)
         assert 0.0 <= res["coverage"] <= 1.0
@@ -327,6 +386,7 @@ class TestEndToEndSmoke:
         assert 0.0 <= res["sbc_pvalue"] <= 1.0
         assert res["cvae_mse"] >= 0.0
         assert res["baseline_mse"] >= 0.0
+        assert np.isfinite(res["constant_field_mse"])
 
 
 # ─── 7. Heteroscedastic Gaussian head ────────────────────────────────
@@ -525,18 +585,20 @@ class TestBootstrapBagging:
         assert all("bootstrap_indices" not in m for m in ens0["members"])
 
 
-# ─── 9. Analytic-path SBC conformal recalibration ────────────────────
+# ─── 9. Analytic-path SBC: raw-sigma honesty ─────────────────────────
 
 
-class TestConformalSeverityCalibration:
-    """Pin the leave-one-out conformal fix for the analytic-path SBC.
+class TestRawSigmaAnalyticPath:
+    """Pin the honest (uncalibrated) analytic-path SP-gates.
 
-    Real-data failure (data/p2/fields_cnn_ds.npz): iid pixel noise makes
-    the mean-severity ensemble ~16x too narrow, piling ranks at {0, S}
-    (chi-square p ~ 0) while per-pixel coverage stayed nominal. Fix:
-    resample each observation's severity ensemble at sigma * k_j with k_j
-    the LOO RMS of standardized residuals over the OTHER val observations
-    (_conformal_severity_multipliers), val-only, documented in the gate.
+    The former leave-one-out conformal recalibration consumed the
+    evaluated split's ground-truth severities — test-label leakage on
+    split="test" — and rescued exactly the sigma miscalibration that SP4
+    exists to detect. evaluate_sp_gates now draws severity ensembles at
+    RAW sigma and judges them solely by the Monte-Carlo exact uniformity
+    p-value; the vacuous calibration-error gate is gone. The LOO
+    multiplier helper survives only inside in-training sigma calibration
+    fitted on TRAIN rows (_conformal_severity_multipliers).
     """
 
     def test_loo_multiplier_known_answer(self):
@@ -570,13 +632,11 @@ class TestConformalSeverityCalibration:
         assert _conformal_severity_multipliers(
             np.zeros(8), bad, np.ones(8)).tolist() == [1.0] * 8
 
-    def test_extreme_offset_ranks_rescued_and_gate_passes(self):
-        from mechanics.p2_inverse_damage.field_pipeline import evaluate_sp_gates as _ev
-
+    def test_extreme_offset_raw_path_flags_miscalibration(self):
         # 12 val observations miss the constant prediction by exactly
         # 20x the iid mean-statistic spread, at standard-normal decile
-        # offsets: raw ranks pile at {0, 50}; the LOO multiplier (~20)
-        # re-centers them across the whole rank axis.
+        # offsets: with RAW sigma the ranks pile at {0, 50} and SP4 must
+        # fail honestly — no conformal rescue.
         rng = np.random.default_rng(7)
         n = 80
         fields = rng.random((n, 2, 2)) * 0.2 + 0.4
@@ -609,27 +669,27 @@ class TestConformalSeverityCalibration:
             {"interval_predictor": _ConstPredictor()}, ds,
             n_samples=50, seed=3, baseline_epochs=1,
         )
-        # The raw ensembles are catastrophically narrow: chi-square rejects.
-        assert res["sbc_pvalue_uncalibrated"] < 0.05
-        # The conformal multipliers recover the 20x offset scale...
-        med = res["severity_sigma_multiplier"]["median"]
-        assert 15.0 < med < 26.0
-        # ...no rank stays pinned at an extreme, and uniformity holds.
         ranks = np.asarray(res["ranks"])
-        assert ((ranks > 0) & (ranks < res["n_samples"])).all()
-        assert res["sbc_pvalue"] > 0.05
-        assert res["sbc_error"] < 0.10
-        assert res["sbc_gate_pass"]
+        assert ((ranks == 0) | (ranks == res["n_samples"])).all()
+        assert res["sbc_pvalue"] < 0.05
+        assert not res["sbc_gate_pass"]
+        # No recalibration machinery in the result: raw is the honest path.
+        assert "severity_sigma_multiplier" not in res
+        assert "sbc_pvalue_uncalibrated" not in res
 
-    def test_small_val_split_falls_back_to_raw_sigma(self):
-        # n_total=24 gives a 4-row val split (< min_obs): the gate must
-        # fall back to multiplier 1.0 and keep the historical behavior.
+    def test_small_val_split_evaluates_raw_sigma(self):
+        # Any split size evaluates identically: raw sigma ensembles, exact
+        # MC p-value, no multiplier keys.
         ds = _gate_dataset(0.5)
         models = {"interval_predictor": _ConstIntervalPredictor(0.5, 0.05)}
         res = evaluate_sp_gates(
             models, ds, n_samples=6, seed=3, baseline_epochs=5,
         )
-        assert res["severity_sigma_multiplier"]["median"] == 1.0
+        assert "severity_sigma_multiplier" not in res
+        assert "sbc_pvalue_uncalibrated" not in res
+        assert np.isfinite(res["sbc_pvalue"])
+        assert ((res["ranks"] >= 0) & (res["ranks"] <= res["n_samples"])).all()
+
 
 
 class TestInTrainingSigmaCalibration:
