@@ -123,12 +123,12 @@ A `pytest | tail` pipeline masked the exit code and a commit landed while a sibl
 |---|---|
 | P1 | Scalar calibration GP: LOO RMSE **5.35% vs 9.45%** mean-baseline, wins all 10 modes; field pipeline characterized; charter stop condition reached |
 | P2 | **All SP gates pass**: SP3 coverage 0.889 (near-nominal), SP4 SBC err 0.0177 / p 0.42 (seeds 0.60/0.77/0.26), field MSE 0.0306 < 0.0419 constant-field; six-lever negative-result ledger documented |
-| P3 | Mode tracking fixed (complex shapes + participation-gated flutter path); Phase-2 feasibility study implemented and executed (see `data/proposal3/feasibility_report.json`); sweep honesty + GP ML-II |
+| P3 | Mode tracking fixed; Phase-2 feasibility **gate PASSES** (median cross-design MAC 0.9956, 50/50 points → Phase-5 proceeds); Phase-5 ModeDecompositionGP implemented (8 tests); Phase-5 experiment: mode-GP RMSE 4.1× better than scalar GP overall, near-crossing SKIP confirmed (no branch crossings in accessible λ range — documented with probe evidence); sweep honesty (stiffness corr 0/15→15/15) + GP ML-II |
 | P4 | Pipeline restored; 6122-clip dataset regenerated; full training exit-0: quantile coverage 0.871–0.902, huber MAE 0.0797, near-flutter MAE 0.0666, bootstrap CI [0.0814, 0.0895]; expanded report generated |
 
 ## 4. Known open items (honestly not done)
 
 1. P2 SBC rank uniformity passes **with** the conformal layer; raw σ remains aleatoric-only (epistemic machinery — ensembles with genuine diversity, or a likelihood-aware objective — is a new arc).
 2. P2 cross-validation against real damage patterns is blocked: no COMSOL dataset with actual defects exists (P1's HF data is undamaged).
-3. P3 Phase-2 gate decision from the running study feeds the Phase-5 go/skip — recorded in the feasibility report when the study completes.
+3. ~~P3 Phase-2 gate decision~~ **RESOLVED**: gate PASSES (MAC 0.9956 ≥ 0.70), Phase-5 proceeds. Phase-5 mode-GP implemented and tested.
 4. P4 σ-width refinement toward exact nominal coverage (0.889 vs 0.90) — conformal layer is the deployed mechanism; raw-σ self-calibration is optional polish.
