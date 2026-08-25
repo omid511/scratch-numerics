@@ -1,0 +1,59 @@
+{
+  "dataset_sha256": "927dc321ccc3ab3c",
+  "n_designs": 1000,
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104
+  ],
+  "split": "test",
+  "results": [
+    {
+      "seed": 100,
+      "coverage": 0.9322,
+      "sbc_error": 0.0116,
+      "sbc_p": 0.0306,
+      "mse": 0.0214,
+      "all_pass": false
+    },
+    {
+      "seed": 101,
+      "coverage": 0.9402,
+      "sbc_error": 0.0119,
+      "sbc_p": 0.0035,
+      "mse": 0.0214,
+      "all_pass": false
+    },
+    {
+      "seed": 102,
+      "coverage": 0.9378,
+      "sbc_error": 0.0104,
+      "sbc_p": 0.003,
+      "mse": 0.0225,
+      "all_pass": false
+    },
+    {
+      "seed": 103,
+      "coverage": 0.9226,
+      "sbc_error": 0.0106,
+      "sbc_p": 0.0306,
+      "mse": 0.0216,
+      "all_pass": false
+    },
+    {
+      "seed": 104,
+      "coverage": 0.9253,
+      "sbc_error": 0.0106,
+      "sbc_p": 0.0492,
+      "mse": 0.0223,
+      "all_pass": false
+    }
+  ],
+  "mean_coverage": 0.9316,
+  "mean_sbc_error": 0.011,
+  "mean_mse": 0.0218,
+  "all_gates_pass": false,
+  "sbc_uniformity_note": "Coverage is excellent (near-nominal) and SBC error is low, but the exact MC chi-square test rejects rank uniformity on all 5 seeds. The larger test split (150 vs 45 designs) gives the test more statistical power to detect subtle sigma over-width. The conformal multipliers (median ~4.2x) may be over-correcting at this scale. Point accuracy (MSE) and coverage are excellent."
+}
