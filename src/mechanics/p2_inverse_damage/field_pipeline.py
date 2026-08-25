@@ -32,13 +32,12 @@ from .decoder import DamageDecoder
 from .eval import (
     posterior_mean_mse,
     sbc_ranks,
-    sbc_rank_uniformity_pvalue,
+    sbc_rank_uniformity_pvalue_exact,
 )
 from .posterior import ConditionalPosterior
 
-# Gate thresholds from the P2 charter (SP-gate evaluation).
+# Gate threshold from the P2 charter (SP-gate evaluation).
 SP3_COVERAGE_GATE = 0.80   # SP3: 90% per-pixel interval coverage must exceed 0.80
-SBC_ERROR_GATE = 0.10      # SBC: mean |bin proportion − uniform| must stay below 0.10
 
 _REQUIRED_NPZ_KEYS = (
     "fields_values",
@@ -1183,44 +1182,49 @@ def evaluate_sp_gates(
 
     Gates:
 
-    SP3 (interval coverage): per-pixel central ``(1 - alpha)`` intervals —
-    quantiled ensembles on the ensemble path, analytic normal bounds on the
-    analytic path — and average the fraction of pixels whose true retention
-    lies inside. Gate: coverage > 0.80.
+    SP3 (interval coverage, STRATIFIED): per-pixel central ``(1 - alpha)``
+    intervals — quantiled ensembles on the ensemble path, analytic normal
+    bounds on the analytic path. Coverage is reported separately for
+    PRISTINE cells (true retention ≡ 1.0) and DAMAGED cells (truth < 1.0),
+    plus the pooled value. The gate binds on DAMAGED-cell coverage only:
+    pooling with pristine cells (trivially covered by any wide interval)
+    masks damage-cell miscalibration — the pooling artifact that let a
+    2x-too-narrow-on-damage model pass at pooled coverage > 0.9. When the
+    split contains no damaged cells the gate falls back to pooled coverage.
 
-    SBC (sample-based, BOTH paths): rank of the true mean severity within
-    each val observation's severity ensemble of ``n_samples`` draws —
+    SBC / SP4 (sample-based, BOTH paths): rank of the true mean severity
+    within each val observation's severity ensemble of ``n_samples`` draws —
     decoded posterior fields q(z|c)·decoder on the ensemble path,
     ``mu + sigma * eps`` per pixel on the analytic path (ties count as "not
-    below", standard SBC). Uniformity assessed two ways over the exact
-    discrete support {0..n_samples}: a chi-square goodness-of-fit p-value
-    (large p ⇒ calibrated) and the calibration error mean(|bin proportion -
-    uniform proportion|). Gate: error < 0.10.
+    below", standard SBC). The SOLE criterion is the Monte-Carlo EXACT
+    uniformity p-value over the discrete support {0..n_samples}
+    (:func:`sbc_rank_uniformity_pvalue_exact`): with sparse bins the
+    asymptotic chi-square reference is invalid, and the mean |bin proportion
+    - uniform| error statistic is vacuous as a gate (its null level ~0.009
+    sits an order of magnitude under the old 0.10 threshold, so it could
+    never fail). Gate: exact p-value > 0.05. ``sbc_error`` is still
+    reported as a descriptive statistic only.
 
-    ANALYTIC-PATH CALIBRATION (explicit part of this gate, val-only): iid
-    pixel noise understates the spread of the joint mean-severity statistic
-    when pixel residuals are spatially correlated, which collapsed real-data
-    ranks into a {0, n_samples} U-shape (chi-square p ~ 0) while per-pixel
-    coverage stayed nominal. Each observation's severity ensemble is
-    therefore resampled at ``sigma * k_j`` where k_j is a leave-one-out
-    conformal multiplier estimated from the OTHER validation observations'
-    standardized mean-statistic residuals (:func:
-    `_conformal_severity_multipliers`). Per-observation LOO keeps each rank
-    honest — no observation is judged against a scale its own residual
-    inflated. SP3 intervals are NOT recalibrated (per-pixel calibration was
-    never the failure). The uncalibrated chi-square p-value is reported as
-    ``sbc_pvalue_uncalibrated`` and the multiplier summary as
-    ``severity_sigma_multiplier`` for transparency; on splits with < 8 val
-    observations the multiplier falls back to 1.0 (raw sigma).
+    NO post-hoc recalibration: severity ensembles are drawn at raw sigma.
+    The earlier leave-one-out conformal multiplier consumed ground-truth
+    severities of the evaluated split itself — on split="test" that is
+    test-label leakage, and it rescued exactly the sigma miscalibration the
+    SP4 gate exists to detect. The raw uncalibrated result is the honest
+    one. In-training calibration fitted on TRAIN rows only
+    (``models["sigma_multiplier"]``) remains part of the deployed model and
+    still scales the analytic intervals.
 
     Point accuracy: mean-field MSE against the truth (ensemble mean or mu),
     reported next to a :class:`DirectRegressionBaseline` (MLP log-freqs →
-    field) fitted on the train split.
+    field) fitted on the train split, and next to a constant-field baseline
+    (train-set mean field) that any trained model must beat.
 
-    Returns dict with keys: ``coverage``, ``coverage_gate_pass``, ``ranks``,
-    ``sbc_pvalue``, ``sbc_pvalue_uncalibrated``, ``sbc_error``,
-    ``sbc_gate_pass``, ``severity_sigma_multiplier``, ``cvae_mse``,
-    ``baseline_mse``, ``n_val``, ``alpha``, ``n_samples``.
+    Returns dict with keys: ``coverage``, ``coverage_pristine``,
+    ``coverage_damaged``, ``coverage_gate_pass``, ``ranks``,
+    ``sbc_pvalue``, ``sbc_error``, ``sbc_gate_pass``, ``cvae_mse``,
+    ``baseline_mse``, ``constant_field_mse``, ``n_val``, ``alpha``,
+    ``n_samples``.
+
     ``split`` selects which entry of ``dataset["splits"]`` the gates are
     computed on. Audit use: pass ``split="test"`` on a model trained ONLY
     on the train rows — the caller is responsible for split discipline;
@@ -1264,10 +1268,9 @@ def evaluate_sp_gates(
             axis=1,
         )
 
-    covered_pixels = []
+    covered_maps = []
     severity_ensembles = []
     mean_field_preds = []
-    mult = np.ones(len(eval_idx))   # ensemble path: no recalibration
     if predictor is not None:
         mu_val, sigma_val = predictor(X[eval_idx])
         # In-training calibration (train_field_cvae_heteroscedastic with
@@ -1280,36 +1283,16 @@ def evaluate_sp_gates(
         lower = mu_val - z_crit * sigma_val
         upper = mu_val + z_crit * sigma_val
         truth = fields[eval_idx]
-        covered_pixels = np.mean(
-            (truth >= lower) & (truth <= upper), axis=(1, 2)
-        ).tolist()
-        # SBC severity ensembles. Per-pixel sigma does NOT calibrate the
-        # joint mean-severity statistic when pixel residuals correlate
-        # (iid-eps averaging shrinks var by n_pixels while the true
-        # residual variance of the mean does not) — on the real
-        # fields_cnn_ds.npz this collapsed the rank histogram into a
-        # U-shape at {0, S} with chi-square p ~ 0 despite nominal
-        # per-pixel coverage. Recalibrate each observation's ensemble
-        # spread with a leave-one-out conformal multiplier fitted on val
-        # ONLY (see _conformal_severity_multipliers); per-pixel SP3
-        # intervals above stay exactly as trained.
-        n_pix = mu_val.shape[1] * mu_val.shape[2]
-        pred_sev = 1.0 - mu_val.mean(axis=(1, 2))
-        stat_std = np.sqrt((sigma_val ** 2).sum(axis=(1, 2))) / n_pix
-        mult = _conformal_severity_multipliers(
-            pred_sev, severity[eval_idx], stat_std,
-        )
-        raw_severity_ensembles = []
+        covered_map = (truth >= lower) & (truth <= upper)   # (n, gy, gx)
+        # SBC severity ensembles at RAW sigma — no post-hoc recalibration.
+        # The removed LOO conformal multiplier consumed ground-truth
+        # severities of the evaluated split (test-label leakage on
+        # split="test") and rescued exactly the sigma miscalibration SP4
+        # exists to detect.
         for j in range(len(eval_idx)):
             eps = rng.standard_normal((n_samples, *mu_val[j].shape))
-            raw_severity_ensembles.append(_severity(
-                mu_val[j][np.newaxis] + sigma_val[j][np.newaxis] * eps))
             severity_ensembles.append(_severity(
-                mu_val[j][np.newaxis]
-                + (mult[j] * sigma_val[j])[np.newaxis] * eps))
-        raw_ranks = sbc_ranks(raw_severity_ensembles, severity[eval_idx])
-        sbc_pvalue_uncalibrated = sbc_rank_uniformity_pvalue(
-            raw_ranks, n_bins=n_samples + 1)
+                mu_val[j][np.newaxis] + sigma_val[j][np.newaxis] * eps))
         mean_field_preds = list(mu_val)
 
     else:
@@ -1324,20 +1307,37 @@ def evaluate_sp_gates(
             lower = np.quantile(ens, lower_q, axis=0)
             upper = np.quantile(ens, upper_q, axis=0)
             truth = fields[i]
-            covered_pixels.append(
-                float(np.mean((truth >= lower) & (truth <= upper)))
-            )
+            covered_maps.append((truth >= lower) & (truth <= upper))
             severity_ensembles.append(_severity(ens))
             mean_field_preds.append(ens.mean(axis=0))
 
-    coverage = float(np.mean(covered_pixels))
-    ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
-    sbc_pvalue = sbc_rank_uniformity_pvalue(ranks, n_bins=n_samples + 1)
     if predictor is None:
-        # Ensemble path applies no sigma recalibration: raw == calibrated.
-        sbc_pvalue_uncalibrated = sbc_pvalue
+        covered_map = np.asarray(covered_maps)
+    truth_eval = fields[eval_idx]
+    pristine = truth_eval >= 1.0
+    damaged = ~pristine
+    coverage = float(covered_map.mean())
+    coverage_pristine = (
+        float(covered_map[pristine].mean()) if pristine.any()
+        else float("nan")
+    )
+    coverage_damaged = (
+        float(covered_map[damaged].mean()) if damaged.any()
+        else float("nan")
+    )
+    # SP3 binds on DAMAGED cells only: pristine cells are trivially
+    # covered by any wide interval, so pooled coverage hides damage-side
+    # miscalibration. No damaged cells -> fall back to pooled coverage.
+    gate_coverage = coverage_damaged if damaged.any() else coverage
 
-    # Calibration error over the exact discrete support {0..n_samples}.
+    ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
+    # SP4 sole criterion: the finite-sample-valid Monte-Carlo EXACT
+    # uniformity p-value (the asymptotic chi-square is invalid at these
+    # bin counts).
+    sbc_pvalue = sbc_rank_uniformity_pvalue_exact(ranks, n_samples + 1)
+
+    # Descriptive calibration error only — vacuous as a gate (its null
+    # level ~0.009 sits an order of magnitude under the old 0.10 threshold).
     counts = np.bincount(ranks, minlength=n_samples + 1).astype(float)
     props = counts / counts.sum()
     sbc_error = float(np.mean(np.abs(props - 1.0 / (n_samples + 1))))
@@ -1373,20 +1373,13 @@ def evaluate_sp_gates(
     return {
         "constant_field_mse": const_mse,
         "coverage": coverage,
-        "coverage_gate_pass": bool(coverage > SP3_COVERAGE_GATE),
+        "coverage_pristine": coverage_pristine,
+        "coverage_damaged": coverage_damaged,
+        "coverage_gate_pass": bool(gate_coverage > SP3_COVERAGE_GATE),
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
-        "sbc_pvalue_uncalibrated": float(sbc_pvalue_uncalibrated),
-        "severity_sigma_multiplier": {
-            "median": float(np.median(mult)),
-            "min": float(mult.min()),
-            "max": float(mult.max()),
-        },
         "sbc_error": sbc_error,
-        # Both statistics required: mean |bin prop - uniform| alone can sit
-        # under the gate while a systematically skewed histogram rejects
-        # uniformity (observed: error 0.025 at chi-square p = 0.0).
-        "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE and sbc_pvalue > 0.05),
+        "sbc_gate_pass": bool(sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
         "n_val": int(len(eval_idx)),
@@ -1507,10 +1500,11 @@ def evaluate_ensemble_sp_gates(
       * SP3 analytic interval ``mu_bar ± z_{alpha/2} * sqrt(total_var)``
         (z_{alpha/2} = 1.645 at alpha = 0.10).
 
-    SBC severity ensembles draw ONE field sample per member
+    SBC severity ensembles draw ONE field sample per member at RAW sigma
     (``mu_k + sigma_k * eps``), giving a K-sample severity ensemble per
     observation; ranks and gates as in :func:`evaluate_sp_gates`
-    (coverage > 0.80; SBC error < 0.10 AND chi-square p > 0.05).
+    (exact-MC uniformity p > 0.05 is the sole SP4 criterion; no post-hoc
+    recalibration).
 
     Point accuracy: BMA mean-field MSE next to a
     :class:`DirectRegressionBaseline` fitted on the train split.
@@ -1560,25 +1554,17 @@ def evaluate_ensemble_sp_gates(
         for mu_k, sig_k in zip(mu_stack, sigma_stack)
     ]
 
-    # SBC: one sample per member -> K-sample severity ensembles, spread
-    # recalibrated with the same val-only leave-one-out conformal
-    # multipliers as :func:`evaluate_sp_gates` (iid member/pixel noise
-    # understates the joint mean-severity spread; per-pixel SP3 intervals
-    # above stay untouched).
-    n_pix = mu_bar.shape[1] * mu_bar.shape[2]
-    pred_sev = 1.0 - mu_bar.mean(axis=(1, 2))
-    stat_std = np.sqrt((total_sigma ** 2).sum(axis=(1, 2))) / n_pix
-    mult = _conformal_severity_multipliers(
-        pred_sev, severity[eval_idx], stat_std,
-    )
+    # SBC: one sample per member -> K-sample severity ensembles at raw
+    # sigma. No post-hoc conformal recalibration: it consumed the
+    # evaluated split's ground-truth severities and masked the very
+    # miscalibration SP4 exists to detect.
     severity_ensembles = []
     eps = rng.standard_normal(sigma_stack.shape)
-    samples = mu_stack + (mult[np.newaxis, :, np.newaxis, np.newaxis]
-                          * sigma_stack) * eps                # (K,n,gy,gx)
+    samples = mu_stack + sigma_stack * eps                     # (K,n,gy,gx)
     for j in range(len(eval_idx)):
         severity_ensembles.append(_severity(samples[:, j]))
     ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
-    sbc_pvalue = sbc_rank_uniformity_pvalue(ranks, n_bins=k_members + 1)
+    sbc_pvalue = sbc_rank_uniformity_pvalue_exact(ranks, k_members + 1)
     counts = np.bincount(ranks, minlength=k_members + 1).astype(float)
     props = counts / counts.sum()
     sbc_error = float(np.mean(np.abs(props - 1.0 / (k_members + 1))))
@@ -1611,12 +1597,7 @@ def evaluate_ensemble_sp_gates(
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
         "sbc_error": sbc_error,
-        "severity_sigma_multiplier": {
-            "median": float(np.median(mult)),
-            "min": float(mult.min()),
-            "max": float(mult.max()),
-        },
-        "sbc_gate_pass": bool(sbc_error < SBC_ERROR_GATE and sbc_pvalue > 0.05),
+        "sbc_gate_pass": bool(sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
         "n_val": int(len(eval_idx)),
