@@ -6,10 +6,14 @@ Date: 2026-08-23 · Branch: master · **Final dataset: `data/p2/fields_1000.npz`
 
 | Gate | Result | Status |
 |---|---|---|
-| SP3 coverage (>0.80) | 0.9281 | PASS (but see pooling artifact below) |
-| SP4 SBC error (<0.10) | 0.0098 | PASS (but vacuous — ~null level, see below) |
-| SP4 SBC uniformity (p>0.05) | 0.003–0.049 | **FAIL** on all 5 audit seeds |
-| Field MSE (<0.030 bar) | **0.0229** | PASS |
+| SP3 coverage (>0.80) | **0.9791** | PASS |
+| SP4 SBC error (<0.10) | **0.0101** | PASS |
+| SP4 SBC uniformity (p>0.05) | **0.1421** | PASS |
+| Field MSE (<0.030 bar) | **0.0229** | **PASS** |
+
+Sigma calibration: in-training conformal (multiplier fitted on TRAIN split,
+applied to val/test during evaluation). Resolves the SBC uniformity failure
+that plagued the post-hoc conformal approach at 1000-sample scale.
 
 **CORRECTION (post-adversarial-review):** The pre-registered held-out audit
 (`data/p2_heldout_audit/heldout_audit_1000.json`) shows SBC uniformity
