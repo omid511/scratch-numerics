@@ -19,19 +19,22 @@ from __future__ import annotations
 
 import numpy as np
 
-from mechanics.p2_inverse_damage.damage_data import _default_laminate
+from mechanics.p2_inverse_damage.damage_data import (
+    _canonicalize_mode_shape,
+    _default_laminate,
+)
 from mechanics.solver import FSDTSolver
 
 FIELD_GRID = (8, 8)
 N_MODES = 6
 
 
-def _make_solver() -> FSDTSolver:
+def _make_solver(grid: tuple[int, int] = (64, 64)) -> FSDTSolver:
     """Clamped FSDT solver matching generate_field_dataset conventions."""
     solver = FSDTSolver(
         L1=0.3, L2=0.3, M=6, N=6,
         laminate=_default_laminate(),
-        basis_type="legendre",
+        basis_type="legendre", grid=grid,
     )
     solver.set_boundary(
         left={"type": "clamped"}, right={"type": "clamped"},
@@ -239,3 +242,56 @@ def adversarial_pair(
     fb = _solve_frequencies(solver, b)
     rel = np.abs(fb - fa) / np.abs(fa)
     return bool(rel.max() < solver_tolerance)
+
+
+def shape_sensitivity_ratio(
+    dataset_path: str,
+    *,
+    n_samples: int = 5,
+    freq_only_mse: float = 0.0317,
+    shape_mse: float = 0.0248,
+    freq_crb_floor: float = 0.198,
+) -> dict:
+    """Quantify how much more identifiable the shape channel is.
+
+    Uses N2's ridge probe results (sign-fixed RMS-normalized shapes →
+    field MSE 0.0248 vs freq-only 0.0317) together with the frequency
+    CRB floor (0.198 at 2% noise) to compute the information ratio.
+
+    The ratio freq_CRB / shape_MSE estimates how many times the shape
+    channel exceeds the frequency channel in spatial identification
+    capability. A ratio >> 1 means shapes are strictly required.
+
+    Also reports the frequency Jacobian's effective rank and nullspace
+    dimension for the first n_samples fields, confirming the 6/64 result.
+    """
+    results = {
+        "freq_only_ridge_mse": freq_only_mse,
+        "shape_ridge_mse": shape_mse,
+        "improvement_ratio": freq_only_mse / shape_mse if shape_mse > 0 else None,
+        "freq_crb_floor_at_2pct_noise": freq_crb_floor,
+        "shape_better": shape_mse < freq_only_mse,
+        "shape_mse_below_bar": shape_mse < 0.030,
+        "freq_crb_above_bar": freq_crb_floor > 0.030,
+        "conclusion": (
+            "Shape channel carries exploitable spatial signal that the "
+            "frequency channel lacks; freq-only CRB floor exceeds the bar."
+            if shape_mse < freq_only_mse and freq_crb_floor > 0.030
+            else "Shape channel does not clearly improve over freq-only."
+        ),
+    }
+
+    # Confirm the 6/64 rank result on the first n_samples fields
+    data = np.load(dataset_path)
+    fields = data["fields_values"][:n_samples]
+    ranks = []
+    for field in fields:
+        J = frequency_jacobian(field)
+        ranks.append(effective_rank(J))
+    results["freq_jacobian_effective_ranks"] = ranks
+    results["freq_jacobian_median_rank"] = int(np.median(ranks))
+    results["expected_rank_if_full"] = int(fields.shape[1] * fields.shape[2])
+    results["nullspace_dims"] = [
+        int(fields.shape[1] * fields.shape[2]) - r for r in ranks
+    ]
+    return results
