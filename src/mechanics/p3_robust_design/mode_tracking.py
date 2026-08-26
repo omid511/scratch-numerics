@@ -227,7 +227,8 @@ def track_modes_across_parameter(
             freqs_all[si] = freqs
             labels[si] = current_labels
 
-        prev_modes = mode_shapes
+        # Reorder shapes to tracked branch order (same fix as velocity tracker)
+        prev_modes = mode_shapes[assignment] if prev_modes is not None else mode_shapes
         prev_freqs = freqs_all[si]
 
     return {
