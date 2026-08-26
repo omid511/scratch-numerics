@@ -136,3 +136,5 @@ A `pytest | tail` pipeline masked the exit code and a commit landed while a sibl
 2. P2 cross-validation against real damage patterns is blocked: no COMSOL dataset with actual defects exists (P1's HF data is undamaged).
 3. ~~P3 Phase-2 gate decision~~ **RESOLVED**: gate PASSES (MAC 0.9956 ≥ 0.70), Phase-5 proceeds. Phase-5 mode-GP implemented and tested.
 4. P4 σ-width refinement toward exact nominal coverage (0.889 vs 0.90) — conformal layer is the deployed mechanism; raw-σ self-calibration is optional polish.
+5. P1 GP under-dispersed (22-36 pct coverage vs 95 nominal)
+6. P2 SBC uniformity fails at 1000 samples
