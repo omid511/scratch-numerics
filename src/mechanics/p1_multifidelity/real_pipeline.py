@@ -896,17 +896,40 @@ def conformal_frequency_intervals(
     rel = np.asarray(freq_errs['rel_err_pct'], dtype=np.float64)
     n, n_modes = rel.shape
 
-    # LOO GP predictions per mode
+    # Standardize theta (fixes length_scale selection: raw theta has
+    # heterogeneous scales causing half-widths 13-18 pct pts vs 5.35 RMSE)
+    theta_mean = theta.mean(axis=0)
+    theta_std = theta.std(axis=0)
+    theta_std[theta_std < 1e-12] = 1.0
+    theta_z = (theta - theta_mean) / theta_std
+
+    # LOO GP predictions per mode on standardized theta
     loo_pred = np.zeros_like(rel)
     for m in range(n_modes):
         for i in range(n):
             mask = np.ones(n, dtype=bool)
             mask[i] = False
             gp = LatentGP(d_z=1, kernel=RBFKernel(length_scale=1.0))
-            gp.fit(theta[mask], rel[mask, m:m+1])
-            mu, var = gp.predict(theta[i:i+1]); loo_pred[i, m] = float(np.ravel(mu)[0])
+            gp.fit(theta_z[mask], rel[mask, m:m+1])
+            mu, var = gp.predict(theta_z[i:i+1])
+            loo_pred[i, m] = float(np.ravel(mu)[0])
 
     residuals = np.abs(rel - loo_pred)
+
+    # Split-half conformal evaluation (breaks the tautological coverage
+    # of computing the quantile and checking coverage on same residuals).
+    rng = np.random.default_rng(42)
+    perm = rng.permutation(n)
+    half_a, half_b = perm[:n // 2], perm[n // 2:]
+    split_covs = []
+    for half_fit, half_eval in [(half_a, half_b), (half_b, half_a)]:
+        scores_fit = np.sort(residuals[half_fit].ravel())
+        q_idx = min(int(np.ceil((len(scores_fit) + 1) * (1 - alpha))) - 1,
+                    len(scores_fit) - 1)
+        q = scores_fit[q_idx]
+        covered = int(np.sum(residuals[half_eval].ravel() <= q))
+        total = len(residuals[half_eval].ravel())
+        split_covs.append(covered / total if total > 0 else 0.0)
     per_mode = []
     for m in range(n_modes):
         scores = np.sort(residuals[:, m])
@@ -921,7 +944,8 @@ def conformal_frequency_intervals(
 
     return {
         'per_mode': per_mode,
+        'split_half_coverages': split_covs,
         'alpha': alpha,
         'n_samples': n,
-        'method': 'leave-one-out conformal (distribution-free)',
+        'method': 'leave-one-out conformal with standardized theta (distribution-free)',
     }
