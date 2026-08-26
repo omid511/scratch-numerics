@@ -114,8 +114,16 @@ shape inputs (information) + Phase-1 asymmetry (gradient).
 1. σ-width calibration refinement (coverage 0.889 is near-nominal; the
    hetero head's raw sigma still rides the conformal multiplier).
 2. Cross-validation against real damage patterns (COMSOL HF data with
-   actual defects does not exist yet — blocked on external data).
-3. Conv decoder with skips (roadmap Phase-3) if field resolution increases.
+## Identifiability formalization (experimental branch)
+
+The freq-only insufficiency finding is now quantified: the 6×64
+frequency Jacobian has effective rank 6 (nullspace 58/64), and the
+Cramér-Rao MSE floor at 2% noise is **0.198 — well above the 0.030
+bar**. Frequency-only inversion is mathematically insufficient; shape
+conditioning is required, not just empirically better. See
+`experimental/identifiability` branch (`identifiability.py`) for the
+full analysis.
+
 
 ## Reproduce
 
