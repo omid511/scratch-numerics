@@ -1,6 +1,6 @@
 # P4 Aeroelastic Margin Estimation — Expanded-Dataset Report
 
-> **Generated from the expanded 160-design dataset** (design-level
+> **Generated from the expanded dataset (160 attempted, 106 contributed clips; 54 skipped)** (design-level
 > train/val/test splits, domain-randomized sensor channels with
 > validity masks). This extends the legacy single-design
 > `P4_REPORT.md`; numbers are **not** directly comparable to it.

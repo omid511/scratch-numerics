@@ -113,7 +113,7 @@ def render_comparison(models: dict, names: list[str]) -> list[str]:
     lines = [
         "## Results Summary (test split, design-level)",
         "",
-        "| Model | MAE | Mean Interval Width | Interval Coverage (q05-q95) |",
+        "| Model | MAE | Mean Interval Width | Interval cov_rate (q05->q95) |",
         "|-------|-----|---------------------|------------------------------|",
     ]
     cov_key = get_cov_key(models)
@@ -206,7 +206,7 @@ def render_model_details(models: dict, names: list[str]) -> list[str]:
         if isinstance(pv, dict) and pv:
             has_cov = any(isinstance(e.get("coverage"), dict) and e["coverage"]
                           for e in pv.values())
-            head = "| Velocity (m/s) | MAE |" + (" Coverage (q05-q95) |" if has_cov else "")
+            head = "| Velocity (m/s) | MAE |" + (" cov_rate (q05->q95) |" if has_cov else "")
             sep = "|---------------|-----|" + ("--------------------|" if has_cov else "")
             lines += [head, sep]
             for v in sorted(pv, key=lambda x: float(x)):
@@ -231,7 +231,7 @@ def _vel_cov(vcov: dict) -> str:
         return fmt(vcov[ivals[0]], ".3f")
     lo, hi = vcov.get("q0.05"), vcov.get("q0.95")
     if _is_num(lo) and _is_num(hi):
-        return f"q05 {lo:.3f} / q95 {hi:.3f}"
+        return f"cov_rate {lo:.3f} -> {hi:.3f}"
     return "n/a"
 
 
