@@ -883,37 +883,45 @@ def conformal_frequency_intervals(
 ) -> dict:
     """Conformal prediction intervals for the P1 scalar frequency-error GP.
 
-    Uses leave-one-out residuals as conformity scores. Distribution-free
-    coverage guarantee regardless of GP posterior calibration.
+    Computes LOO GP predictions per mode, then uses the absolute LOO
+    residuals as conformity scores. Distribution-free coverage guarantee.
     """
     import numpy as np
-    hf_dataset = _load_hf_dataset()
-    theta = np.asarray(hf_dataset.load_design(data_root), dtype=np.float64)
-    freq_errs = hf_dataset.load_frequency_errors(data_root)
-    rel = np.asarray(freq_errs["rel_err_pct"], dtype=np.float64)
+    from mechanics.p1_multifidelity.hf_dataset import load_design, load_frequency_errors
+    from mechanics.p1_multifidelity.real_pipeline import LatentGP, RBFKernel, RealPipelineConfig
+
+    cfg = RealPipelineConfig()
+    theta = np.asarray(load_design(data_root), dtype=np.float64)
+    freq_errs = load_frequency_errors(data_root)
+    rel = np.asarray(freq_errs['rel_err_pct'], dtype=np.float64)
     n, n_modes = rel.shape
 
-    # LOO predictions per mode using the existing GP
-    result = fit_frequency_error_gp(data_root)
-    # Use the per-mode GP predictions from the result if available,
-    # otherwise re-fit. For now, use LOO residuals directly.
-    residuals = np.abs(rel - result.get("loo_predictions", rel * 0))
+    # LOO GP predictions per mode
+    loo_pred = np.zeros_like(rel)
+    for m in range(n_modes):
+        for i in range(n):
+            mask = np.ones(n, dtype=bool)
+            mask[i] = False
+            gp = LatentGP(d_z=1, kernel=RBFKernel(length_scale=1.0))
+            gp.fit(theta[mask], rel[mask, m:m+1])
+            mu, var = gp.predict(theta[i:i+1]); loo_pred[i, m] = float(np.ravel(mu)[0])
 
+    residuals = np.abs(rel - loo_pred)
     per_mode = []
     for m in range(n_modes):
         scores = np.sort(residuals[:, m])
         q_idx = min(int(np.ceil((n + 1) * (1 - alpha))) - 1, n - 1)
-        half_width = float(scores[q_idx])
-        covered = int(np.sum(residuals[:, m] <= half_width))
+        hw = float(scores[q_idx])
+        cov = int(np.sum(residuals[:, m] <= hw))
         per_mode.append({
-            "mode": m + 1,
-            "interval_half_width_pct": half_width,
-            "empirical_coverage": covered / n,
+            'mode': m + 1,
+            'interval_half_width_pct': hw,
+            'empirical_coverage': cov / n,
         })
 
     return {
-        "per_mode": per_mode,
-        "alpha": alpha,
-        "n_samples": n,
-        "method": "leave-one-out conformal (distribution-free)",
+        'per_mode': per_mode,
+        'alpha': alpha,
+        'n_samples': n,
+        'method': 'leave-one-out conformal (distribution-free)',
     }
