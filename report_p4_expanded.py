@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render the expanded P4 training results JSON into a markdown report.
 
-Companion to ``train_p4_expanded.py`` (expanded 160-design dataset with
+Companion to ``train_p4_expanded.py`` (expanded dataset (160 attempted, 106 contributed) with
 design-level splits). Produces ``P4_REPORT_EXPANDED.md`` in the style of the
 legacy single-design ``P4_REPORT.md``, so numbers are directly comparable.
 
@@ -113,7 +113,7 @@ def render_comparison(models: dict, names: list[str]) -> list[str]:
     lines = [
         "## Results Summary (test split, design-level)",
         "",
-        "| Model | MAE | Mean Interval Width | Interval cov_rate (q05->q95) |",
+        "| Model | MAE | Mean Interval Width | Interval Coverage (q05-q95) |",
         "|-------|-----|---------------------|------------------------------|",
     ]
     cov_key = get_cov_key(models)
@@ -206,7 +206,7 @@ def render_model_details(models: dict, names: list[str]) -> list[str]:
         if isinstance(pv, dict) and pv:
             has_cov = any(isinstance(e.get("coverage"), dict) and e["coverage"]
                           for e in pv.values())
-            head = "| Velocity (m/s) | MAE |" + (" cov_rate (q05->q95) |" if has_cov else "")
+            head = "| Velocity (m/s) | MAE |" + (" q05/q95 cov_rate |" if has_cov else "")
             sep = "|---------------|-----|" + ("--------------------|" if has_cov else "")
             lines += [head, sep]
             for v in sorted(pv, key=lambda x: float(x)):
@@ -279,7 +279,7 @@ def render(results_path: Path, out_path: Path) -> None:
     lines = [
         "# P4 Aeroelastic Margin Estimation — Expanded-Dataset Report",
         "",
-        "> **Generated from the expanded 160-design dataset** (design-level",
+        "> **Generated from the expanded dataset (160 attempted, 106 contributed)** (design-level",
         "> train/val/test splits, domain-randomized sensor channels with",
         "> validity masks). This extends the legacy single-design",
         "> `P4_REPORT.md`; numbers are **not** directly comparable to it.",

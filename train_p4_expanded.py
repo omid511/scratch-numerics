@@ -273,7 +273,7 @@ if __name__ == "__main__":
     dataset_dir = "p4_dataset"
     P(f"Loading dataset from {dataset_dir}/...")
     clips_arr, margins, velocities, design_ids, realization_ids, meta = load_dataset(dataset_dir)
-    P(f"  {len(margins)} clips, {meta['n_train']} train / {meta['n_val']} val / {meta['n_test']} test designs")
+    P(f"  {len(margins)} clips ({meta['n_train']}/{meta['n_val']}/{meta['n_test']} by design split)")
 
     train_ids = set(meta["train_designs"])
     val_ids = set(meta["val_designs"])
