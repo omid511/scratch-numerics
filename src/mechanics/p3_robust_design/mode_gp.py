@@ -17,7 +17,7 @@ probabilities computed numerically from the per-mode Gaussians, giving
 i.e. within-mode posterior variance plus a between-branch spread term
 that peaks near mode crossings, where the active mode switches.
 
-Gate context (Phase 2): cross-design median MAC 0.996 >= 0.70 threshold,
+Gate context (Phase 2): per-design fraction above MAC 0.8 gate = 62% (< 70% threshold — Phase-5 SKIPPED per corrected per-design metric),
 so approach (b) — direct lambda_cr-per-mode — proceeds.
 """
 from __future__ import annotations
