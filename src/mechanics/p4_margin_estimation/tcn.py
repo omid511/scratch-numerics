@@ -94,7 +94,12 @@ class TCNBackbone(nn.Module):
 
 
 class TemporalSummary(nn.Module):
-    """Summarize temporal features via early/late means + last timestep."""
+    """Summarize temporal features via early/late means + last timestep.
+
+    The window scales with sequence length (``min(max_window, T // 4)``) so
+    short clips keep disjoint early/late views instead of duplicating the
+    whole clip in both means.
+    """
 
     def __init__(self, window: int = 64):
         super().__init__()
@@ -102,7 +107,8 @@ class TemporalSummary(nn.Module):
 
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
         """feat: (B, C, T) → (B, 3*C)"""
-        window = min(self.window, feat.shape[-1])
+        T = feat.shape[-1]
+        window = min(self.window, max(1, T // 4))
         early = feat[:, :, :window].mean(dim=2)
         late = feat[:, :, -window:].mean(dim=2)
         last = feat[:, :, -1]

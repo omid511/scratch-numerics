@@ -8,8 +8,12 @@ class RBFKernel:
     """Radial basis function (squared exponential) kernel."""
 
     def __init__(self, length_scale: float = 1.0, signal_variance: float = 1.0):
-        self.length_scale = length_scale
-        self.signal_variance = signal_variance
+        if not np.isfinite(length_scale) or length_scale <= 0:
+            raise ValueError(f"length_scale must be finite and positive, got {length_scale}")
+        if not np.isfinite(signal_variance) or signal_variance <= 0:
+            raise ValueError(f"signal_variance must be finite and positive, got {signal_variance}")
+        self.length_scale = float(length_scale)
+        self.signal_variance = float(signal_variance)
 
     def __call__(self, X1: np.ndarray, X2: np.ndarray) -> np.ndarray:
         X1t = torch.as_tensor(X1, dtype=torch.float64)
@@ -27,17 +31,32 @@ class LatentGP:
     """
 
     def __init__(self, d_z: int = 16, kernel: RBFKernel | None = None, noise: float = 1e-4):
+        if not np.isfinite(noise) or noise < 0:
+            raise ValueError(f"noise must be finite and non-negative, got {noise}")
         self.d_z = d_z
         self.kernel = kernel or RBFKernel()
-        self.noise = noise
+        self.noise = float(noise)
         self._theta_train: np.ndarray | None = None
         self._z_train: np.ndarray | None = None
         self._K_inv: list[np.ndarray] = []
         self._L_inv: list[np.ndarray] = []
 
     def fit(self, theta: np.ndarray, z: np.ndarray) -> None:
+        theta = np.asarray(theta, dtype=np.float64)
+        z = np.asarray(z, dtype=np.float64)
+        if theta.ndim != 2 or z.ndim != 2:
+            raise ValueError(f"theta and z must be 2D, got {theta.shape} and {z.shape}")
+        if theta.shape[0] != z.shape[0]:
+            raise ValueError(
+                f"theta rows {theta.shape[0]} != z rows {z.shape[0]}"
+            )
+        if theta.shape[0] == 0:
+            raise ValueError("need at least 1 training point")
+        if not (np.all(np.isfinite(theta)) and np.all(np.isfinite(z))):
+            raise ValueError("theta/z contain non-finite values")
         self._theta_train = theta.copy()
         self._z_train = z.copy()
+        self.d_z = z.shape[1]
         n = theta.shape[0]
         I_n = torch.eye(n, dtype=torch.float64)
 
@@ -56,6 +75,17 @@ class LatentGP:
             self._K_inv.append((L_inv.T @ L_inv).numpy())
 
     def predict(self, theta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if self._theta_train is None or self._z_train is None or not self._K_inv:
+            raise RuntimeError("GP not fitted. Call fit() first.")
+        theta = np.asarray(theta, dtype=np.float64)
+        if theta.ndim != 2:
+            raise ValueError(f"predict theta must be 2D, got shape {theta.shape}")
+        if theta.shape[1] != self._theta_train.shape[1]:
+            raise ValueError(
+                f"predict dim {theta.shape[1]} != train dim {self._theta_train.shape[1]}"
+            )
+        if not np.all(np.isfinite(theta)):
+            raise ValueError("predict theta contains non-finite values")
         K_s = torch.as_tensor(
             self.kernel(self._theta_train, theta), dtype=torch.float64
         )
@@ -84,6 +114,11 @@ class LatentGP:
         return z_mean, z_var
 
     def sample(self, theta: np.ndarray, n_samples: int = 1, rng: np.random.Generator | None = None) -> np.ndarray:
+        """Draw posterior samples of z (marginal per test point).
+
+        NOTE: draws are independent across test points using the marginal
+        variances only; the joint posterior covariance is NOT modeled here.
+        """
         if rng is None:
             rng = np.random.default_rng()
 
@@ -161,8 +196,8 @@ class ARDRBFKernel:
         return float(np.exp(self.log_signal_variance.item()))
 
     def _cov(self, X1t: "torch.Tensor", X2t: "torch.Tensor") -> "torch.Tensor":
-        inv_ls = torch.exp(-2.0 * self.log_length_scales)
-        # Pairwise squared distance with per-dim scaling.
+        inv_ls = torch.exp(-self.log_length_scales)
+        # Pairwise squared distance with per-dim scaling: sum_d ((x1_d-x2_d)/ls_d)^2.
         x1 = X1t * inv_ls
         x2 = X2t * inv_ls
         sq = (

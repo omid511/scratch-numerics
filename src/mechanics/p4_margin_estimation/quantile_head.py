@@ -132,8 +132,20 @@ def apply_cqr_adjustment(
     upper: np.ndarray,
     adjustment: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Widen lower/upper by the fitted CQR adjustment."""
-    return lower - adjustment, upper + adjustment
+    """Widen lower/upper by the fitted CQR adjustment.
+
+    A negative fitted adjustment (over-covering base intervals) shrinks the
+    band; crossed ends (shrink larger than half the base width) collapse to
+    their midpoint so width floors at zero and intervals never invert.
+    """
+    lo_adj = np.asarray(lower, dtype=float) - float(adjustment)
+    hi_adj = np.asarray(upper, dtype=float) + float(adjustment)
+    crossed = lo_adj > hi_adj
+    if bool(np.any(crossed)):
+        mid = 0.5 * (lo_adj + hi_adj)
+        lo_adj = np.where(crossed, mid, lo_adj)
+        hi_adj = np.where(crossed, mid, hi_adj)
+    return lo_adj, hi_adj
 
 
 # ── Safety-aware Huber loss ─────────────────────────────────────────────────

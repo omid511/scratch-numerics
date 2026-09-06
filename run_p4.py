@@ -9,7 +9,8 @@ from mechanics.p4_margin_estimation.transient import (
     generate_clip_from_eigendecomposition,
 )
 from mechanics.p4_margin_estimation.train import (
-    train, train_huber, train_median, evaluate_coverage,
+    train, train_huber, train_unweighted_quantile as train_median,
+    evaluate_coverage,
 )
 
 P = lambda *a, **kw: print(*a, **kw, flush=True)
@@ -20,10 +21,10 @@ def evaluate_point(model, clips, device="cpu", velocities=None):
     model.eval()
     X_list, y_list, valid_vels = [], [], []
     for i, c in enumerate(clips):
-        if np.isnan(c.margin):
+        if not np.isfinite(c.margin):
             continue
         sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-        if torch.isnan(sig).any():
+        if not bool(torch.isfinite(sig).all()):
             continue
         X_list.append(sig)
         y_list.append(c.margin)
@@ -34,16 +35,34 @@ def evaluate_point(model, clips, device="cpu", velocities=None):
     X = torch.stack(X_list).to(device)
     y_true = torch.tensor(y_list, dtype=torch.float32, device=device)
     with torch.no_grad():
-        pred = model(X).squeeze(-1)  # (B,)
+        pred = model(X)
+        # Quantile head returns (B, 3): use the median column for point metrics.
+        if pred.dim() > 1 and pred.shape[-1] > 1:
+            pred = pred[..., pred.shape[-1] // 2]
+        pred = pred.squeeze(-1)  # (B,)
     mae = (pred - y_true).abs().mean().item()
     result = {"mae": mae, "mean_interval_width": float("nan"), "coverage": {}}
     if valid_vels:
-        unique_vels = sorted(set(valid_vels))
+        import numpy as _np
+        arr = _np.asarray(list(valid_vels), dtype=float)
+        uniq = sorted(set(float(v) for v in arr.tolist()))
+        if len(uniq) <= 15:
+            bins = {round(float(u), 6): [i for i, vv in enumerate(arr.tolist())
+                                         for _u in [min(uniq, key=lambda x: abs(x - vv))]
+                                         if round(float(_u), 6) == round(float(u), 6)]
+                    for u in uniq}
+        else:
+            lo, hi = float(arr.min()), float(arr.max())
+            edges = _np.linspace(lo, hi, 13)
+            bins = {}
+            for i, vv in enumerate(arr.tolist()):
+                b = int(_np.searchsorted(edges, vv, side="right") - 1)
+                b = max(0, min(11, b))
+                bins.setdefault(round(float(0.5 * (edges[b] + edges[b + 1])), 6), []).append(i)
         per_vel = {}
-        for v in unique_vels:
-            mask = torch.tensor([vel == v for vel in valid_vels], device=device)
-            if mask.sum() == 0:
-                continue
+        for v, idx in sorted(bins.items()):
+            mask = torch.zeros(len(valid_vels), dtype=torch.bool, device=device)
+            mask[idx] = True
             y_v = y_true[mask]
             pred_v = pred[mask]
             per_vel[v] = {"mae": (pred_v - y_v).abs().mean().item(),
@@ -83,14 +102,24 @@ if __name__ == "__main__":
         P("   ERROR: no flutter boundary found. Aborting.")
         exit(1)
 
-    # Velocity levels: denser near flutter
-    # 24 levels: 8 low (680-999), 8 mid (1001-1299), 8 high (1301-0.95*u_crit)
+    # Velocity levels from u_crit RATIOS (denser near flutter), Mach >= 2.
+    # 24 levels: low [max(2a, 0.40u) -> 0.70u), mid [0.70u -> 0.90u),
+    # high [0.90u -> 0.95u]. No hardcoded m/s bands (they invert for small u_crit).
+    RUN_P4_DESIGN_ID = "run_p4_single_plate"
     v_hi = u_crit * 0.95
     v_lo = max(2.0 * SOUND_SPEED, u_crit * 0.4)  # M >= 2
-    low_vels = np.linspace(v_lo, 999, 8)    # exclusive end
-    mid_vels = np.linspace(1001, 1299, 8)  # exclusive ends
-    high_vels = np.linspace(1301, v_hi, 8)  # inclusive start
+    if not v_hi > v_lo:
+        P(f"   ERROR: u_crit={u_crit:.1f} leaves empty [v_lo, v_hi]. Aborting.")
+        exit(1)
+    v_mid_lo = max(v_lo, u_crit * 0.70)
+    v_mid_hi = max(v_mid_lo, u_crit * 0.90)
+    low_vels = np.linspace(v_lo, v_mid_lo, 8, endpoint=False)
+    mid_vels = np.linspace(v_mid_lo, v_mid_hi, 8, endpoint=False)
+    high_vels = np.linspace(v_mid_hi, v_hi, 8)
     velocity_levels = np.concatenate([low_vels, mid_vels, high_vels])
+    # Single-plate demo: all clips share ONE design id. Metrics below are
+    # WITHIN-DESIGN (velocity/IC generalization) only — do not read them as
+    # cross-design generalization (see train_p4_expanded.py for that).
     n_realizations = 10
     n_sensors = 8
 
@@ -115,6 +144,7 @@ if __name__ == "__main__":
             try:
                 clip = generate_clip_from_eigendecomposition(
                     eigs, rng_level, n_timesteps=512, u_crit=u_crit,
+                    design_id=RUN_P4_DESIGN_ID,
                 )
                 level_clips.append(clip)
                 all_velocities.append(float(v))
@@ -129,32 +159,63 @@ if __name__ == "__main__":
     P(f"   Total: {len(all_clips)} clips generated")
 
     # Filter valid clips (non-NaN margin)
-    valid_clips = [c for c in all_clips if not np.isnan(c.margin)]
-    valid_vels = [v for v, c in zip(all_velocities, all_clips) if not np.isnan(c.margin)]
+    valid_clips = [c for c in all_clips if np.isfinite(c.margin)]
+    valid_vels = [v for v, c in zip(all_velocities, all_clips) if np.isfinite(c.margin)]
     P(f"   {len(valid_clips)} valid clips (margin not NaN)")
 
     if len(valid_clips) < 20:
         P("   ERROR: too few valid clips. Aborting.")
         exit(1)
 
-    # ── Train 3 models with proper train/test split ──
+    # ── Train 3 models: single shared design id => grouped split is
+    # undefined (it would leak by construction). Use an explicit clip-level
+    # random split and report WITHIN-DESIGN metrics only.
+    _rng_split = np.random.default_rng(0)
+    _perm = _rng_split.permutation(len(valid_clips))
+    _n_test = max(1, int(round(len(valid_clips) * 0.15)))
+    _n_val = max(1, int(round(len(valid_clips) * 0.15)))
+    _test_idx = set(_perm[:_n_test].tolist())
+    _val_idx = set(_perm[_n_test:_n_test + _n_val].tolist())
+    _train_idx = [_perm[i] for i in range(_n_test + _n_val, len(_perm))]
+    _tr_clips = [valid_clips[i] for i in _train_idx]
+    _va_clips = [valid_clips[i] for i in sorted(_val_idx)]
+    _te_clips = [valid_clips[i] for i in sorted(_test_idx)]
+    _explicit_split = (_tr_clips, _va_clips, _te_clips)
     models = {
         "huber": (lambda c, v: train_huber(c, n_channels=n_sensors, hidden_dim=32,
-                                           n_layers=4, epochs=50, lr=1e-3, velocities=v),
+                                           n_layers=8, epochs=50, lr=1e-3, velocities=v),
                   evaluate_point),
         "median": (lambda c, v: train_median(c, n_channels=n_sensors, hidden_dim=32,
-                                             n_layers=4, epochs=50, lr=1e-3, velocities=v),
+                                             n_layers=8, epochs=50, lr=1e-3, velocities=v),
                    evaluate_point),
         "quantile": (lambda c, v: train(c, n_channels=n_sensors, hidden_dim=32,
-                                        n_layers=4, epochs=50, lr=1e-3, velocities=v),
+                                        n_layers=8, epochs=50, lr=1e-3, velocities=v),
                      evaluate_coverage),
     }
 
     results = {}
     for name, (train_fn, eval_fn) in models.items():
-        P(f"\n4. Training {name} model...")
+        P(f"\n4. Training {name} model (within-design split)...")
         t0 = time.time()
-        model, history, test_clips, test_vels = train_fn(valid_clips, valid_vels)
+        _tr, _va, _te = _explicit_split
+        if name == "quantile":
+            model, history, test_clips, test_vels = train(
+                None, n_channels=n_sensors, hidden_dim=32, n_layers=8,
+                epochs=50, lr=1e-3, train_clips=_tr, val_clips=_va,
+                test_clips=_te)
+        elif name == "huber":
+            from mechanics.p4_margin_estimation.train import train_huber as _th
+            model, history, test_clips, test_vels = _th(
+                None, n_channels=n_sensors, hidden_dim=32, n_layers=8,
+                epochs=50, lr=1e-3, train_clips=_tr, val_clips=_va,
+                test_clips=_te)
+        else:
+            from mechanics.p4_margin_estimation.train import train_unweighted_quantile as _tm
+            model, history, test_clips, test_vels = _tm(
+                None, n_channels=n_sensors, hidden_dim=32, n_layers=8,
+                epochs=50, lr=1e-3, train_clips=_tr, val_clips=_va,
+                test_clips=_te)
+        _ = train_fn  # documented: explicit split above replaces grouped split
         P(f"   Train loss: {history['train_loss'][-1]:.4f}, Val loss: {history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
 
         P(f"5. Evaluating {name} model on test set...")

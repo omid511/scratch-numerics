@@ -20,7 +20,9 @@ def pinball_loss(
     """
     if tau.ndim != 1:
         raise ValueError("tau must be a 1-D vector of quantile levels")
-    error = target - pred                                  # broadcast tau on last axis
+    # Trailing tau axis: without the unsqueeze, tau would broadcast against
+    # the data's last dim (silently wrong when it matches, crash otherwise).
+    error = (target - pred).unsqueeze(-1)                    # (..., 1)
     loss = torch.maximum(tau * error, (tau - 1.0) * error)  # (..., n_tau)
     dims = tuple(range(loss.ndim - 1))
     return loss.mean(dim=dims) if dims else loss

@@ -10,7 +10,8 @@ import numpy as np
 import torch
 from pathlib import Path
 from mechanics.p4_margin_estimation.train import (
-    train, train_huber, train_median, evaluate_coverage, HuberMarginModel,
+    train, train_huber, train_unweighted_quantile as train_median,
+    train_unweighted_quantile, evaluate_coverage, HuberMarginModel,
 )
 from mechanics.p4_margin_estimation.baselines import (
     ConstantMedianBaseline, PhysicsFeatureRidge, VelocityLinearBaseline,
@@ -102,7 +103,7 @@ def monotonicity_violation_rate(
     velocities: np.ndarray,
     design_ids: np.ndarray,
 ) -> float:
-    """Fraction of design pairs where velocity ordering is violated."""
+    """Fraction of strict-velocity design pairs where ordering is violated (same-velocity ties excluded)."""
     unique_designs = np.unique(design_ids)
     violations = 0
     total = 0
@@ -110,11 +111,16 @@ def monotonicity_violation_rate(
         mask = design_ids == did
         v = velocities[mask]
         p = predictions[mask]
-        order = np.argsort(v)
+        order = np.argsort(v, kind="stable")
+        v_sorted = v[order]
         p_sorted = p[order]
-        diffs = np.diff(p_sorted)
-        violations += int(np.sum(diffs > 0))
-        total += len(diffs)
+        # Only strict velocity increases count: same-velocity realizations
+        # (ties) have arbitrary argsort order and must not vote.
+        dv = np.diff(v_sorted)
+        dp = np.diff(p_sorted)
+        strict = dv > 0
+        violations += int(np.sum(dp[strict] > 0))
+        total += int(np.sum(strict))
     return violations / max(total, 1)
 
 
@@ -150,6 +156,18 @@ def apply_dr_with_mask(clips, seed=0):
         augmented.append(aug_clip)
     n_channels = clips[0].sensor_signals.shape[0] * 2  # signals + mask
     return augmented, n_channels
+
+
+def with_ones_mask(clips):
+    """Lift clean clips to mask-model channels with an all-valid mask."""
+    import numpy as _np
+    lifted = []
+    for c in clips:
+        sig = _np.asarray(c.sensor_signals)
+        mask = _np.ones_like(sig)
+        combined = _np.concatenate([sig, mask], axis=0)
+        lifted.append(_Clip(combined, c.margin, c.velocity, c.design_id))
+    return lifted
 
 
 def load_dataset(dataset_dir: str = "p4_dataset"):
@@ -233,16 +251,15 @@ def evaluate_point(model, clips, velocities=None, device="cpu"):
     mae = (pred - y_true).abs().mean().item()
     result = {"mae": mae, "mean_interval_width": float("nan"), "coverage": {}}
     if valid_vels:
-        unique_vels = sorted(set(valid_vels))
+        from mechanics.p4_margin_estimation.train import _velocity_bin_index
         per_vel = {}
-        for v in unique_vels:
-            mask = torch.tensor([vel == v for vel in valid_vels], device=device)
-            if mask.sum() == 0:
-                continue
+        for bin_label, idx in sorted(_velocity_bin_index(valid_vels).items()):
+            mask = torch.zeros(len(valid_vels), dtype=torch.bool, device=device)
+            mask[idx] = True
             y_v = y_true[mask]
             pred_v = pred[mask]
-            per_vel[v] = {"mae": (pred_v - y_v).abs().mean().item(),
-                          "n_clips": int(mask.sum().item())}
+            per_vel[bin_label] = {"mae": (pred_v - y_v).abs().mean().item(),
+                                  "n_clips": int(mask.sum().item())}
         result["per_velocity"] = per_vel
     return result
 
@@ -257,14 +274,13 @@ def evaluate_baseline(baseline, clips, velocities=None):
     mae = float(np.mean(np.abs(preds - y_arr)))
     result = {"mae": mae, "mean_interval_width": float("nan"), "coverage": {}}
     if valid_vels:
-        unique_vels = sorted(set(valid_vels))
+        from mechanics.p4_margin_estimation.train import _velocity_bin_index
         per_vel = {}
-        for v in unique_vels:
-            idx = [j for j, vv in enumerate(valid_vels) if vv == v]
+        for bin_label, idx in sorted(_velocity_bin_index(valid_vels).items()):
             if not idx:
                 continue
-            per_vel[v] = {"mae": float(np.mean(np.abs(preds[idx] - y_arr[idx]))),
-                          "n_clips": len(idx)}
+            per_vel[bin_label] = {"mae": float(np.mean(np.abs(preds[idx] - y_arr[idx]))),
+                                  "n_clips": len(idx)}
         result["per_velocity"] = per_vel
     return result
 
@@ -292,12 +308,17 @@ if __name__ == "__main__":
     results = {}
     N_SEEDS = 3
 
-    # P1-26: Apply DR to training clips and concatenate validity mask as extra channels
+    # P1-26: Apply DR to TRAINING clips only; val/test stay clean (ones mask)
+    # so primary MAE/coverage/CQR measure clean accuracy. DR val/test are
+    # kept as a separate robustness slice.
     P("Applying domain randomization with validity mask channels...")
     train_clips_dr, N_CHANNELS = apply_dr_with_mask(train_clips, seed=0)
+    val_clips_clean = with_ones_mask(val_clips)
+    test_clips_clean = with_ones_mask(test_clips)
     val_clips_dr, _ = apply_dr_with_mask(val_clips, seed=1)
     test_clips_dr, _ = apply_dr_with_mask(test_clips, seed=2)
     P(f"  DR applied: {N_CHANNELS} channels ({N_CHANNELS // 2} signal + {N_CHANNELS // 2} mask)")
+    P(f"  Primary metrics on clean val/test (ones mask); DR slice kept for robustness.")
 
     # ── TCN Quantile ──
     for seed in range(N_SEEDS):
@@ -307,11 +328,12 @@ if __name__ == "__main__":
         model, history, _, _ = train(
             None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
-            train_clips=train_clips_dr, val_clips=val_clips_dr, test_clips=test_clips_dr,
+            train_clips=train_clips_dr, val_clips=val_clips_clean, test_clips=test_clips_clean,
             velocities=all_vels,
         )
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
-        metrics = evaluate_coverage(model, test_clips_dr, velocities=test_vels)
+        metrics = evaluate_coverage(model, test_clips_clean, velocities=test_vels)
+        metrics["mae_dr"] = evaluate_coverage(model, test_clips_dr, velocities=test_vels).get("mae")
         results[name] = metrics
         P(f"  MAE={metrics.get('mae', 0):.4f} width={metrics.get('mean_interval_width', 0):.4f}")
         torch.save(model.state_dict(), f"p4_{name}.pt")
@@ -326,11 +348,12 @@ if __name__ == "__main__":
         model, history, _, _ = train_huber(
             None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
-            train_clips=train_clips_dr, val_clips=val_clips_dr, test_clips=test_clips_dr,
+            train_clips=train_clips_dr, val_clips=val_clips_clean, test_clips=test_clips_clean,
             velocities=all_vels,
         )
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
-        metrics = evaluate_point(model, test_clips_dr, velocities=test_vels)
+        metrics = evaluate_point(model, test_clips_clean, velocities=test_vels)
+        metrics["mae_dr"] = evaluate_point(model, test_clips_dr, velocities=test_vels).get("mae")
         results[name] = metrics
         P(f"  MAE={metrics.get('mae', 0):.4f}")
         torch.save(model.state_dict(), f"p4_{name}.pt")
@@ -342,14 +365,15 @@ if __name__ == "__main__":
         name = f"median_s{seed}"
         P(f"\nTraining {name}...")
         t0 = time.time()
-        model, history, _, _ = train_median(
+        model, history, _, _ = train_unweighted_quantile(
             None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
-            train_clips=train_clips_dr, val_clips=val_clips_dr, test_clips=test_clips_dr,
+            train_clips=train_clips_dr, val_clips=val_clips_clean, test_clips=test_clips_clean,
             velocities=all_vels,
         )
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
-        metrics = evaluate_point(model, test_clips_dr, velocities=test_vels)
+        metrics = evaluate_point(model, test_clips_clean, velocities=test_vels)
+        metrics["mae_dr"] = evaluate_point(model, test_clips_dr, velocities=test_vels).get("mae")
         results[name] = metrics
         P(f"  MAE={metrics.get('mae', 0):.4f}")
         torch.save(model.state_dict(), f"p4_{name}.pt")
@@ -361,22 +385,26 @@ if __name__ == "__main__":
 
     bl = ConstantMedianBaseline()
     bl.fit(train_clips_dr)
-    results["constant_median"] = evaluate_baseline(bl, test_clips_dr, test_vels)
+    results["constant_median"] = evaluate_baseline(bl, test_clips_clean, test_vels)
+    results["constant_median"]["mae_dr"] = evaluate_baseline(bl, test_clips_dr, test_vels).get("mae")
     P(f"  constant_median MAE={results['constant_median'].get('mae', 0):.4f}")
 
     bl = VelocityLinearBaseline()
     bl.fit(train_clips_dr)
-    results["velocity_linear"] = evaluate_baseline(bl, test_clips_dr, test_vels)
+    results["velocity_linear"] = evaluate_baseline(bl, test_clips_clean, test_vels)
+    results["velocity_linear"]["mae_dr"] = evaluate_baseline(bl, test_clips_dr, test_vels).get("mae")
     P(f"  velocity_linear MAE={results['velocity_linear'].get('mae', 0):.4f}")
 
     bl = GrowthRateBaseline()
     bl.fit(train_clips_dr)
-    results["growth_rate"] = evaluate_baseline(bl, test_clips_dr, test_vels)
+    results["growth_rate"] = evaluate_baseline(bl, test_clips_clean, test_vels)
+    results["growth_rate"]["mae_dr"] = evaluate_baseline(bl, test_clips_dr, test_vels).get("mae")
     P(f"  growth_rate MAE={results['growth_rate'].get('mae', 0):.4f}")
 
     bl = PhysicsFeatureRidge()
     bl.fit(train_clips_dr)
-    results["physics_ridge"] = evaluate_baseline(bl, test_clips_dr, test_vels)
+    results["physics_ridge"] = evaluate_baseline(bl, test_clips_clean, test_vels)
+    results["physics_ridge"]["mae_dr"] = evaluate_baseline(bl, test_clips_dr, test_vels).get("mae")
     P(f"  physics_ridge MAE={results['physics_ridge'].get('mae', 0):.4f}")
 
     # ── GRU (deep sequence baseline) ──
@@ -386,9 +414,11 @@ if __name__ == "__main__":
         t0 = time.time()
         gru_model, history = train_gru(
             train_clips_dr, n_channels=N_CHANNELS, epochs=20, seed=seed,
+            batch_size=64, val_split=0.15, velocities=train_vels,
         )
         P(f"  final_train_loss={history['train_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
-        results[name] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_dr, test_vels)
+        results[name] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_clean, test_vels)
+        results[name]["mae_dr"] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_dr, test_vels).get("mae")
         P(f"  {name} MAE={results[name].get('mae', 0):.4f}")
         torch.save(gru_model.state_dict(), f"p4_{name}.pt")
         del gru_model, history
@@ -421,13 +451,13 @@ if __name__ == "__main__":
         q_model.eval()
 
     if q_model is not None:
-        test_design_ids = [c.design_id for c in test_clips_dr if c.design_id is not None]
+        test_design_ids = [c.design_id for c in test_clips_clean if c.design_id is not None]
         unique_test_designs = sorted(set(test_design_ids))
 
         P(f"\n  Per-design metrics ({len(unique_test_designs)} test designs):")
         design_maes = []
         per_design_data: dict[int, list] = defaultdict(list)
-        for c in test_clips_dr:
+        for c in test_clips_clean:
             if c.design_id is not None and not np.isnan(c.margin):
                 per_design_data[c.design_id].append(c)
 
@@ -448,7 +478,7 @@ if __name__ == "__main__":
 
     # ── Safety-critical metrics ──
     if q_model is not None:
-        near_flutter_clips = [c for c in test_clips_dr if not np.isnan(c.margin) and c.margin < 0.15]
+        near_flutter_clips = [c for c in test_clips_clean if not np.isnan(c.margin) and c.margin < 0.15]
         false_safe_rate = lower_bound_false_safe_rate = float("nan")
         false_safe_incidence = false_unsafe_rate = float("nan")
         near_flutter_mae = signed_bias = cqr_coverage = cqr_width = float("nan")
@@ -464,8 +494,8 @@ if __name__ == "__main__":
             P(f"\n  Safety-critical metrics:")
             P(f"    Near-flutter MAE (margin<0.15): {near_flutter_mae:.4f} ({len(near_flutter_clips)} clips)")
 
-            all_X = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in test_clips_dr if not np.isnan(c.margin)])
-            all_y = torch.tensor([c.margin for c in test_clips_dr if not np.isnan(c.margin)], dtype=torch.float32)
+            all_X = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in test_clips_clean if not np.isnan(c.margin)])
+            all_y = torch.tensor([c.margin for c in test_clips_clean if not np.isnan(c.margin)], dtype=torch.float32)
             with torch.inference_mode():
                 quantile_pred_all = q_model(all_X)
             all_pred_median = quantile_pred_all[:, 1]
@@ -495,7 +525,7 @@ if __name__ == "__main__":
             all_pred_upper = quantile_pred_all[:, 2].cpu().numpy()
             all_y_np = all_y.cpu().numpy()
 
-            val_clips_valid = [c for c in val_clips_dr if not np.isnan(c.margin)]
+            val_clips_valid = [c for c in val_clips_clean if not np.isnan(c.margin)]
             if val_clips_valid:
                 val_X = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in val_clips_valid])
                 with torch.inference_mode():
@@ -512,7 +542,7 @@ if __name__ == "__main__":
             test_records = [
                 (c.design_id, float(abs(pred - c.margin)))
                 for c, pred in zip(
-                    [c for c in test_clips_dr if not np.isnan(c.margin)],
+                    [c for c in test_clips_clean if not np.isnan(c.margin)],
                     all_pred_median.cpu().numpy().tolist(),
                 )
                 if c.design_id is not None
@@ -526,10 +556,10 @@ if __name__ == "__main__":
                 P(f"    MAE (design-bootstrap 95% CI): {obs_mae:.4f} [{lo_mae:.4f}, {hi_mae:.4f}]")
 
             test_vels_arr = np.array([
-                c.velocity for c in test_clips_dr if not np.isnan(c.margin)
+                c.velocity for c in test_clips_clean if not np.isnan(c.margin)
             ])
             test_design_ids_arr = np.array([
-                c.design_id for c in test_clips_dr if not np.isnan(c.margin) and c.design_id is not None
+                c.design_id for c in test_clips_clean if not np.isnan(c.margin) and c.design_id is not None
             ])
             if len(test_design_ids_arr) > 0 and len(all_y_np) == len(test_vels_arr):
                 mono_rate = monotonicity_violation_rate(

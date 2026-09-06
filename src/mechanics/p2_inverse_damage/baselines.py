@@ -49,10 +49,10 @@ class DirectRegressionBaseline:
         layers.append(nn.Linear(dims[-1], self._out_dim))
         self.mlp = nn.Sequential(*layers)
 
-        torch.manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         for m in self.mlp:
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, generator=gen)
                 nn.init.zeros_(m.bias)
 
     def fit(
@@ -63,6 +63,7 @@ class DirectRegressionBaseline:
         lr: float = 1e-2,
         batch_size: int | None = None,
         verbose: bool = False,
+        seed: int = 0,
     ) -> list[float]:
         """Train on measurements X (n, d_in) and fields Y (n, gy*gx) with MSE."""
         X_t = torch.as_tensor(X, dtype=torch.float32)
@@ -72,8 +73,9 @@ class DirectRegressionBaseline:
         if batch_size is None:
             batch_size = n
         history: list[float] = []
+        tgen = torch.Generator().manual_seed(seed)
         for _ in range(epochs):
-            perm = torch.randperm(n)
+            perm = torch.randperm(n, generator=tgen)
             epoch_loss = 0.0
             for i in range(0, n, batch_size):
                 idx = perm[i : i + batch_size]
@@ -177,7 +179,8 @@ class PixelClassifierBaseline:
         self.grid_shape = grid_shape
         self._out_dim = grid_shape[0] * grid_shape[1]
         self.linear = nn.Linear(d_in, self._out_dim)
-        torch.manual_seed(seed)
+        # NOTE(seed): kept for API compatibility; zero-init is deterministic
+        # and must not reseed the global torch RNG as a side effect.
         nn.init.zeros_(self.linear.weight)
         nn.init.zeros_(self.linear.bias)
 

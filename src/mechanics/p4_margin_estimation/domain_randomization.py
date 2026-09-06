@@ -121,30 +121,36 @@ class SensorPerturber:
         if cfg.timing_skew:
             shifts = rng.integers(-1, 2, size=n_sensors)
             for s in range(n_sensors):
-                if shifts[s] != 0:
-                    out[s] = shift_without_wrap(out[s], int(shifts[s]))
+                sh = int(shifts[s])
+                if sh != 0:
+                    out[s] = shift_without_wrap(out[s], sh)
+                    # Zero-filled edge is synthetic: mark it invalid.
+                    if sh > 0:
+                        mask[s, :sh] = 0.0
+                    else:
+                        mask[s, sh:] = 0.0
 
-        # 5. White noise with SNR control
+        # 5-7. Noise with single-rescale SNR control.
+        # White + optional pink + common-mode components are generated at
+        # unit scale, summed, then rescaled once so the TOTAL noise power
+        # honors snr_db (stacking pre-scaled components overshoots it).
         noise_power = np.zeros_like(out)
         if cfg.snr_db is not None:
-            sigma = rms * 10.0 ** (-cfg.snr_db / 20.0)
-            noise_power = rng.normal(0, sigma, size=out.shape)
-
-        # 6. Colored (pink / 1/f) noise
-        if cfg.snr_db is not None and rng.random() < cfg.colored_noise_prob:
-            pink = self._pink_noise(n_t, n_sensors, rng)
-            sigma = rms * 10.0 ** (-cfg.snr_db / 20.0)
-            pink_rms = np.sqrt(np.mean(pink ** 2))
-            if pink_rms > 0:
-                pink *= sigma / pink_rms
-            noise_power += pink
-
-        # 7. Common-mode noise
-        if cfg.snr_db is not None:
-            sigma = rms * 10.0 ** (-cfg.snr_db / 20.0)
-            common_pattern = rng.normal(0, sigma, size=(1, n_t))
+            sigma_target = rms * 10.0 ** (-cfg.snr_db / 20.0)
+            white = rng.normal(0.0, 1.0, size=out.shape)
+            total = white
+            if rng.random() < cfg.colored_noise_prob:
+                pink = self._pink_noise(n_t, n_sensors, rng)
+                pink_rms = np.sqrt(np.mean(pink ** 2))
+                if pink_rms > 0:
+                    pink = pink / pink_rms
+                    total = total + pink
+            common_pattern = rng.normal(0.0, 1.0, size=(1, n_t))
             weight = rng.uniform(0.0, cfg.common_mode_fraction)
-            noise_power += common_pattern * weight
+            total = total + common_pattern * weight
+            total_rms = np.sqrt(np.mean(total ** 2))
+            if total_rms > 0:
+                noise_power = total * (sigma_target / total_rms)
 
         out += noise_power
 
@@ -178,6 +184,9 @@ class SensorPerturber:
         phases = rng.uniform(0, 2 * np.pi, size=(n_channels, len(freqs)))
         magnitudes = 1.0 / np.sqrt(freqs)  # 1/f shaping
         spectrum = magnitudes[None, :] * np.exp(1j * phases)
+        # DC must be real (zero-mean noise): a random complex DC violates
+        # rfft Hermitian symmetry and injects a spurious offset.
+        spectrum[:, 0] = 0.0
         noise = np.fft.irfft(spectrum, n=n_t)
         return noise
 

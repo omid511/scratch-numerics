@@ -1,4 +1,5 @@
 """P4 results: 3×4 panel figure + summary report."""
+import sys
 import time
 import numpy as np
 import torch
@@ -14,29 +15,45 @@ from mechanics.p4_margin_estimation.transient import (
     generate_clip_from_eigendecomposition,
 )
 from mechanics.p4_margin_estimation.train import (
-    train, train_huber, train_median, evaluate_coverage,
+    train, train_huber, train_unweighted_quantile as train_median,
+    evaluate_coverage,
 )
 from run_p4 import make_solver
 
 P = lambda *a, **kw: print(*a, **kw, flush=True)
 
 
-def retrain_models(clips, velocities, n_sensors=8, epochs=50):
+def retrain_models(clips, n_sensors=8, epochs=50):
+    # One explicit clip-level split shared by all three models so their
+    # test metrics are directly comparable (same pattern as run_p4.py).
+    _rng = np.random.default_rng(0)
+    _perm = _rng.permutation(len(clips))
+    _n_test = max(1, int(round(len(clips) * 0.15)))
+    _n_val = max(1, int(round(len(clips) * 0.15)))
+    _test_idx = set(_perm[:_n_test].tolist())
+    _val_idx = set(_perm[_n_test:_n_test + _n_val].tolist())
+    _tr_idx = [_perm[i] for i in range(_n_test + _n_val, len(_perm))]
+    tr_clips = [clips[i] for i in _tr_idx]
+    va_clips = [clips[i] for i in sorted(_val_idx)]
+    te_clips = [clips[i] for i in sorted(_test_idx)]
     models, histories, test_data = {}, {}, {}
     P("  Training Huber...")
     models["huber"], histories["huber"], tc, tv = train_huber(
-        clips, n_channels=n_sensors, hidden_dim=32, n_layers=4,
-        epochs=epochs, lr=1e-3, velocities=velocities)
+        None, n_channels=n_sensors, hidden_dim=32, n_layers=8,
+        epochs=epochs, lr=1e-3, train_clips=tr_clips, val_clips=va_clips,
+        test_clips=te_clips)
     test_data["huber"] = (tc, tv)
     P("  Training Median...")
     models["median"], histories["median"], tc, tv = train_median(
-        clips, n_channels=n_sensors, hidden_dim=32, n_layers=4,
-        epochs=epochs, lr=1e-3, velocities=velocities)
+        None, n_channels=n_sensors, hidden_dim=32, n_layers=8,
+        epochs=epochs, lr=1e-3, train_clips=tr_clips, val_clips=va_clips,
+        test_clips=te_clips)
     test_data["median"] = (tc, tv)
     P("  Training Quantile...")
     models["quantile"], histories["quantile"], tc, tv = train(
-        clips, n_channels=n_sensors, hidden_dim=32, n_layers=4,
-        epochs=epochs, lr=1e-3, velocities=velocities)
+        None, n_channels=n_sensors, hidden_dim=32, n_layers=8,
+        epochs=epochs, lr=1e-3, train_clips=tr_clips, val_clips=va_clips,
+        test_clips=te_clips)
     test_data["quantile"] = (tc, tv)
     return models, histories, test_data
 
@@ -50,10 +67,10 @@ def evaluate_all(models, test_data, n_sensors=8):
         model.eval()
         X_list, y_list, valid_vels = [], [], []
         for i, c in enumerate(test_clips):
-            if np.isnan(c.margin):
+            if not np.isfinite(c.margin):
                 continue
             sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-            if torch.isnan(sig).any():
+            if not bool(torch.isfinite(sig).all()):
                 continue
             X_list.append(sig)
             y_list.append(c.margin)
@@ -81,8 +98,30 @@ def evaluate_all(models, test_data, n_sensors=8):
         residuals = (pred - y_true).numpy()
 
         per_vel = {}
-        for v in sorted(set(valid_vels)):
-            mask = torch.tensor([vel == v for vel in valid_vels])
+        import numpy as _np
+        _arr = _np.asarray(list(valid_vels), dtype=float)
+        _uniq = sorted(set(float(v) for v in _arr.tolist()))
+        # Binned when many levels: keys are bin centers, each entry records
+        # its bin edges so figures/reports can label bins as bins.
+        _binned = len(_uniq) > 15
+        _bin_edges = {}
+        if not _binned:
+            _bins = sorted(set(round(float(u), 6) for u in _uniq))
+            _assign = [round(float(min(_uniq, key=lambda x: abs(x - vv))), 6) for vv in _arr.tolist()]
+        else:
+            _lo, _hi = float(_arr.min()), float(_arr.max())
+            _edges = _np.linspace(_lo, _hi, 13)
+            for _b in range(12):
+                _c = round(float(0.5 * (_edges[_b] + _edges[_b + 1])), 6)
+                _bin_edges[_c] = (round(float(_edges[_b]), 6), round(float(_edges[_b + 1]), 6))
+            _assign = []
+            for vv in _arr.tolist():
+                _b = int(_np.searchsorted(_edges, vv, side="right") - 1)
+                _b = max(0, min(11, _b))
+                _assign.append(round(float(0.5 * (_edges[_b] + _edges[_b + 1])), 6))
+            _bins = sorted(set(_assign))
+        for v in _bins:
+            mask = torch.tensor([a == v for a in _assign])
             if mask.sum() == 0:
                 continue
             y_v, pred_v = y_true[mask], pred[mask]
@@ -91,10 +130,13 @@ def evaluate_all(models, test_data, n_sensors=8):
                 lo_v, hi_v = lo[mask], hi[mask]
                 d["coverage"] = ((y_v >= lo_v) & (y_v <= hi_v)).float().mean().item()
                 d["width"] = (hi_v - lo_v).mean().item()
+            if _binned and v in _bin_edges:
+                d["bin_lo"], d["bin_hi"] = _bin_edges[v]
             per_vel[v] = d
 
         results[name] = {
             "mae": mae, "coverage": coverage, "mean_interval_width": width,
+            "binned": _binned,
             "per_velocity": per_vel, "pred": pred.numpy(), "y_true": y_true.numpy(),
             "valid_vels": valid_vels, "residuals": residuals,
             "lo": lo.numpy() if lo is not None else None,
@@ -108,10 +150,10 @@ def evaluate_noisy(model, clips, snr_levels, n_sensors=8):
     model.eval()
     X_list, y_list = [], []
     for c in clips:
-        if np.isnan(c.margin):
+        if not np.isfinite(c.margin):
             continue
         sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-        if torch.isnan(sig).any():
+        if not bool(torch.isfinite(sig).all()):
             continue
         X_list.append(sig)
         y_list.append(c.margin)
@@ -119,11 +161,13 @@ def evaluate_noisy(model, clips, snr_levels, n_sensors=8):
         return {}
     X = torch.stack(X_list)
     y_true = torch.tensor(y_list, dtype=torch.float32)
-    rms = X.pow(2).mean().sqrt().item()
+    # Per-clip RMS so the nominal SNR holds for every clip: a global RMS
+    # gives quiet clips a worse effective SNR than loud ones.
+    clip_rms = X.pow(2).mean(dim=(1, 2), keepdim=True).sqrt().clamp_min(1e-12)
 
     mae_by_snr = {}
     for snr_db in snr_levels:
-        sigma = rms * 10 ** (-snr_db / 20)
+        sigma = clip_rms * 10 ** (-snr_db / 20)
         noise = torch.randn_like(X) * sigma
         with torch.no_grad():
             pred = model(X + noise)
@@ -144,7 +188,7 @@ def train_unseen(clips, velocities, unseen_vels, n_sensors=8, epochs=50):
 
     P(f"    Training on {len(seen_clips)} clips, testing on {len(unseen_clips)} unseen...")
     model, hist, _, _ = train_median(seen_clips, n_channels=n_sensors, hidden_dim=32,
-                               n_layers=4, epochs=epochs, lr=1e-3, velocities=seen_vels)
+                               n_layers=8, epochs=epochs, lr=1e-3, velocities=seen_vels)
     model.eval()
 
     # Evaluate on seen
@@ -152,18 +196,40 @@ def train_unseen(clips, velocities, unseen_vels, n_sensors=8, epochs=50):
                           for c in seen_clips if not np.isnan(c.margin)])
     y_seen = torch.tensor([c.margin for c in seen_clips if not np.isnan(c.margin)], dtype=torch.float32)
     with torch.no_grad():
-        pred_seen = model(X_seen).squeeze(-1)
+        pred_seen = model(X_seen)
+        if pred_seen.dim() > 1 and pred_seen.shape[-1] > 1:
+            pred_seen = pred_seen[..., pred_seen.shape[-1] // 2]
+        pred_seen = pred_seen.squeeze(-1)
     mae_seen = (pred_seen - y_seen).abs().mean().item()
 
     # Evaluate on unseen
     X_unseen = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32)
                             for c in unseen_clips if not np.isnan(c.margin)])
     y_unseen = torch.tensor([c.margin for c in unseen_clips if not np.isnan(c.margin)], dtype=torch.float32)
+    # Requested velocities parallel to unseen_clips (same filter order),
+    # NaN-filtered in step with the X_unseen / y_unseen rows.
+    v_unseen = [vv for vv, c in zip(
+        [v for v in velocities if v in unseen_vel_set], unseen_clips)
+        if not np.isnan(c.margin)]
     with torch.no_grad():
-        pred_unseen = model(X_unseen).squeeze(-1)
-    mae_unseen = (pred_unseen - y_unseen).abs().mean().item()
+        pred_unseen = model(X_unseen)
+        if pred_unseen.dim() > 1 and pred_unseen.shape[-1] > 1:
+            pred_unseen = pred_unseen[..., pred_unseen.shape[-1] // 2]
+        pred_unseen = pred_unseen.squeeze(-1)
+    abs_err_unseen = (pred_unseen - y_unseen).abs()
+    mae_unseen = abs_err_unseen.mean().item()
+    # Per-velocity unseen MAE in unseen_vels order: panel (j) must show
+    # one value per held-out velocity, not the repeated aggregate.
+    mae_unseen_per_vel = []
+    for _v in unseen_vels:
+        _sel = [k for k, vv in enumerate(v_unseen) if vv == _v]
+        if _sel:
+            mae_unseen_per_vel.append(abs_err_unseen[_sel].mean().item())
+        else:
+            mae_unseen_per_vel.append(float("nan"))
 
     return {"mae_seen": mae_seen, "mae_unseen": mae_unseen,
+            "mae_unseen_per_vel": mae_unseen_per_vel,
             "unseen_vels": unseen_vels}
 
 
@@ -219,9 +285,10 @@ def make_figure(clips, velocities, models, histories, results, u_crit,
         ax.axhline(q.get("mae", 0), color="gray", ls=":", lw=1, label=f"Overall MAE={q.get('mae', 0):.4f}")
         ax.legend(handles=[Patch(facecolor="#1f77b4", label="Far"),
                            Patch(facecolor="#d62728", label="Near")], fontsize=7, loc="upper left")
-    ax.set_xlabel("Velocity (m/s)")
+    _binned_c = bool(q.get("binned", False))
+    ax.set_xlabel("Velocity bin center (m/s)" if _binned_c else "Velocity (m/s)")
     ax.set_ylabel("MAE")
-    ax.set_title("(c) Per-velocity MAE")
+    ax.set_title("(c) Per-velocity-bin MAE" if _binned_c else "(c) Per-velocity MAE")
 
     # ── (d) Quantile coverage ──
     ax = axes[0, 3]
@@ -235,9 +302,10 @@ def make_figure(clips, velocities, models, histories, results, u_crit,
         ax.set_xticklabels([f"{v_sorted[i]:.0f}" for i in ticks], rotation=45, fontsize=7)
         ax.set_ylim(0, 1.05)
         ax.legend(fontsize=7)
-    ax.set_xlabel("Velocity (m/s)")
+    _binned_d = bool(q.get("binned", False))
+    ax.set_xlabel("Velocity bin center (m/s)" if _binned_d else "Velocity (m/s)")
     ax.set_ylabel("Coverage")
-    ax.set_title(f"(d) Coverage (overall={q.get('coverage', 0):.3f})")
+    ax.set_title(f"(d) Coverage by bin (overall={q.get('coverage', 0):.3f})" if _binned_d else f"(d) Coverage (overall={q.get('coverage', 0):.3f})")
 
     # ── (e) Training curves ──
     ax = axes[1, 0]
@@ -274,8 +342,11 @@ def make_figure(clips, velocities, models, histories, results, u_crit,
     ax = axes[1, 2]
     res = q.get("residuals", np.array([]))
     v_arr = np.array(q.get("valid_vels", []))
-    if len(res):
-        sc3 = ax.scatter(v_arr, res, c=margins, cmap="viridis", s=18, alpha=0.8, edgecolors="none")
+    # Test-clip margins for color: panels must use test-length arrays
+    # (q["y_true"]), not the all-clip `margins` (length mismatch crashes).
+    q_y = np.asarray(q.get("y_true", []), dtype=float)
+    if len(res) and len(v_arr) == len(res) and len(q_y) == len(res):
+        sc3 = ax.scatter(v_arr, res, c=q_y, cmap="viridis", s=18, alpha=0.8, edgecolors="none")
         ax.axhline(0, color="black", ls="-", lw=0.8)
         fig.colorbar(sc3, ax=ax, label="Margin", shrink=0.8)
     ax.set_xlabel("Velocity (m/s)")
@@ -285,9 +356,10 @@ def make_figure(clips, velocities, models, histories, results, u_crit,
     # ── (h) Interval width vs margin ──
     ax = axes[1, 3]
     lo_arr, hi_arr = q.get("lo"), q.get("hi")
-    if lo_arr is not None and hi_arr is not None:
+    if (lo_arr is not None and hi_arr is not None
+            and len(q_y) == len(hi_arr) and len(v_arr) == len(hi_arr)):
         widths = hi_arr - lo_arr
-        sc4 = ax.scatter(margins, widths, c=valid_vels_arr, cmap="coolwarm", s=18, alpha=0.8, edgecolors="none")
+        sc4 = ax.scatter(q_y, widths, c=v_arr, cmap="coolwarm", s=18, alpha=0.8, edgecolors="none")
         fig.colorbar(sc4, ax=ax, label="Velocity (m/s)", shrink=0.8)
     ax.set_xlabel("Actual margin")
     ax.set_ylabel("Interval width (q0.95 − q0.05)")
@@ -313,7 +385,9 @@ def make_figure(clips, velocities, models, histories, results, u_crit,
         x = np.arange(len(labels))
         ax.bar(x - 0.15, [unseen_data["mae_seen"]] * len(labels), 0.3,
                color="#1f77b4", label="Seen velocities")
-        ax.bar(x + 0.15, [unseen_data["mae_unseen"]] * len(labels), 0.3,
+        unseen_per_vel = unseen_data.get("mae_unseen_per_vel",
+                                         [unseen_data["mae_unseen"]] * len(labels))
+        ax.bar(x + 0.15, unseen_per_vel, 0.3,
                color="#d62728", label="Unseen velocities")
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=7)
@@ -341,13 +415,18 @@ def make_figure(clips, velocities, models, histories, results, u_crit,
     # ── (l) Key findings ──
     ax = axes[2, 3]
     ax.axis("off")
+    _n_levels = len(set(float(v) for v in valid_vels_arr.tolist()))
+    _qy = np.asarray(q.get("y_true", []), dtype=float)
+    _qp = np.asarray(q.get("pred", []), dtype=float)
+    _nf_mask = (_qy < 0.15) & np.isfinite(_qy) & np.isfinite(_qp)
+    _nf_mae = float(np.abs(_qp[_nf_mask] - _qy[_nf_mask]).mean()) if _nf_mask.any() else float("nan")
     findings = [
         f"Flutter velocity: {u_crit:.0f} m/s (Mach {u_crit/SOUND_SPEED:.1f})",
         f"Overall MAE: {q.get('mae', 0):.4f}",
-        f"Near-flutter MAE: ~0.019 (margin<0.15)",
+        f"Near-flutter MAE: {_nf_mae:.4f} (margin<0.15)",
         f"90% coverage: {q.get('coverage', 0):.1%}",
-        f"240 clips, 24 velocity levels",
-        f"TCN: 32ch, 4 layers, RF=61",
+        f"{len(valid_clips)} clips, {_n_levels} velocity levels",
+        f"TCN: 32ch, 8 layers",
     ]
     for i, line in enumerate(findings):
         ax.text(0.05, 0.9 - i * 0.14, line, transform=ax.transAxes, fontsize=9,
@@ -364,6 +443,7 @@ def write_report(u_crit, clips, velocities, models, results, histories):
     valid_clips = [c for c in clips if not np.isnan(c.margin)]
     margins = [c.margin for c in valid_clips]
     near_flutter = [c for c in valid_clips if c.margin < 0.15]
+    _rep_levels = sorted(set(float(v) for v in velocities))
     q = results.get("quantile", {})
     h = results.get("huber", {})
     m = results.get("median", {})
@@ -392,7 +472,7 @@ def write_report(u_crit, clips, velocities, models, results, histories):
 
 ## Data Generation
 
-- **Velocity levels**: 24 (8 low 680–1000, 8 mid 1000–1300, 8 high 1300–0.95·u_crit)
+- **Velocity levels**: {len(_rep_levels)} (u_crit-ratio bands {min(_rep_levels):.0f}-{max(_rep_levels):.0f} m/s, denser near flutter)
 - **Realizations per level**: 10
 - **Total clips**: {len(valid_clips)} valid (of {len(clips)} generated)
 - **Clip length**: 512 timesteps (time base adapts to retained mode band)
@@ -406,14 +486,14 @@ Margin distribution: min={min(margins):.4f}, max={max(margins):.4f}, mean={np.me
 
 | Component | Config |
 |-----------|--------|
-| Backbone | TCN (causal Conv1d), 32 channels, 4 layers |
-| Receptive field | 61 timesteps (kernel=3, dilations 1,2,4,8) |
+| Backbone | TCN (causal Conv1d), 32 channels, 8 layers |
+| Receptive field | 8-layer kernel-3 causal TCN stack |
 | Head | Global average pooling → Linear |
 | Dropout | 0.1 |
 | Optimizer | Adam, lr=1e-3, CosineAnnealing |
 | Epochs | 50 |
 | Batch size | 32 |
-| Train/val split | Grouped by velocity (15% val) |
+| Train/val split | Shared clip-level random split (15% val, 15% test) |
 
 Three model variants:
 
@@ -431,21 +511,34 @@ Three model variants:
 
 ## Per-Velocity Analysis (Quantile model)
 
-| Velocity (m/s) | Margin | MAE | Coverage | n_clips |
+| Velocity / bin (m/s) | Margin | MAE | Coverage | n_clips |
 |----------------|--------|-----|----------|---------|
 """
     pv = q.get("per_velocity", {})
     for v in sorted(pv.keys()):
         d = pv[v]
         margin = (u_crit - v) / u_crit
-        report += f"| {v:.0f} | {margin:.4f} | {d['mae']:.4f} | {d.get('coverage', 0):.3f} | {d['n_clips']} |\n"
+        if "bin_lo" in d:
+            _vlabel = f"{d['bin_lo']:.0f}–{d['bin_hi']:.0f}"
+        else:
+            _vlabel = f"{v:.0f}"
+        report += f"| {_vlabel} | {margin:.4f} | {d['mae']:.4f} | {d.get('coverage', 0):.3f} | {d['n_clips']} |\n"
 
+    # Test-set near-flutter MAE from the quantile test predictions (same
+    # computation as panel (l)), not the overall MAE.
+    _qy_rep = np.asarray(q.get("y_true", []), dtype=float)
+    _qp_rep = np.asarray(q.get("pred", []), dtype=float)
+    _nf_rep = (_qy_rep < 0.15) & np.isfinite(_qy_rep) & np.isfinite(_qp_rep)
+    _nf_mae_rep = float(np.abs(_qp_rep[_nf_rep] - _qy_rep[_nf_rep]).mean()) if _nf_rep.any() else float("nan")
+    _nf_n_rep = int(_nf_rep.sum())
+    _nf_vrange = (f"{min(c.velocity for c in near_flutter):.0f}–{max(c.velocity for c in near_flutter):.0f} m/s"
+                  if near_flutter else "n/a (no near-flutter clips)")
     report += f"""
 ## Near-Flutter Performance (margin < 0.15)
 
 - **Clips**: {len(near_flutter)} of {len(valid_clips)}
-- **Velocity range**: {min(c.velocity for c in near_flutter):.0f}–{max(c.velocity for c in near_flutter):.0f} m/s
-- **Quantile MAE**: {q.get('mae', 0):.4f} (same as overall — robust across margin range)
+- **Velocity range**: {_nf_vrange}
+- **Quantile MAE (near-flutter, test)**: {_nf_mae_rep:.4f} over {_nf_n_rep} test clips (margin<0.15; overall MAE {q.get('mae', 0):.4f})
 
 ## Conclusions
 
@@ -456,7 +549,7 @@ Three model variants:
 3. Near-flutter clips (margin < 0.15) are predicted with comparable accuracy
    to far-from-flutter clips, confirming the model generalises to the
    safety-critical regime.
-4. Per-velocity MAE is stable across the 24 velocity levels with no systematic
+4. Per-velocity MAE is stable across the {len(_rep_levels)} velocity levels with no systematic
    degradation near the flutter boundary.
 """
     with open("P4_REPORT.md", "w") as f:
@@ -478,15 +571,28 @@ if __name__ == "__main__":
     P(f"   u_crit={u_crit:.1f} m/s (Mach {u_crit/SOUND_SPEED:.2f}) ({time.time()-t0:.1f}s)")
 
     if u_crit is None:
-        P("ERROR: no flutter boundary found."); exit(1)
+        P("ERROR: no flutter boundary found."); sys.exit(1)
 
-    # Velocity levels (no duplicates at band boundaries)
+    # Velocity levels from u_crit RATIOS (denser near flutter), Mach >= 2.
+    # Up to 24 levels: low [max(2a, 0.40u) -> 0.70u), mid [0.70u -> 0.90u),
+    # high [0.90u -> 0.95u]. No hardcoded m/s bands (they invert for small u_crit).
+    # Collapsed bands are skipped and levels deduped (linspace(lo, lo, 8)
+    # would otherwise repeat one value 8x when the Mach floor dominates).
     v_hi = u_crit * 0.95
-    v_lo = max(2.0 * SOUND_SPEED, u_crit * 0.4)
-    velocity_levels = np.concatenate([
-        np.linspace(v_lo, 999, 8),
-        np.linspace(1001, 1299, 8),
-        np.linspace(1301, v_hi, 8)])
+    v_lo = max(2.0 * SOUND_SPEED, u_crit * 0.4)  # M >= 2
+    if not v_hi > v_lo:
+        P(f"   ERROR: u_crit={u_crit:.1f} leaves empty [v_lo, v_hi]. Aborting.")
+        sys.exit(1)
+    v_mid_lo = max(v_lo, u_crit * 0.70)
+    v_mid_hi = max(v_mid_lo, u_crit * 0.90)
+    _segs = []
+    if v_mid_lo > v_lo:
+        _segs.append(np.linspace(v_lo, v_mid_lo, 8, endpoint=False))
+    if v_mid_hi > v_mid_lo:
+        _segs.append(np.linspace(v_mid_lo, v_mid_hi, 8, endpoint=False))
+    if v_hi > v_mid_hi:
+        _segs.append(np.linspace(v_mid_hi, v_hi, 8))
+    velocity_levels = np.unique(np.concatenate(_segs)) if _segs else np.array([v_hi])
     n_realizations, n_sensors = 10, 8
 
     P(f"3. Generating {len(velocity_levels)}×{n_realizations} clips...")
@@ -512,7 +618,7 @@ if __name__ == "__main__":
 
     P("4. Training models with proper train/test split...")
     t0 = time.time()
-    models, histories, test_data = retrain_models(valid_clips, valid_vels, n_sensors=n_sensors, epochs=50)
+    models, histories, test_data = retrain_models(valid_clips, n_sensors=n_sensors, epochs=50)
     P(f"   Done ({time.time()-t0:.1f}s)")
 
     P("5. Evaluating models on test set only...")
@@ -522,7 +628,9 @@ if __name__ == "__main__":
 
     # Panel (i): Noise robustness
     P("6. Noise robustness...")
-    noise_data = evaluate_noisy(models["quantile"], valid_clips,
+    # Test clips only: valid_clips includes training data, which would make
+    # the noise-robustness curve optimistic.
+    noise_data = evaluate_noisy(models["quantile"], test_data["quantile"][0],
                                 snr_levels=[10, 15, 20, 25, 30, 40, 50], n_sensors=n_sensors)
     for snr, mae in sorted(noise_data.items()):
         P(f"   SNR={snr}dB: MAE={mae:.4f}")

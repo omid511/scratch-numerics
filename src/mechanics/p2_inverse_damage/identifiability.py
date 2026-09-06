@@ -76,7 +76,7 @@ def frequency_jacobian(
         original = flat[j]
         step = epsilon if original + epsilon <= 1.0 else -epsilon
         trial = field.copy()
-        trial.ravel()[j] = original + step
+        trial.ravel()[j] = min(max(original + step, floor), 1.0)
         f1 = _solve_frequencies(solver, trial)
         jac[:, j] = (f1 - f0) / step
     return jac
@@ -108,16 +108,26 @@ def cramer_rao_floor(
     With Gaussian frequency noise of per-mode std ``sigma`` and unbiased
     estimator, MSE >= sigma^2 * trace((J^T J)^{-1}) / n_pixels on the
     identifiable subspace (pseudo-inverse; nullspace directions contribute
-    zero because they cannot be estimated from frequencies at all).
+    zero because they cannot be estimated from frequencies at all, so this
+    is a subspace-restricted floor, not a full-field bound).
+
+    Returns ``inf`` when no pixel direction clears the rank threshold
+    (nothing identifiable: unbounded variance) or when any per-mode noise
+    std is nonpositive (the noiseless limit is singular for a
+    rank-deficient Jacobian).
     """
     J = np.asarray(jacobian, dtype=float)
     sigma_arr = np.broadcast_to(np.asarray(sigma, dtype=float), (J.shape[0],))
     if np.any(sigma_arr <= 0.0):
-        return 0.0  # noiseless measurements: no information-theoretic floor
+        return float("inf")
     # Whiten: J_w = D^{-1} J makes the information matrix J_w^T J_w.
     J_w = J / sigma_arr[:, None]
     s2 = np.linalg.svd(J_w, compute_uv=False) ** 2
+    if s2.size == 0 or not np.all(np.isfinite(s2)) or s2[0] <= 0.0:
+        return float("inf")
     keep = s2 > (threshold**2) * s2[0]
+    if not np.any(keep):
+        return float("inf")
     # sum of inverse nonzero squared singular values == trace of pinv(J^T J)
     return float(np.sum(1.0 / s2[keep]) / J.shape[1])
 
@@ -222,18 +232,21 @@ def adversarial_pair(
     field_b: np.ndarray,
     *,
     solver_tolerance: float = 0.01,
+    damage_tol: float = 1e-6,
 ) -> bool:
     """Do two fields hide behind one frequency signature?
 
-    True when the fields differ on >= 30% of cells yet every relative
-    frequency difference stays below ``solver_tolerance`` (the practical
-    noise/solver floor): frequencies alone cannot distinguish them.
+    True when the fields differ by more than ``damage_tol`` on >= 30% of
+    cells yet every relative frequency difference stays below
+    ``solver_tolerance`` (the practical noise/solver floor): frequencies
+    alone cannot distinguish them. The tolerance keeps solver-noise-level
+    jitter on continuous retention values from counting as damage.
     """
     a = np.asarray(field_a, dtype=float)
     b = np.asarray(field_b, dtype=float)
     if a.shape != b.shape:
         raise ValueError(f"field shapes must match, got {a.shape} vs {b.shape}")
-    frac_diff = float(np.mean(a != b))
+    frac_diff = float(np.mean(np.abs(a - b) > damage_tol))
     if frac_diff < 0.30:
         return False
 
@@ -244,54 +257,140 @@ def adversarial_pair(
     return bool(rel.max() < solver_tolerance)
 
 
+def _ridge_field_mse(
+    X_train: np.ndarray,
+    Y_train: np.ndarray,
+    X_test: np.ndarray,
+    Y_test: np.ndarray,
+    *,
+    lam: float = 1.0,
+) -> float:
+    """Closed-form ridge (with intercept) train-to-test field MSE.
+
+    Numpy-only probe used to measure channel skill on a dataset: no
+    iterations, no RNG. Inputs are per-sample feature rows; targets are
+    (n, gy, gx) retention fields.
+    """
+    Xtr = np.asarray(X_train, dtype=np.float64)
+    Xte = np.asarray(X_test, dtype=np.float64)
+    Ytr = np.asarray(Y_train, dtype=np.float64).reshape(len(Xtr), -1)
+    Yte = np.asarray(Y_test, dtype=np.float64).reshape(len(Xte), -1)
+    Xa = np.hstack([Xtr, np.ones((len(Xtr), 1))])
+    Xe = np.hstack([Xte, np.ones((len(Xte), 1))])
+    A = Xa.T @ Xa + lam * np.eye(Xa.shape[1])
+    W = np.linalg.solve(A, Xa.T @ Ytr)
+    return float(np.mean((Xe @ W - Yte) ** 2))
+
+
 def shape_sensitivity_ratio(
     dataset_path: str,
     *,
     n_samples: int = 5,
-    freq_only_mse: float = 0.0317,
-    shape_mse: float = 0.0248,
-    freq_crb_floor: float = 0.198,
+    freq_only_mse: float | None = None,
+    shape_mse: float | None = None,
+    freq_crb_floor: float | None = None,
 ) -> dict:
     """Quantify how much more identifiable the shape channel is.
 
-    Uses N2's ridge probe results (sign-fixed RMS-normalized shapes →
-    field MSE 0.0248 vs freq-only 0.0317) together with the frequency
-    CRB floor (0.198 at 2% noise) to compute the information ratio.
+    Every headline number is measured from ``dataset_path`` unless the
+    caller overrides it explicitly (``None`` means "compute"): a ridge
+    probe maps log-frequencies to fields (``freq_only_mse``) and stored
+    mode shapes — or, failing that, stored shape summaries — to fields
+    (``shape_mse``), both fit on the dataset's train split and scored on
+    its test split; ``freq_crb_floor`` is the median
+    :func:`cramer_rao_floor` over the first ``n_samples`` fields at 2%
+    relative noise, reusing the Jacobians already computed for the rank
+    check below.
 
     The ratio freq_CRB / shape_MSE estimates how many times the shape
     channel exceeds the frequency channel in spatial identification
     capability. A ratio >> 1 means shapes are strictly required.
-
-    Also reports the frequency Jacobian's effective rank and nullspace
-    dimension for the first n_samples fields, confirming the 6/64 result.
+    ``shape_mse`` is ``None`` (and the conclusion says so) when the
+    dataset stores neither mode shapes nor summaries.
     """
+    data = np.load(dataset_path)
+    fields = np.asarray(data["fields_values"], dtype=np.float64)
+    freqs = np.asarray(data["meas_frequencies"], dtype=np.float64)
+    train_idx = np.asarray(data["split_train"], dtype=int)
+    test_idx = np.asarray(data["split_test"], dtype=int)
+    if len(train_idx) == 0 or len(test_idx) == 0:
+        raise ValueError(
+            f"{dataset_path}: need non-empty train and test splits, got "
+            f"{len(train_idx)} train / {len(test_idx)} test rows"
+        )
+    log_freqs = np.log(np.maximum(freqs, 1e-12))
+
+    if freq_only_mse is None:
+        freq_only_mse = _ridge_field_mse(
+            log_freqs[train_idx], fields[train_idx],
+            log_freqs[test_idx], fields[test_idx],
+        )
+
+    if shape_mse is None:
+        shape_key = next(
+            (k for k in ("meas_mode_shapes", "meas_summaries", "summaries")
+             if k in data.files),
+            None,
+        )
+        if shape_key is None:
+            shape_mse = None
+        else:
+            feats = np.asarray(data[shape_key], dtype=np.float64)
+            shape_mse = _ridge_field_mse(
+                feats.reshape(len(feats), -1)[train_idx], fields[train_idx],
+                feats.reshape(len(feats), -1)[test_idx], fields[test_idx],
+            )
+
+    # Frequency Jacobian ranks (and CRB floor) on the first n_samples fields.
+    sample_fields = fields[:n_samples]
+    ranks = []
+    crb_floors = []
+    ref = np.asarray(_reference_frequencies())
+    for field in sample_fields:
+        J = frequency_jacobian(field)
+        ranks.append(effective_rank(J))
+        crb_floors.append(cramer_rao_floor(J, 0.02 * ref))
+    if freq_crb_floor is None:
+        freq_crb_floor = float(np.median(crb_floors))
+
+    if shape_mse is None:
+        shape_better = False
+        shape_below_bar = False
+        improvement = None
+        conclusion = (
+            "Shape channel unavailable in this dataset (no stored mode "
+            "shapes or summaries); frequency-only verdict stands."
+        )
+    else:
+        shape_better = bool(shape_mse < freq_only_mse)
+        shape_below_bar = bool(shape_mse < 0.030)
+        improvement = (
+            freq_only_mse / shape_mse if shape_mse > 0 else None
+        )
+        conclusion = (
+            "Shape channel carries exploitable spatial signal that the "
+            "frequency channel lacks; freq-only CRB floor exceeds the bar."
+            if shape_better and freq_crb_floor > 0.030
+            else "Shape channel does not clearly improve over freq-only."
+        )
     results = {
         "freq_only_ridge_mse": freq_only_mse,
         "shape_ridge_mse": shape_mse,
-        "improvement_ratio": freq_only_mse / shape_mse if shape_mse > 0 else None,
+        "improvement_ratio": improvement,
         "freq_crb_floor_at_2pct_noise": freq_crb_floor,
-        "shape_better": shape_mse < freq_only_mse,
-        "shape_mse_below_bar": shape_mse < 0.030,
-        "freq_crb_above_bar": freq_crb_floor > 0.030,
-        "conclusion": (
-            "Shape channel carries exploitable spatial signal that the "
-            "frequency channel lacks; freq-only CRB floor exceeds the bar."
-            if shape_mse < freq_only_mse and freq_crb_floor > 0.030
-            else "Shape channel does not clearly improve over freq-only."
-        ),
+        "shape_better": shape_better,
+        "shape_mse_below_bar": shape_below_bar,
+        "freq_crb_above_bar": bool(freq_crb_floor > 0.030),
+        "conclusion": conclusion,
     }
 
-    # Confirm the 6/64 rank result on the first n_samples fields
-    data = np.load(dataset_path)
-    fields = data["fields_values"][:n_samples]
-    ranks = []
-    for field in fields:
-        J = frequency_jacobian(field)
-        ranks.append(effective_rank(J))
     results["freq_jacobian_effective_ranks"] = ranks
     results["freq_jacobian_median_rank"] = int(np.median(ranks))
-    results["expected_rank_if_full"] = int(fields.shape[1] * fields.shape[2])
+    results["expected_rank_if_full"] = int(
+        sample_fields.shape[1] * sample_fields.shape[2]
+    )
     results["nullspace_dims"] = [
-        int(fields.shape[1] * fields.shape[2]) - r for r in ranks
+        int(sample_fields.shape[1] * sample_fields.shape[2]) - r
+        for r in ranks
     ]
     return results

@@ -93,8 +93,15 @@ def _augmented_kernel(X: np.ndarray, length_scales: np.ndarray,
 class GPSurrogate:
     """RBF-kernel GP surrogate with optional gradient enhancement.
 
+    Targets are standardized internally (zero mean, unit variance) so the
+    default ``signal_var=1.0`` prior stays scale-correct on real-unit
+    outputs (e.g. flutter lambda O(1e2)); ``predict`` and
+    ``get_training_data`` report original units.
+
     Args:
-        length_scales: (d,) initial length scales. If None, uses 1.0.
+        length_scales: (d,) initial length scales. If None, derived
+            per-dimension from the training spread (std, floored by the
+            input range).
         signal_var: Signal variance.
         noise_var: Noise variance (observation noise).
         use_gradients: Whether to augment training data with finite-diff gradients.
@@ -110,12 +117,19 @@ class GPSurrogate:
         grad_perturbation: float = 1e-4,
     ):
         self.length_scales = length_scales
+        # True only when scales came from the constructor: refits must keep
+        # explicit user scales but recompute the data-driven heuristic.
+        # (Setting length_scales back to None also re-arms the heuristic.)
+        self._ls_explicit = length_scales is not None
         self.signal_var = signal_var
         self.noise_var = noise_var
         self.use_gradients = use_gradients
         self.grad_perturbation = grad_perturbation
         self._X_train: np.ndarray | None = None
         self._y_train: np.ndarray | None = None
+        self._y_raw: np.ndarray | None = None
+        self._y_mean: float = 0.0
+        self._y_scale: float = 1.0
         self._K_inv: np.ndarray | None = None
         self._alpha: np.ndarray | None = None
         self._n_train = 0
@@ -137,18 +151,55 @@ class GPSurrogate:
                 the fixed heuristic hyperparameters are kept. Default False
                 preserves exact legacy behavior.
         """
+        X = np.asarray(X, dtype=float)
+        y = np.asarray(y, dtype=float).ravel()
+        if X.ndim != 2:
+            raise ValueError(f"X must be 2-D (n, d), got shape {X.shape}")
+        if X.shape[0] != y.shape[0]:
+            raise ValueError(
+                f"X has {X.shape[0]} rows but y has {y.shape[0]}"
+            )
+        if X.shape[0] == 0:
+            raise ValueError("X must contain at least one training point")
         self._X_train = X.copy()
         n, d = X.shape
 
-        if self.length_scales is None:
-            self.length_scales = np.std(X, axis=0) + 1e-6
+        if self.length_scales is None or not self._ls_explicit:
+            # Floor the heuristic by the input range: a single training
+            # point or a constant dimension gives std ~ 0, and ls ~ 1e-6
+            # would decorrelate the RBF kernel instantly (posterior mean
+            # collapsing to the zero prior just off the data).
+            x_range = np.ptp(X, axis=0)
+            ls_floor = np.maximum(0.1 * np.maximum(x_range, 1.0), 1e-6)
+            self.length_scales = np.maximum(np.std(X, axis=0), ls_floor) + 1e-6
+        else:
+            ls = np.asarray(self.length_scales, dtype=float).ravel()
+            if ls.shape != (d,):
+                raise ValueError(
+                    f"length_scales has shape {ls.shape} but X has {d} "
+                    "dims; pass matching length_scales or reset to None"
+                )
+            self.length_scales = ls
+
+        # Standardize targets so the signal_var=1.0 prior is scale-correct
+        # on real-unit outputs. Gradients scale by 1/scale accordingly.
+        self._y_raw = y.copy()
+        self._y_mean = float(np.mean(y))
+        _y_std = float(np.std(y))
+        self._y_scale = _y_std if _y_std > 1e-12 else 1.0
+        z = (y - self._y_mean) / self._y_scale
 
         # Compute gradients via finite differences if requested
-        if self.use_gradients and objective_fn is not None:
-            grad_data = self._compute_gradients(X, objective_fn)
-            y_aug = np.concatenate([y, grad_data])
+        if self.use_gradients:
+            if objective_fn is None:
+                raise ValueError(
+                    "use_gradients=True requires an objective_fn for "
+                    "finite-difference gradients"
+                )
+            grad_data = self._compute_gradients(X, objective_fn) / self._y_scale
+            y_aug = np.concatenate([z, grad_data])
         else:
-            y_aug = y.copy()
+            y_aug = z.copy()
 
         self._y_train = y_aug
         self._n_train = n
@@ -180,7 +231,11 @@ class GPSurrogate:
             raise np.linalg.LinAlgError("GP kernel matrix not positive definite")
 
     def _lml_for(self, length_scales: np.ndarray, signal_var: float) -> float:
-        """Log marginal likelihood for given hyperparameters."""
+        """Log marginal likelihood for given hyperparameters.
+
+        Returns -inf (instead of raising) when the kernel matrix is not
+        positive definite, so hyperparameter optimization can move on.
+        """
         y = self._y_train
         K = _augmented_kernel(
             self._X_train, length_scales, signal_var, self.noise_var,
@@ -188,11 +243,15 @@ class GPSurrogate:
         )
         n = K.shape[0]
         K_t = _to_torch(K)
+        try:
+            L = torch.linalg.cholesky(K_t)
+        except torch.linalg.LinAlgError:
+            return -np.inf
         sign, logdet = torch.linalg.slogdet(K_t)
         if sign <= 0:
             return -np.inf
         alpha = torch.cholesky_solve(
-            _to_torch(y).unsqueeze(1), torch.linalg.cholesky(K_t)
+            _to_torch(y).unsqueeze(1), L
         ).squeeze(1)
         return float(-0.5 * (_to_torch(y) @ alpha + logdet + n * np.log(2 * np.pi)))
 
@@ -241,10 +300,12 @@ class GPSurrogate:
         return grads
 
     def get_training_data(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return (X_train, y_train) copies."""
+        """Return (X_train, y_train) copies in original units."""
         if self._X_train is None:
             raise RuntimeError("GP not fitted. Call fit() first.")
-        return self._X_train.copy(), self._y_train[:self._n_train].copy()
+        if self._y_raw is None:  # pragma: no cover - defensive
+            return self._X_train.copy(), self._y_train[:self._n_train].copy()
+        return self._X_train.copy(), self._y_raw.copy()
 
     def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Predict at new points.
@@ -256,7 +317,12 @@ class GPSurrogate:
         if self._alpha is None:
             raise RuntimeError("GP not fitted. Call fit() first.")
 
-        X = np.atleast_2d(X)
+        X = np.atleast_2d(np.asarray(X, dtype=float))
+        if X.shape[1] != self._X_train.shape[1]:
+            raise ValueError(
+                f"X has {X.shape[1]} dims but GP was fitted with "
+                f"{self._X_train.shape[1]}"
+            )
         n_test = X.shape[0]
         n_train = self._X_train.shape[0]
         d = self._X_train.shape[1]
@@ -288,7 +354,7 @@ class GPSurrogate:
             var = np.diag(K_ii) - np.sum(K_star * v, axis=1)
 
         var = np.maximum(var, 0.0)
-        return mean, np.sqrt(var)
+        return mean * self._y_scale + self._y_mean, np.sqrt(var) * self._y_scale
 
     def log_marginal_likelihood(self) -> float:
         """Compute log marginal likelihood for hyperparameter optimization."""

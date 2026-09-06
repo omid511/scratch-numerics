@@ -40,10 +40,10 @@ class ConditionalPosterior(nn.Module):
         self._init_weights(seed)
 
     def _init_weights(self, seed: int):
-        torch.manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         for m in list(self.trunk) + [self.mu_head, self.logvar_head]:
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, generator=gen)
                 nn.init.zeros_(m.bias)
 
     def forward(self, c: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

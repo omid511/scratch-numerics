@@ -15,11 +15,15 @@ from ..piston_theory import AIR_DENSITY, SOUND_SPEED
 
 @dataclass
 class SweepResult:
-    """Output from a design sweep."""
+    """Output from a design sweep.
+
+    Scalar-only by design: only the critical λ_cr per point is stored.
+    Mode shapes are intentionally not kept (use the stored design point
+    with a direct solver call when shapes are needed).
+    """
     design_params: np.ndarray       # (n, d) log10 stiffness values
     boundary_stiffnesses: np.ndarray # (n, n_edges) actual stiffness values
     flutter_lambda: np.ndarray       # (n,) critical λ_cr per design point
-    mode_shapes: list | None = None  # optional mode shapes at each point
     n_success: int = 0
     n_total: int = 0
     failure_reasons: dict[str, int] | None = None  # category -> count
@@ -33,26 +37,42 @@ def _make_solver(
     N: int = 8,
     k_stiffness: float = 1e12,
 ) -> FSDTSolver:
-    """Create a base solver with clamped-clamped-clamped-clamped BCs."""
+    """Create a base solver with no boundary springs.
+
+    The caller must set boundaries (e.g. per-design elastic springs via
+    ``set_boundary_springs``); a spring-free solver is intentionally left
+    unconfigured here rather than given clamped BCs that the sweep would
+    immediately overwrite.
+    """
     solver = FSDTSolver(L1=L1, L2=L2, M=M, N=N, laminate=laminate,
                         k_stiffness=k_stiffness)
-    solver.set_boundary(
-        left={"type": "clamped"}, right={"type": "clamped"},
-        top={"type": "clamped"}, bottom={"type": "clamped"},
-    )
     return solver
 
 
 def _classify_no_boundary(solver: FSDTSolver) -> str:
-    """Categorize why find_flutter_boundary returned None for this design."""
+    """Categorize why find_flutter_boundary returned None for this design.
+
+    Uses only public API: D11 from ``solver.laminate.ABD()``, the bracket
+    floor formula mirrored from ``find_flutter_boundary`` (lambda at M=2
+    with the 0.9 safety margin), and a ``solve_complex_modal`` stability
+    probe at that floor. NOTE: the probe goes through the modal filter
+    path (no transverse-participation floor), while ``find_flutter_boundary``
+    uses the spectral-abscissa path, so near-marginal cases can disagree;
+    this is a diagnostic label, not a stability verdict. The 1e-4 threshold
+    matches ``find_flutter_boundary``'s default ``stability_tol``.
+    """
     from ..piston_theory import velocity_from_lambda
 
     rho, c_sound = AIR_DENSITY, SOUND_SPEED
-    D11 = solver._compute_D11()
+    ABBD, _ = solver.laminate.ABD()
+    D11 = ABBD[3, 3]
     V_min = 2.0 * c_sound
     lam_floor = 0.9 * rho * V_min**2 * solver.L1**3 / (D11 * np.sqrt(3.0))
     vel = velocity_from_lambda(lam_floor, rho, solver.L1, D11, c_sound)
-    if solver._max_real_eigenvalue(vel, 0.0, rho, c_sound, 0.0) >= 1e-4:
+    result = solver.solve_complex_modal(vel, n_modes=8)
+    if len(result.eigenvalues) > 0 and bool(
+        np.max(np.real(result.eigenvalues)) >= 1e-4
+    ):
         return "unstable_at_lambda_lower"
     return "no_crossing_in_bracket"
 

@@ -106,11 +106,32 @@ def load_field_dataset(path: str) -> dict:
             f"sample-count mismatch: fields {n}, freqs {freqs.shape}, "
             f"severity {severity.shape}"
         )
+    if freqs.ndim != 2:
+        raise ValueError(f"meas_frequencies must be (n, n_modes); got {freqs.shape}")
+    if severity.ndim != 1:
+        raise ValueError(f"meas_severity must be (n,); got {severity.shape}")
+    gy, gx = fields.shape[1], fields.shape[2]
+    n_modes = freqs.shape[1]
     overlap = (set(splits["train"]) & set(splits["val"]))
     overlap |= set(splits["train"]) & set(splits["test"])
     overlap |= set(splits["val"]) & set(splits["test"])
     if overlap:
         raise ValueError(f"splits overlap at indices {sorted(overlap)}")
+    # Index universe: every row belongs to exactly one split (design-level
+    # discipline); catches dropped/duplicated/out-of-range rows at load.
+    for name in ("train", "val", "test"):
+        idx = list(splits[name])
+        if len(set(idx)) != len(idx):
+            raise ValueError(f"split {name!r} contains duplicate indices")
+        bad = [i for i in idx if not isinstance(i, (int, np.integer)) or i < 0 or i >= n]
+        if bad:
+            raise ValueError(f"split {name!r} has out-of-range indices: {bad[:8]}")
+    universe = sorted(splits["train"] + splits["val"] + splits["test"])
+    if universe != list(range(n)):
+        raise ValueError(
+            f"splits must partition all {n} rows exactly once; "
+            f"union covers {len(universe)} entries"
+        )
 
     log_freqs = np.log(np.maximum(freqs, 1e-12))
 
@@ -126,12 +147,25 @@ def load_field_dataset(path: str) -> dict:
             raise ValueError(
                 f"sample-count mismatch: fields {n}, summaries {summaries.shape}"
             )
+        if summaries.ndim != 2 or summaries.shape[1] % n_modes != 0:
+            raise ValueError(
+                f"summaries must be (n, n_modes*d_block); got {summaries.shape}"
+            )
         out["summaries"] = summaries
     if mode_shapes is not None:
         if mode_shapes.shape[0] != n:
             raise ValueError(
                 f"sample-count mismatch: fields {n}, "
                 f"mode_shapes {mode_shapes.shape}"
+            )
+        if mode_shapes.ndim != 4 or mode_shapes.shape[1] != n_modes:
+            raise ValueError(
+                f"mode_shapes must be (n, n_modes, gy, gx); got {mode_shapes.shape}"
+            )
+        if (mode_shapes.shape[2], mode_shapes.shape[3]) != (gy, gx):
+            raise ValueError(
+                f"mode_shapes grid {mode_shapes.shape[2:]} disagrees with "
+                f"fields grid {(gy, gx)}"
             )
         out["mode_shapes"] = mode_shapes
     if config_json is not None:
@@ -175,10 +209,10 @@ class FreqOnlyEncoder(nn.Module):
         layers.append(nn.Linear(dims[-1], d_c))
         self.mlp = nn.Sequential(*layers)
 
-        torch.manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         for m in self.mlp:
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, generator=gen)
                 nn.init.zeros_(m.bias)
 
     def forward_tensor(self, log_freqs: torch.Tensor) -> torch.Tensor:
@@ -276,10 +310,10 @@ class FreqSummaryEncoder(nn.Module):
         layers.append(nn.Linear(dims[-1], d_c))
         self.mlp = nn.Sequential(*layers)
 
-        torch.manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         for m in self.mlp:
             if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, generator=gen)
                 nn.init.zeros_(m.bias)
 
     def forward_tensor(self, x: torch.Tensor) -> torch.Tensor:
@@ -306,6 +340,7 @@ class ModeShapeCNNEncoder(nn.Module):
         super().__init__()
         self.n_modes = n_modes
         self.d_c = d_c
+        self.seed = int(seed)
         self.conv = nn.Sequential(
             nn.Conv2d(n_modes, 16, 3, stride=2, padding=1),
             nn.ReLU(),
@@ -315,18 +350,18 @@ class ModeShapeCNNEncoder(nn.Module):
             nn.ReLU(),
         )
         self.fc: nn.Linear | None = None
-        torch.manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         for m in self.conv:
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight)
+                nn.init.kaiming_normal_(m.weight, generator=gen)
                 nn.init.zeros_(m.bias)
 
     def _ensure_fc(self, h: torch.Tensor) -> None:
         if self.fc is None:
             flat = h.shape[1] * h.shape[2] * h.shape[3]
             self.fc = nn.Linear(flat, self.d_c).to(h.device)
-            torch.manual_seed(0)
-            nn.init.kaiming_normal_(self.fc.weight)
+            gen0 = torch.Generator().manual_seed(self.seed)
+            nn.init.kaiming_normal_(self.fc.weight, generator=gen0)
             nn.init.zeros_(self.fc.bias)
 
     def forward_tensor(self, shapes: torch.Tensor) -> torch.Tensor:
@@ -389,12 +424,14 @@ def cnn_regression_probe(
     val_idx = np.asarray(splits["val"], dtype=int)
     gy, gx = fields.shape[-2], fields.shape[-1]
 
-    torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
+    tgen = torch.Generator().manual_seed(seed)
     encoder = ModeShapeCNNEncoder(n_modes=shapes.shape[1], d_c=d_c, seed=seed)
     # Linear head built eagerly so its parameters are known before training.
     encoder._ensure_fc(encoder.conv(torch.zeros(1, shapes.shape[1], gy, gx)))
     head = nn.Linear(d_c, gy * gx)
+    nn.init.kaiming_normal_(head.weight, generator=tgen)
+    nn.init.zeros_(head.bias)
     params = (
         list(encoder.parameters()) + list(head.parameters())
     )
@@ -435,9 +472,10 @@ def train_field_cvae(
     cond_decoder: bool = True,
     kl_anneal_epochs: int = 0,
     kl_weight_final: float = 1.0,
+    kl_beta: float = 1.0,
     free_bits: bool = True,
     use_summaries: bool = False,
-    posterior_init_std: float = 0.01,
+    posterior_init_std: float = 0.5,
     conditioning: str = "freq_only",
 ) -> dict:
     """Train the field CVAE on the train split of a loaded field dataset.
@@ -464,12 +502,17 @@ def train_field_cvae(
       * ``kl_anneal_epochs>0`` ramps the KL weight linearly from zero over
         that many ELBO epochs before full weight.
       * ``posterior_init_std`` scales the posterior head re-init. The
-        0.01 default puts mu/logvar outputs inside the free-bits clamp
-        (kl_per_dim < 0.5 everywhere) from step zero, so ``torch.clamp``
-        passes zero gradient and the posterior can never escape collapse;
-        larger values (e.g. 0.5-1.0) start the KL above the floor with a
-        live gradient. (The pre-default failure was the opposite extreme:
+        0.5 default starts the per-dim KL above the free-bits floor with
+        a live gradient. (The 0.01 default put mu/logvar outputs inside
+        the clamp (kl_per_dim < 0.5 everywhere) from step zero, so
+        ``torch.clamp`` passed zero gradient and the posterior could never
+        escape collapse; the pre-default failure was the opposite extreme:
         std=default gave mu~O(10), KL~2.7e4 nats at step zero.)
+      * ``kl_beta`` scales the KL term after per-latent-dim normalization:
+        the summed KL is divided by ``d_z`` so a mean-MSE reconstruction
+        (~1e-3) is not drowned by the summed free-bits floor (~0.5*d_z).
+        ``loss = recon + kl_weight * kl_beta * mean(sum(kl_per_dim)/d_z)``.
+        Pass ``kl_beta=d_z`` to recover the legacy unnormalized scale.
       * ``conditioning='cnn'`` encodes the FULL mode shapes
         ``(n, n_modes, gy, gx)`` (field-grid aligned; requires
         ``dataset['mode_shapes']``) through :class:`ModeShapeCNNEncoder`;
@@ -527,8 +570,8 @@ def train_field_cvae(
         encoder = FreqOnlyEncoder(n_modes=n_modes, d_c=d_c, seed=seed)
     y_train = fields[train_idx]
 
-    torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
+    tgen = torch.Generator().manual_seed(seed)
 
     # The decoder ALWAYS carries the d_c conditioning block: Phase 1 must
     # feed it the real measurement-derived c (see _ae_step below). With
@@ -543,7 +586,7 @@ def train_field_cvae(
         if hasattr(head, "parameters"):
             for prm in head.parameters():
                 if prm.requires_grad and prm.ndim > 1:
-                    torch.nn.init.normal_(prm, mean=0.0, std=posterior_init_std)
+                    torch.nn.init.normal_(prm, mean=0.0, std=posterior_init_std, generator=tgen)
 
 
     # Phase 1: autoencoder pre-training (z ~ N(0, I)).
@@ -555,7 +598,7 @@ def train_field_cvae(
         # Phase 2 (force information through z); applying it in Phase 1 as
         # well left the encoder with zero gradient and its features random.
         c = encoder.forward_tensor(bx)
-        z = torch.randn(bx.shape[0], decoder.d_z)
+        z = torch.randn(bx.shape[0], decoder.d_z, generator=tgen)
         pred = decoder.forward_tensor(z, c)
         return torch.mean((pred - by) ** 2)
 
@@ -610,16 +653,18 @@ def train_field_cvae(
         # exp(log_var) early in training and stall the ELBO (observed ~11k
         # nats flat). +-10 nats is far beyond any calibrated posterior here.
         log_var = torch.clamp(log_var, min=-10.0, max=10.0)
-        z = mu + torch.exp(0.5 * log_var) * torch.randn_like(mu)
+        z = mu + torch.exp(0.5 * log_var) * torch.randn_like(mu, generator=tgen)
         pred = decoder.forward_tensor(z, cc)
         recon = torch.mean((pred - by) ** 2)
         kl_per_dim = -0.5 * (1 + log_var - mu**2 - torch.exp(log_var))
         if free_bits:
             kl_per_dim = torch.clamp(kl_per_dim, min=0.5)
-        kl = torch.mean(torch.sum(kl_per_dim, dim=-1))
+        # Per-latent-dim mean so recon (mean MSE) and KL share a scale;
+        # kl_beta restores the legacy summed scale when set to d_z.
+        kl = torch.mean(torch.sum(kl_per_dim, dim=-1) / mu.shape[-1])
         comps.append([float(recon.detach()), float(kl.detach())])
         step_counter[0] += 1
-        return recon + kl_weight[0] * kl
+        return recon + kl_weight[0] * kl_beta * kl
 
     history_post = _run_epochs(
         epochs_post, x_train, y_train,
@@ -652,6 +697,7 @@ def train_field_cvae(
                     "use_summaries": use_summaries,
                     "posterior_init_std": posterior_init_std,
                     "kl_weight_final": kl_weight_final,
+                    "kl_beta": kl_beta,
                     "free_bits": free_bits},
      }
 
@@ -732,13 +778,13 @@ class HeteroscedasticFieldDecoder(nn.Module):
             np.log(sigma_range[1]) - np.log(sigma_range[0])
         )
 
-        torch.manual_seed(seed)
+        gen = torch.Generator().manual_seed(seed)
         for module in (self.trunk, self.mu_head):
             for m in module.modules():
                 if isinstance(m, nn.Linear):
-                    nn.init.kaiming_normal_(m.weight)
+                    nn.init.kaiming_normal_(m.weight, generator=gen)
                     nn.init.zeros_(m.bias)
-        nn.init.kaiming_normal_(self.sigma_head[0].weight)
+        nn.init.kaiming_normal_(self.sigma_head[0].weight, generator=gen)
         nn.init.zeros_(self.sigma_head[0].bias)
         # Zero-init the last sigma layer: raw starts at 0, i.e. sigma at
         # the geometric middle of sigma_range under the squashing sigmoid.
@@ -788,9 +834,10 @@ def train_field_cvae_heteroscedastic(
     progress: bool = True,
     cond_decoder: bool = True,
     kl_anneal_epochs: int = 0,
+    kl_beta: float = 1.0,
     sigma_range: tuple[float, float] = (0.005, 0.5),
     use_summaries: bool = False,
-    posterior_init_std: float = 0.01,
+    posterior_init_std: float = 0.5,
     conditioning: str = "freq_only",
     sigma_calibration: str = "none",
 ) -> dict:
@@ -808,7 +855,9 @@ def train_field_cvae_heteroscedastic(
         sigmoid(raw)`` — sigma bounded in ``sigma_range`` by construction
         (a hard clamp would zero its gradient at the endpoints). The KL term
         (free-bits floor 0.5 nats/dim, ±10-nat log-variance clamp, optional
-        linear anneal) is identical to :func:`train_field_cvae`.
+        linear anneal) is identical to :func:`train_field_cvae`, including
+        per-latent-dim normalization (``kl_beta``) and the 0.5 default
+        ``posterior_init_std`` that starts above the free-bits floor.
       * Reconstruction is evaluated at the posterior-MEAN latent: the
         returned ``interval_predictor`` reports mean-latent fields, so the
         learned sigma must calibrate that same prediction's residual, not
@@ -867,8 +916,8 @@ def train_field_cvae_heteroscedastic(
     log_sigma_min = float(np.log(sigma_range[0]))
     log_sigma_max = float(np.log(sigma_range[1]))
 
-    torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
+    tgen = torch.Generator().manual_seed(seed)
 
     encoder = (
         FreqSummaryEncoder(
@@ -898,7 +947,7 @@ def train_field_cvae_heteroscedastic(
         if hasattr(head, "parameters"):
             for prm in head.parameters():
                 if prm.requires_grad and prm.ndim > 1:
-                    torch.nn.init.normal_(prm, mean=0.0, std=posterior_init_std)
+                    torch.nn.init.normal_(prm, mean=0.0, std=posterior_init_std, generator=tgen)
 
     # Phase 1: autoencoder pre-training on the mean head (z ~ N(0, I)).
     def _ae_step(bx, by):
@@ -906,7 +955,7 @@ def train_field_cvae_heteroscedastic(
         # Phase 1 uses the REAL measurement-derived c (live encoder
         # gradient); de-conditioning applies only in Phase 2.
         cc = c
-        z = torch.randn(bx.shape[0], decoder.d_z)
+        z = torch.randn(bx.shape[0], decoder.d_z, generator=tgen)
         pred_mu, _ = decoder.forward_tensor(z, cc)
         return torch.mean((pred_mu - by) ** 2)
 
@@ -965,10 +1014,10 @@ def train_field_cvae_heteroscedastic(
         pred_mu, _ = decoder.forward_tensor(mu, cc)
         recon = torch.mean((pred_mu - by) ** 2)
         kl_per_dim = -0.5 * (1 + log_var - mu**2 - torch.exp(log_var))
-        kl = torch.mean(torch.sum(torch.clamp(kl_per_dim, min=0.5), dim=-1))
+        kl = torch.mean(torch.sum(torch.clamp(kl_per_dim, min=0.5), dim=-1) / mu.shape[-1])
         comps.append([float(recon.detach()), float(kl.detach())])
         step_counter[0] += 1
-        return recon + kl_weight[0] * kl
+        return recon + kl_weight[0] * kl_beta * kl
 
     comps: list[list[float]] = []
 
@@ -1011,7 +1060,7 @@ def train_field_cvae_heteroscedastic(
         max(0, epochs_post - epochs_mu), x_train, y_train,
         list(decoder.sigma_head.parameters()),
         _nll_sigma_step,
-        batch_size=batch_size, lr=lr, rng=rng, progress=progress,
+        batch_size=batch_size, lr=0.1 * lr, rng=rng, progress=progress,
         tag="train_field_cvae_heteroscedastic elbo(sigma)",
     )
 
@@ -1065,6 +1114,7 @@ def train_field_cvae_heteroscedastic(
         "splits": splits,
         "options": {"cond_decoder": cond_decoder,
                     "kl_anneal_epochs": kl_anneal_epochs,
+                    "kl_beta": kl_beta,
                     "sigma_range": sigma_range,
                     "use_summaries": use_summaries,
                     "posterior_init_std": posterior_init_std,
@@ -1075,6 +1125,38 @@ def train_field_cvae_heteroscedastic(
 
 
 # ─── SP-gate evaluation ──────────────────────────────────────────────
+
+#: Margin below the retention ceiling (1.0) within which a pristine cell
+#: counts as covered. Sigmoid-field decoders saturate below 1.0, so exact
+#: containment can never cover pristine truth; the margin (well inside the
+#: 0.10 gap between the deepest damaged retention 0.9 and pristine 1.0)
+#: keeps that comparison honest without touching damaged-cell scoring.
+PRISTINE_BOUNDARY_TOL = 0.01
+
+#: Minimum ensemble size for the SBC uniformity gate to be meaningful.
+#: Below this the exact-MC p-value has almost no power and the gate is
+#: reported invalid instead of passed.
+SBC_MIN_SAMPLES = 20
+
+
+def _boundary_aware_covered(
+    lower: np.ndarray, upper: np.ndarray, truth: np.ndarray
+) -> np.ndarray:
+    """Coverage mask with explicit retention-ceiling handling.
+
+    Cells inside their intervals count as covered; pristine cells
+    (truth == 1.0, unreachable for sigmoid outputs) additionally count
+    when the interval upper endpoint reaches the ceiling margin.
+    Damaged cells always use exact containment.
+    """
+    inside = (np.asarray(truth) >= np.asarray(lower)) & (
+        np.asarray(truth) <= np.asarray(upper)
+    )
+    pristine = np.asarray(truth) >= 1.0
+    return inside | (
+        pristine & (np.asarray(upper) >= 1.0 - PRISTINE_BOUNDARY_TOL)
+    )
+
 
 def _field_ensemble(
     encoder,
@@ -1187,8 +1269,7 @@ def evaluate_sp_gates(
     bounds on the analytic path. Coverage is reported separately for
     PRISTINE cells (true retention ≡ 1.0) and DAMAGED cells (truth < 1.0),
     plus the pooled value. The gate binds on DAMAGED-cell coverage only:
-    pooling with pristine cells (trivially covered by any wide interval)
-    masks damage-cell miscalibration — the pooling artifact that let a
+    pooling with pristine cells masks damage-cell miscalibration — the pooling artifact that let a
     2x-too-narrow-on-damage model pass at pooled coverage > 0.9. When the
     split contains no damaged cells the gate falls back to pooled coverage.
 
@@ -1283,7 +1364,8 @@ def evaluate_sp_gates(
         lower = mu_val - z_crit * sigma_val
         upper = mu_val + z_crit * sigma_val
         truth = fields[eval_idx]
-        covered_map = (truth >= lower) & (truth <= upper)   # (n, gy, gx)
+        covered_map = _boundary_aware_covered(
+            lower, upper, truth)   # (n, gy, gx)
         # SBC severity ensembles at RAW sigma — no post-hoc recalibration.
         # The removed LOO conformal multiplier consumed ground-truth
         # severities of the evaluated split (test-label leakage on
@@ -1307,7 +1389,7 @@ def evaluate_sp_gates(
             lower = np.quantile(ens, lower_q, axis=0)
             upper = np.quantile(ens, upper_q, axis=0)
             truth = fields[i]
-            covered_maps.append((truth >= lower) & (truth <= upper))
+            covered_maps.append(_boundary_aware_covered(lower, upper, truth))
             severity_ensembles.append(_severity(ens))
             mean_field_preds.append(ens.mean(axis=0))
 
@@ -1325,9 +1407,11 @@ def evaluate_sp_gates(
         float(covered_map[damaged].mean()) if damaged.any()
         else float("nan")
     )
-    # SP3 binds on DAMAGED cells only: pristine cells are trivially
-    # covered by any wide interval, so pooled coverage hides damage-side
-    # miscalibration. No damaged cells -> fall back to pooled coverage.
+    # SP3 binds on DAMAGED cells only: pooled coverage hides damage-side
+    # miscalibration. Pristine scoring is boundary-aware (see
+    # _boundary_aware_covered): sigmoid outputs saturate below the 1.0
+    # ceiling, so exact containment alone would pin pristine coverage at
+    # zero. No damaged cells -> fall back to pooled coverage.
     gate_coverage = coverage_damaged if damaged.any() else coverage
 
     ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
@@ -1335,6 +1419,7 @@ def evaluate_sp_gates(
     # uniformity p-value (the asymptotic chi-square is invalid at these
     # bin counts).
     sbc_pvalue = sbc_rank_uniformity_pvalue_exact(ranks, n_samples + 1)
+    sbc_gate_valid = bool(n_samples >= SBC_MIN_SAMPLES)
 
     # Descriptive calibration error only — vacuous as a gate (its null
     # level ~0.009 sits an order of magnitude under the old 0.10 threshold).
@@ -1379,7 +1464,8 @@ def evaluate_sp_gates(
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
         "sbc_error": sbc_error,
-        "sbc_gate_pass": bool(sbc_pvalue > 0.05),
+        "sbc_gate_valid": sbc_gate_valid,
+        "sbc_gate_pass": bool(sbc_gate_valid and sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
         "n_val": int(len(eval_idx)),
@@ -1403,6 +1489,72 @@ def _bma_combine(
     return mu_bar, np.sqrt(np.maximum(total_var, 0.0))
 
 
+def _resolve_eval_inputs(dataset: dict, options: dict) -> np.ndarray:
+    """Rebuild the model input rows an evaluator must feed predictors.
+
+    Mirrors the conditioning switch in the trainers and
+    :func:`evaluate_sp_gates`: ``cnn`` → stacked mode shapes,
+    ``freq_summary``/``use_summaries`` → concat(log_freqs, summaries),
+    otherwise plain log-frequencies. Raises ValueError when the required
+    channel is absent from ``dataset``.
+    """
+    options = options or {}
+    if options.get("conditioning") == "cnn":
+        if "mode_shapes" not in dataset:
+            raise ValueError("cnn conditioning requires dataset['mode_shapes']")
+        return np.asarray(dataset["mode_shapes"], dtype=np.float64)
+    if bool(options.get("use_summaries", False)):
+        if "summaries" not in dataset:
+            raise ValueError("use_summaries=True requires dataset['summaries']")
+        return np.concatenate(
+            [np.asarray(dataset["log_freqs"], dtype=np.float64),
+             np.asarray(dataset["summaries"], dtype=np.float64)],
+            axis=1,
+        )
+    return np.asarray(dataset["log_freqs"], dtype=np.float64)
+
+
+def _decode_fields(decoder, z: np.ndarray, cc) -> np.ndarray:
+    """Decode latent samples to fields for either decoder flavor.
+
+    :class:`DamageDecoder` returns field grids directly while
+    :class:`HeteroscedasticFieldDecoder` returns ``(mu, log_sigma)`` —
+    the mu grids are the decoded fields in both cases.
+    """
+    out = decoder.forward(z, cc)
+    if isinstance(out, tuple):
+        out = out[0]
+    return np.asarray(out, dtype=np.float64)
+
+
+def _latent_severity_ensemble(
+    member: dict,
+    x_row: np.ndarray,
+    n_samples: int,
+    rng: np.random.Generator,
+    cond_decoder: bool = True,
+) -> np.ndarray:
+    """Severity ensemble via posterior-latent decoded fields.
+
+    Draws ``z ~ q(z|c)`` and decodes full fields, preserving the learned
+    spatial correlation. The analytic alternative (``mu + sigma*eps`` with
+    independent per-pixel noise) understates the mean-severity spread
+    whenever pixel residuals are correlated, so SBC ranks pile at the
+    extremes even when per-pixel coverage is nominal.
+    """
+    encoder, decoder, posterior = (
+        member["encoder"], member["decoder"], member["posterior"])
+    c = np.asarray(encoder.forward(np.expand_dims(x_row, axis=0)))
+    mu, log_var = posterior(c)
+    eps = rng.standard_normal((n_samples, mu.shape[-1]))
+    z = mu + np.exp(0.5 * log_var) * eps
+    cc = (
+        np.repeat(c, n_samples, axis=0) if cond_decoder
+        else np.zeros((n_samples, c.shape[-1]))
+    )
+    return _severity(_decode_fields(decoder, z, cc))
+
+
 def train_heteroscedastic_ensemble(
     dataset: dict,
     *,
@@ -1419,8 +1571,10 @@ def train_heteroscedastic_ensemble(
 
     With ``bootstrap_resample=True`` (bagging) each member trains on its
     own bootstrap resample — same size as the train split, drawn WITH
-    replacement from TRAIN rows only, fields/log_freqs kept row-aligned,
-    rng seeded with the member's seed. Val/test rows are never touched.
+    replacement from TRAIN rows only. Every row-aligned channel present
+    (fields/log_freqs/freqs/severity/summaries/mode_shapes) is resampled
+    together so conditioning variants (cnn/freq_summary) and in-training
+    conformal calibration keep working; val/test rows are never touched.
     This injects genuine data diversity so between-member spread carries
     real epistemic variance; seed-only ensembles converge to near-identical
     members. The drawn indices are stored per member as
@@ -1447,13 +1601,17 @@ def train_heteroscedastic_ensemble(
             )
             # Member-local dataset: ONLY bootstrap train rows; the trainer
             # touches nothing but splits["train"], so val/test are absent
-            # here and remain untouched in the caller's dataset.
-            fit_dataset = {
-                "fields": np.asarray(dataset["fields"])[take],
-                "log_freqs": np.asarray(dataset["log_freqs"])[take],
-                "splits": {"train": list(range(len(take))),
-                           "val": [], "test": []},
-            }
+            # here and remain untouched in the caller's dataset. Every
+            # row-aligned channel is resampled together (fields AND the
+            # conditioning/severity channels), so cnn/summary conditioning
+            # and sigma_calibration='conformal' keep working.
+            fit_dataset = dict(dataset)
+            for key in ("fields", "log_freqs", "freqs", "severity",
+                        "summaries", "mode_shapes"):
+                if key in dataset:
+                    fit_dataset[key] = np.asarray(dataset[key])[take]
+            fit_dataset["splits"] = {"train": list(range(len(take))),
+                                     "val": [], "test": []}
             model = train_field_cvae_heteroscedastic(
                 fit_dataset, seed=seed, **kwargs
             )
@@ -1477,6 +1635,9 @@ def train_heteroscedastic_ensemble(
         "seeds": [int(s) for s in seeds],
         "bootstrap_resample": bool(bootstrap_resample),
         "member_predictors": member_predictors,
+        # Conditioning echo from the first member so evaluators rebuild
+        # the same model inputs (log_freqs vs summaries vs mode_shapes).
+        "options": dict(members[0].get("options", {})),
     }
     return {"members": members, "combined": combined}
 
@@ -1489,6 +1650,8 @@ def evaluate_ensemble_sp_gates(
     seed: int | None = None,
     baseline_epochs: int = 200,
     split: str = "val",
+    severity_mode: str = "analytic",
+    n_latent_per_member: int = 10,
 ) -> dict:
     """SP-gates for a heteroscedastic ensemble on a chosen dataset split
     (default ``val``).
@@ -1498,13 +1661,26 @@ def evaluate_ensemble_sp_gates(
       * per-pixel total variance by the law of total variance
         ``mean_k(sigma_k^2 + mu_k^2) - mu_bar^2``;
       * SP3 analytic interval ``mu_bar ± z_{alpha/2} * sqrt(total_var)``
-        (z_{alpha/2} = 1.645 at alpha = 0.10).
+        (z_{alpha/2} = 1.645 at alpha = 0.10), scored boundary-aware and
+        stratified exactly like :func:`evaluate_sp_gates` (the gate binds
+        on DAMAGED-cell coverage; pooled coverage with pristine cells
+        would mask damage-side miscalibration).
 
-    SBC severity ensembles draw ONE field sample per member at RAW sigma
-    (``mu_k + sigma_k * eps``), giving a K-sample severity ensemble per
-    observation; ranks and gates as in :func:`evaluate_sp_gates`
-    (exact-MC uniformity p > 0.05 is the sole SP4 criterion; no post-hoc
-    recalibration).
+    Model inputs mirror the members' conditioning (cnn → mode shapes,
+    freq_summary → concat(log_freqs, summaries), else log-frequencies),
+    read from the first member's echoed ``options``.
+
+    SBC severity ensembles (``severity_mode="analytic"``, default) draw ONE
+    field sample per member at RAW sigma (``mu_k + sigma_k * eps``),
+    giving a K-sample severity ensemble per observation; ranks and gates
+    as in :func:`evaluate_sp_gates` (exact-MC uniformity p > 0.05 is the
+    sole SP4 criterion; no post-hoc recalibration). With
+    ``severity_mode="latent"`` each member instead contributes
+    ``n_latent_per_member`` posterior-latent decoded fields (which preserve
+    spatial correlation, unlike independent-pixel sampling); members must
+    then carry encoder/decoder/posterior. The SBC gate is reported invalid
+    (``sbc_gate_valid=False``) below ``SBC_MIN_SAMPLES`` total draws, where
+    the exact-MC p-value has almost no power.
 
     Point accuracy: BMA mean-field MSE next to a
     :class:`DirectRegressionBaseline` fitted on the train split.
@@ -1517,6 +1693,11 @@ def evaluate_ensemble_sp_gates(
     ONLY on the train rows — the caller is responsible for split
     discipline; nothing here prevents evaluating on a seen split.
     """
+    if severity_mode not in ("analytic", "latent"):
+        raise ValueError(
+            f"unknown severity_mode {severity_mode!r}; "
+            "expected 'analytic' or 'latent'"
+        )
     fields = np.asarray(dataset["fields"], dtype=np.float64)
     log_freqs = np.asarray(dataset["log_freqs"], dtype=np.float64)
     severity = np.asarray(dataset["severity"], dtype=np.float64)
@@ -1533,10 +1714,15 @@ def evaluate_ensemble_sp_gates(
 
     if "combined" in ensemble:
         predictors = ensemble["combined"]["member_predictors"]
+        eval_options = dict(ensemble["combined"].get("options", {}))
+        members = ensemble.get("members")
     else:
         # Duck-typed ensembles: members carrying interval_predictor only.
-        predictors = [m["interval_predictor"] for m in ensemble["members"]]
-    pred_stack = [predictor(log_freqs[eval_idx]) for predictor in predictors]
+        members = ensemble["members"]
+        predictors = [m["interval_predictor"] for m in members]
+        eval_options = dict(members[0].get("options", {})) if members else {}
+    X = _resolve_eval_inputs(dataset, eval_options)
+    pred_stack = [predictor(X[eval_idx]) for predictor in predictors]
     mu_stack = np.stack([p[0] for p in pred_stack], axis=0)      # (K,n,gy,gx)
     sigma_stack = np.stack([p[1] for p in pred_stack], axis=0)
     k_members = mu_stack.shape[0]
@@ -1544,13 +1730,26 @@ def evaluate_ensemble_sp_gates(
     mu_bar, total_sigma = _bma_combine(mu_stack, sigma_stack)
     lower, upper = mu_bar - z_crit * total_sigma, mu_bar + z_crit * total_sigma
     truth = fields[eval_idx]
-    coverage = float(np.mean((truth >= lower) & (truth <= upper)))
+    covered_map = _boundary_aware_covered(lower, upper, truth)
+    pristine = truth >= 1.0
+    damaged = ~pristine
+    coverage = float(covered_map.mean())
+    coverage_pristine = (
+        float(covered_map[pristine].mean()) if pristine.any()
+        else float("nan")
+    )
+    coverage_damaged = (
+        float(covered_map[damaged].mean()) if damaged.any()
+        else float("nan")
+    )
+    # SP3 binds on DAMAGED cells only (see evaluate_sp_gates); with no
+    # damaged cells fall back to pooled coverage.
+    gate_coverage = coverage_damaged if damaged.any() else coverage
 
     # Transparency: each member judged alone on its own intervals.
     per_member_coverage = [
-        float(np.mean(
-            (truth >= mu_k - z_crit * sig_k) & (truth <= mu_k + z_crit * sig_k)
-        ))
+        float(_boundary_aware_covered(
+            mu_k - z_crit * sig_k, mu_k + z_crit * sig_k, truth).mean())
         for mu_k, sig_k in zip(mu_stack, sigma_stack)
     ]
 
@@ -1559,15 +1758,38 @@ def evaluate_ensemble_sp_gates(
     # evaluated split's ground-truth severities and masked the very
     # miscalibration SP4 exists to detect.
     severity_ensembles = []
-    eps = rng.standard_normal(sigma_stack.shape)
-    samples = mu_stack + sigma_stack * eps                     # (K,n,gy,gx)
-    for j in range(len(eval_idx)):
-        severity_ensembles.append(_severity(samples[:, j]))
+    if severity_mode == "latent":
+        if members is None or not all(
+            all(k in m for k in ("encoder", "decoder", "posterior"))
+            for m in members
+        ):
+            raise ValueError(
+                "severity_mode='latent' requires every member to carry "
+                "encoder/decoder/posterior"
+            )
+        member_opts = [
+            dict(m.get("options", eval_options)) for m in members]
+        member_conds = [bool(o.get("cond_decoder", True)) for o in member_opts]
+        for j, i in enumerate(eval_idx):
+            draws = [
+                _latent_severity_ensemble(
+                    m, X[i], n_latent_per_member, rng, cond_decoder=cd)
+                for m, cd in zip(members, member_conds)
+            ]
+            severity_ensembles.append(np.concatenate(draws))
+        n_bins_total = k_members * n_latent_per_member + 1
+    else:
+        eps = rng.standard_normal(sigma_stack.shape)
+        samples = mu_stack + sigma_stack * eps                 # (K,n,gy,gx)
+        for j in range(len(eval_idx)):
+            severity_ensembles.append(_severity(samples[:, j]))
+        n_bins_total = k_members + 1
     ranks = sbc_ranks(severity_ensembles, severity[eval_idx])
-    sbc_pvalue = sbc_rank_uniformity_pvalue_exact(ranks, k_members + 1)
-    counts = np.bincount(ranks, minlength=k_members + 1).astype(float)
+    sbc_pvalue = sbc_rank_uniformity_pvalue_exact(ranks, n_bins_total)
+    sbc_gate_valid = bool((n_bins_total - 1) >= SBC_MIN_SAMPLES)
+    counts = np.bincount(ranks, minlength=n_bins_total).astype(float)
     props = counts / counts.sum()
-    sbc_error = float(np.mean(np.abs(props - 1.0 / (k_members + 1))))
+    sbc_error = float(np.mean(np.abs(props - 1.0 / n_bins_total)))
 
     cvae_mse = float(np.mean(
         [posterior_mean_mse(mu_bar[j], fields[i])
@@ -1592,14 +1814,19 @@ def evaluate_ensemble_sp_gates(
 
     return {
         "coverage": coverage,
-        "coverage_gate_pass": bool(coverage > SP3_COVERAGE_GATE),
+        "coverage_pristine": coverage_pristine,
+        "coverage_damaged": coverage_damaged,
+        "coverage_gate_pass": bool(gate_coverage > SP3_COVERAGE_GATE),
         "per_member_coverage": per_member_coverage,
         "ranks": ranks,
         "sbc_pvalue": sbc_pvalue,
         "sbc_error": sbc_error,
-        "sbc_gate_pass": bool(sbc_pvalue > 0.05),
+        "sbc_gate_valid": sbc_gate_valid,
+        "sbc_gate_pass": bool(sbc_gate_valid and sbc_pvalue > 0.05),
         "cvae_mse": cvae_mse,
         "baseline_mse": baseline_mse,
         "n_val": int(len(eval_idx)),
         "alpha": alpha,
+        "n_members": int(k_members),
+        "severity_mode": severity_mode,
     }

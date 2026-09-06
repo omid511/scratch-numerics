@@ -8,34 +8,22 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from .tcn import TCNBackbone
-from .quantile_head import QuantileMarginModel, pinball_loss, SUPPORTED_QUANTILES
-
-
-def safety_aware_huber_loss(
-    pred: torch.Tensor,
-    target: torch.Tensor,
-    delta: float = 0.05,
-    false_safe_weight: float = 4.0,
-    temperature: float = 0.01,
-) -> torch.Tensor:
-    """Huber loss that penalizes predicting positive margin on unsafe samples."""
-    pred = pred.reshape(-1)
-    target = target.reshape(-1)
-
-    base = F.huber_loss(pred, target, delta=delta, reduction="none")
-
-    unsafe = (target <= 0.0).to(pred.dtype)
-    false_safe_penalty = unsafe * F.softplus(pred / temperature) * temperature
-
-    return (base + false_safe_weight * false_safe_penalty).mean()
+from .quantile_head import (
+    QuantileMarginModel,
+    pinball_loss,
+    SUPPORTED_QUANTILES,
+    safety_aware_huber_loss,
+)
 
 
 class HuberMarginModel(nn.Module):
     """TCN backbone + single-output Huber regression."""
 
-    def __init__(self, n_channels=8, hidden_dim=32, n_layers=4, kernel=3, dropout=0.1):
+    def __init__(self, n_channels=8, hidden_dim=32, n_layers=8, kernel=3, dropout=0.1,
+                 sequence_length=512):
         super().__init__()
-        self.tcn = TCNBackbone(n_channels, hidden_dim, n_layers, kernel, dropout)
+        self.tcn = TCNBackbone(n_channels, hidden_dim, n_layers, kernel, dropout,
+                               sequence_length=sequence_length)
         self.head = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
@@ -45,13 +33,13 @@ class HuberMarginModel(nn.Module):
 
 
 def _build_tensors(clips):
-    """Build (X, y) tensors from clips, filtering NaN."""
+    """Build (X, y) tensors from clips, filtering non-finite."""
     X_list, y_list = [], []
     for c in clips:
-        if np.isnan(c.margin):
+        if not np.isfinite(c.margin):
             continue
         sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-        if torch.isnan(sig).any():
+        if not bool(torch.isfinite(sig).all()):
             continue
         X_list.append(sig)
         y_list.append(c.margin)
@@ -60,6 +48,48 @@ def _build_tensors(clips):
     X = torch.stack(X_list)
     y = torch.tensor(y_list, dtype=torch.float32)
     return X, y
+
+
+def _is_valid_clip(c) -> bool:
+    """Shared non-finite filter matching _build_tensors."""
+    if not np.isfinite(c.margin):
+        return False
+    try:
+        sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
+    except Exception:
+        return False
+    return bool(torch.isfinite(sig).all().item())
+
+
+def _velocity_bin_index(valid_vels, n_bins: int = 12, max_exact: int = 15) -> dict:
+    """Group clip indices by velocity bin.
+
+    Exact float equality collapses on continuous stratified ratios
+    (singleton bins). With few discrete levels keep exact values;
+    otherwise bin into equal-width intervals labeled by bin center.
+    Returns {bin_label: [indices]}.
+    """
+    import numpy as _np
+    arr = _np.asarray(list(valid_vels), dtype=float)
+    uniq = sorted(set(float(v) for v in arr.tolist()))
+    if len(uniq) <= max_exact:
+        groups: dict = {}
+        for i, vv in enumerate(arr.tolist()):
+            # Match exact level for discrete sweeps (tolerate float noise at 1e-9).
+            key = min(uniq, key=lambda u: abs(u - vv))
+            groups.setdefault(round(float(key), 6), []).append(i)
+        return groups
+    lo, hi = float(arr.min()), float(arr.max())
+    if not _np.isfinite(lo) or not _np.isfinite(hi) or hi <= lo:
+        return {round(float(lo), 6): list(range(len(arr)))}
+    edges = _np.linspace(lo, hi, n_bins + 1)
+    groups = {}
+    for i, vv in enumerate(arr.tolist()):
+        b = int(_np.searchsorted(edges, vv, side="right") - 1)
+        b = max(0, min(n_bins - 1, b))
+        center = float(0.5 * (edges[b] + edges[b + 1]))
+        groups.setdefault(round(center, 6), []).append(i)
+    return groups
 
 
 def _grouped_3way_split(clips, val_split, test_split, seed):
@@ -97,19 +127,47 @@ def _grouped_3way_split(clips, val_split, test_split, seed):
 
 
 def _split(clips, X, y, val_split, test_split, seed):
-    """Dispatch to grouped 3-way split."""
-    valid_clips = [c for c in clips if not np.isnan(c.margin) and not torch.isnan(torch.tensor(c.sensor_signals, dtype=torch.float32)).any()]
+    """Dispatch to grouped 3-way split.
+
+    Indices address the returned ``valid_clips`` list (NaN-filtered),
+    not the input ``clips`` — callers must index ``valid_clips``.
+    """
+    valid_clips = [c for c in clips if _is_valid_clip(c)]
     train_idx, val_idx, test_idx = _grouped_3way_split(valid_clips, val_split, test_split, seed)
     if len(train_idx) == 0 or len(val_idx) == 0 or len(test_idx) == 0:
         raise ValueError(f"Split failed: train={len(train_idx)}, val={len(val_idx)}, test={len(test_idx)}")
-    return train_idx, val_idx, test_idx
+    return train_idx, val_idx, test_idx, valid_clips
+
+
+def _use_explicit_split(train_clips, val_clips, test_clips) -> bool:
+    """True when caller-supplied splits should be used; all three or none."""
+    given = [train_clips is not None, val_clips is not None, test_clips is not None]
+    if any(given) and not all(given):
+        raise ValueError(
+            "train_clips, val_clips, and test_clips must be given together or not at all"
+        )
+    return all(given)
+
+
+def _aligned_test_vels(clips, velocities, valid_clips, test_idx):
+    """Map test indices to velocities aligned with ``valid_clips``."""
+    if not velocities:
+        return []
+    if len(velocities) == len(clips):
+        valid_mask = [_is_valid_clip(c) for c in clips]
+        valid_vels_all = [v for v, ok in zip(velocities, valid_mask) if ok]
+        return [valid_vels_all[i] for i in test_idx]
+    # Fallback: velocities already align with valid clips, or use clip attribute.
+    if len(velocities) == len(valid_clips):
+        return [velocities[i] for i in test_idx]
+    return [c.velocity for c in (valid_clips[i] for i in test_idx)]
 
 
 def train(
     clips: list,
     n_channels: int = 8,
     hidden_dim: int = 32,
-    n_layers: int = 4,
+    n_layers: int = 8,
     epochs: int = 20,
     lr: float = 1e-3,
     batch_size: int = 32,
@@ -131,7 +189,8 @@ def train(
     """
     torch.manual_seed(seed)
 
-    if train_clips is not None and val_clips is not None and test_clips is not None:
+    use_explicit = _use_explicit_split(train_clips, val_clips, test_clips)
+    if use_explicit:
         X_train, y_train = _build_tensors(train_clips)
         X_val, y_val = _build_tensors(val_clips)
         X_test, y_test = _build_tensors(test_clips)
@@ -142,16 +201,16 @@ def train(
         test_vels = [c.velocity for c in test_clips]
     else:
         X, y = _build_tensors(clips)
-        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed)
+        train_idx, val_idx, test_idx, valid_clips = _split(clips, X, y, val_split, test_split, seed)
         train_ds = TensorDataset(X[train_idx], y[train_idx])
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
         X_test = X[test_idx]
-        test_clips = [clips[i] for i in test_idx]
-        test_vels = [velocities[i] for i in test_idx] if velocities else []
+        test_clips = [valid_clips[i] for i in test_idx]
+        test_vels = _aligned_test_vels(clips, velocities, valid_clips, test_idx)
 
-    seq_len = X_train.shape[-1] if train_clips is not None else X.shape[-1]
+    seq_len = X_train.shape[-1] if use_explicit else X.shape[-1]
     model = QuantileMarginModel(n_channels, hidden_dim, n_layers, sequence_length=seq_len).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
@@ -209,7 +268,7 @@ def train_huber(
     clips: list,
     n_channels: int = 8,
     hidden_dim: int = 32,
-    n_layers: int = 4,
+    n_layers: int = 8,
     epochs: int = 20,
     lr: float = 1e-3,
     batch_size: int = 32,
@@ -228,7 +287,8 @@ def train_huber(
     """
     torch.manual_seed(seed)
 
-    if train_clips is not None and val_clips is not None and test_clips is not None:
+    use_explicit = _use_explicit_split(train_clips, val_clips, test_clips)
+    if use_explicit:
         X_train, y_train = _build_tensors(train_clips)
         X_val, y_val = _build_tensors(val_clips)
         X_test, y_test = _build_tensors(test_clips)
@@ -239,19 +299,22 @@ def train_huber(
         test_vels = [c.velocity for c in test_clips]
     else:
         X, y = _build_tensors(clips)
-        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed)
+        train_idx, val_idx, test_idx, valid_clips = _split(clips, X, y, val_split, test_split, seed)
         train_ds = TensorDataset(X[train_idx], y[train_idx])
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
         X_test = X[test_idx]
-        test_clips = [clips[i] for i in test_idx]
-        test_vels = [velocities[i] for i in test_idx] if velocities else []
+        test_clips = [valid_clips[i] for i in test_idx]
+        test_vels = _aligned_test_vels(clips, velocities, valid_clips, test_idx)
 
-    model = HuberMarginModel(n_channels, hidden_dim, n_layers).to(device)
+    seq_len = X_train.shape[-1] if use_explicit else X.shape[-1]
+    model = HuberMarginModel(n_channels, hidden_dim, n_layers,
+                             sequence_length=seq_len).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
-    criterion = nn.HuberLoss(delta=0.1)
+    # Safety-aware Huber: plain Huber + false-safe penalty on unsafe clips.
+    # (Canonical implementation lives in quantile_head.)
 
     history = {"train_loss": [], "val_loss": []}
     best_val_loss = float("inf")
@@ -264,7 +327,7 @@ def train_huber(
         for xb, yb in train_dl:
             xb, yb = xb.to(device), yb.to(device)
             pred = model(xb).squeeze(-1)  # (B,)
-            loss = criterion(pred, yb)
+            loss = safety_aware_huber_loss(pred, yb, delta=0.1)
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -280,7 +343,7 @@ def train_huber(
             for xb, yb in val_dl:
                 xb, yb = xb.to(device), yb.to(device)
                 pred = model(xb).squeeze(-1)
-                val_loss += criterion(pred, yb).item()
+                val_loss += safety_aware_huber_loss(pred, yb, delta=0.1).item()
                 n_val += 1
         avg_val_loss = val_loss / max(n_val, 1)
         history["val_loss"].append(avg_val_loss)
@@ -295,11 +358,11 @@ def train_huber(
     return model, history, test_clips, test_vels
 
 
-def train_median(
+def train_unweighted_quantile(
     clips: list,
     n_channels: int = 8,
     hidden_dim: int = 32,
-    n_layers: int = 4,
+    n_layers: int = 8,
     epochs: int = 20,
     lr: float = 1e-3,
     batch_size: int = 32,
@@ -312,13 +375,17 @@ def train_median(
     val_clips: list | None = None,
     test_clips: list | None = None,
 ) -> tuple[QuantileMarginModel, dict, list, list]:
-    """Train median-only quantile model (single quantile).
+    """Train unweighted 3-quantile model (no safety weights).
 
-    Returns (model, history, test_clips, test_vels).
+    Same QuantileMarginModel as :func:`train` but with uniform pinball
+    weights. Named for what it is: the interval head is still trained;
+    only the median column is used for point metrics. ``train_median``
+    remains as a deprecated alias.
     """
     torch.manual_seed(seed)
 
-    if train_clips is not None and val_clips is not None and test_clips is not None:
+    use_explicit = _use_explicit_split(train_clips, val_clips, test_clips)
+    if use_explicit:
         X_train, y_train = _build_tensors(train_clips)
         X_val, y_val = _build_tensors(val_clips)
         X_test, y_test = _build_tensors(test_clips)
@@ -329,16 +396,16 @@ def train_median(
         test_vels = [c.velocity for c in test_clips]
     else:
         X, y = _build_tensors(clips)
-        train_idx, val_idx, test_idx = _split(clips, X, y, val_split, test_split, seed)
+        train_idx, val_idx, test_idx, valid_clips = _split(clips, X, y, val_split, test_split, seed)
         train_ds = TensorDataset(X[train_idx], y[train_idx])
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
         X_test = X[test_idx]
-        test_clips = [clips[i] for i in test_idx]
-        test_vels = [velocities[i] for i in test_idx] if velocities else []
+        test_clips = [valid_clips[i] for i in test_idx]
+        test_vels = _aligned_test_vels(clips, velocities, valid_clips, test_idx)
 
-    seq_len = X_train.shape[-1] if train_clips is not None else X.shape[-1]
+    seq_len = X_train.shape[-1] if use_explicit else X.shape[-1]
     model = QuantileMarginModel(n_channels, hidden_dim, n_layers, sequence_length=seq_len).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
@@ -387,6 +454,10 @@ def train_median(
     return model, history, test_clips, test_vels
 
 
+# Deprecated alias: the model trains all three quantiles; see above.
+train_median = train_unweighted_quantile
+
+
 def evaluate_coverage(
     model: QuantileMarginModel,
     clips: list,
@@ -403,10 +474,10 @@ def evaluate_coverage(
 
     X_list, y_list, valid_vels = [], [], []
     for i, c in enumerate(clips):
-        if np.isnan(c.margin):
+        if not np.isfinite(c.margin):
             continue
         sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-        if torch.isnan(sig).any():
+        if not bool(torch.isfinite(sig).all()):
             continue
         X_list.append(sig)
         y_list.append(c.margin)
@@ -451,21 +522,19 @@ def evaluate_coverage(
         "mean_interval_width": width,
     }
 
-    # Per-velocity diagnostics
+    # Per-velocity diagnostics (binned; exact float equality collapses on cont. ratios)
     if valid_vels:
-        unique_vels = sorted(set(valid_vels))
         per_vel = {}
-        for v in unique_vels:
-            mask = torch.tensor([vel == v for vel in valid_vels], device=device)
-            if mask.sum() == 0:
-                continue
+        for bin_label, idx in sorted(_velocity_bin_index(valid_vels).items()):
+            mask = torch.zeros(len(valid_vels), dtype=torch.bool, device=device)
+            mask[idx] = True
             y_v = y_true[mask]
             pred_v = pred_last[mask]
             med_v = (pred_v[:, med_idx] - y_v).abs().mean().item()
             cov_v = {}
             for qi, tau in enumerate(quantiles):
                 cov_v[f"q{tau:.2f}"] = (y_v <= pred_v[:, qi]).float().mean().item()
-            per_vel[v] = {"mae": med_v, "coverage": cov_v, "n_clips": int(mask.sum().item())}
+            per_vel[bin_label] = {"mae": med_v, "coverage": cov_v, "n_clips": int(mask.sum().item())}
         result["per_velocity"] = per_vel
 
     return result

@@ -5,13 +5,18 @@ design parameter space is >= 70%, mode-decomposition surrogates (Phase 5)
 proceed; below 70% Phase 5 is skipped and the gradient-enhanced GP fallback
 is used. The verdict is recorded in data/proposal3/feasibility_report.json.
 
-Two MAC metrics are measured over an LHS design sweep in elastic edge
-stiffness k (all four edges equal per point, log10 k in [6, 12]):
+Scope: the sweep varies ONE scalar stiffness k shared by all four edges
+(log10 k in [6, 12]), i.e. the 1D all-edges-equal diagonal — not the full
+4D independent-edge design space used by the production sweep. The gate
+decision below applies to that diagonal subspace only.
+
+Two MAC metrics are measured over the LHS sweep:
 
 * Cross-design identity (primary): Hungarian-matched MAC between each
-  design's reference shapes (6 lowest modes at the base velocity) and the
-  first design's shapes. High values mean mode *character* survives across
-  the design space, so a fixed mode decomposition is meaningful.
+  design's shapes (lowest modes at the base velocity) and the medoid
+  design's shapes (median-log10_k success; order-independent, unlike a
+  first-success reference). High values mean mode *character* survives
+  across the design space, so a fixed mode decomposition is meaningful.
 * Per-design velocity-tracking consistency (secondary): median step-MAC of
   ``track_modes_across_velocity`` on a small ladder above the base velocity.
 """
@@ -33,6 +38,18 @@ from .mode_tracking import _optimal_match, track_modes_across_velocity
 
 GATE_THRESHOLD = 0.70
 LOG10_K_BOUNDS = (6.0, 12.0)
+
+# Minimum non-reference successes required for a passing gate; fewer
+# forces phase5_skipped regardless of the fraction (no vacuous passes).
+MIN_GATED_DESIGNS = 3
+
+
+def _default_report_path() -> Path:
+    """Default gate-artifact path: <repo root>/data/proposal3/feasibility_report.json."""
+    return (
+        Path(__file__).resolve().parents[3]
+        / "data" / "proposal3" / "feasibility_report.json"
+    )
 
 _SLOW_POINT_SECONDS = 60.0
 
@@ -72,7 +89,7 @@ def run_phase2_feasibility(
     *,
     seed: int = 42,
     laminate: Laminate | None = None,
-    velocity: float = 1.0,
+    velocity: float = 1.05,
     n_modes: int = 6,
     ladder_steps: int = 5,
     ladder_span_mach: float = 0.08,
@@ -139,19 +156,38 @@ def run_phase2_feasibility(
 
     per_design = report["_per_design"]
     ref_index = report["_ref_index"]
+    ref_pos = report["_ref_pos"]
+    failures = report.get("_failures", [])
     cross = [d["cross_design_macs"] for i, d in enumerate(per_design)
-             if i != ref_index]
-    tracking = [d["median_step_mac"] for d in per_design]
-    median_cross = float(np.median(np.concatenate(cross)))
-    median_tracking = float(np.median(tracking))
+             if i != ref_pos]
+    tracking = [d["median_step_mac"] for d in per_design
+                if d["median_step_mac"] is not None]
+    median_cross = float(np.median(np.concatenate(cross))) if cross else None
+    median_tracking = float(np.median(tracking)) if tracking else None
 
-    # Roadmap gate: fraction of design points with ALL tracked modes
-    # MAC > 0.8 must be >= 70%. Per-design criterion, not pooled median.
-    frac_above = float(np.mean([
-        np.min(d["cross_design_macs"]) >= GATE_THRESHOLD
-        for d in per_design
-    ]))
-    gate_pass = bool(frac_above >= 0.70)
+    # Roadmap gate: fraction of SWEPT (not merely successful) design points
+    # with ALL tracked modes above the MAC threshold must be >= 70%.
+    # Per-design criterion, not pooled median. Failed points count against
+    # the gate (they are not silently dropped); the medoid reference is a
+    # self-match of 1.0s, so it is excluded from the fraction (it would
+    # otherwise inflate the rate by 1/n).
+    gated = [d for i, d in enumerate(per_design) if i != ref_pos]
+    n_pass = sum(
+        np.min(d["cross_design_macs"]) >= GATE_THRESHOLD for d in gated
+    )
+    denom = len(gated) + len(failures)
+    frac_above = float(n_pass / denom) if denom else 0.0
+    gate_pass = bool(frac_above >= 0.70 and len(gated) >= MIN_GATED_DESIGNS)
+    if len(gated) < MIN_GATED_DESIGNS:
+        notes.append(
+            f"only {len(gated)} non-reference successes (< "
+            f"MIN_GATED_DESIGNS={MIN_GATED_DESIGNS}); gate force-failed"
+        )
+    notes.append(
+        "design subspace is the 1D all-edges-equal-k diagonal "
+        "(all_four_edges_same_k=True); the decision does not cover the "
+        "full 4D independent-edge design space"
+    )
 
     out = {
         "study": "proposal3_phase2_mode_identity_feasibility",
@@ -160,6 +196,8 @@ def run_phase2_feasibility(
         "gate_threshold": GATE_THRESHOLD,
         "median_cross_design_mac": median_cross,
         "frac_designs_above_gate": frac_above,
+        "n_gated_designs": len(gated),
+        "min_gated_designs": MIN_GATED_DESIGNS,
         "median_velocity_tracking_mac": median_tracking,
         "per_design": per_design,
         "gate_pass": gate_pass,
@@ -174,6 +212,10 @@ def run_phase2_feasibility(
             "velocity_ladder_mps": ladder.tolist(),
             "log10_k_bounds": list(LOG10_K_BOUNDS),
             "all_four_edges_same_k": True,
+            "design_subspace": "1D diagonal (all four edges share one k); "
+                               "not the full 4D independent-edge space",
+            "reference_selection": "medoid (median-log10_k success; "
+                                   "order-independent)",
             "M": M,
             "N": N,
             "n_modes": n_modes,
@@ -181,16 +223,17 @@ def run_phase2_feasibility(
             "reference_point_index": ref_index,
         },
         "notes": notes,
-        "n_failed_points": len(report.get("_failures", [])),
+        "n_failed_points": len(failures),
     }
-    if report.get("_failures"):
-        out["failure_examples"] = report["_failures"][:5]
+    if failures:
+        out["failure_examples"] = failures[:5]
 
-    if output_path is not None:
-        out_path = Path(output_path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w") as f:
-            json.dump(out, f, indent=2)
+    if output_path is None:
+        output_path = _default_report_path()
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(out, f, indent=2)
 
     return out
 
@@ -211,14 +254,18 @@ def _run_sweep(
 ) -> dict:
     """Solve each design point; internal helper of run_phase2_feasibility.
 
-    Returns a partial dict with '_per_design', '_ref_index' and '_slow_point'
-    keys for the caller to finalize.
+    Returns a partial dict with '_per_design', '_ref_index' (medoid point
+    loop-index), '_ref_pos' (medoid position within '_per_design') and
+    '_slow_point' keys for the caller to finalize. The cross-design
+    reference is the medoid success (closest to the median log10_k), so
+    the gate does not depend on LHS point order.
     """
     t_start = time.perf_counter()
     per_design: list[dict] = []
     failures: list[str] = []
-    ref_shapes = ref_freqs = None
-    ref_index = -1
+    # Success records kept separately so the medoid reference can be
+    # chosen after the sweep (order-independent).
+    records: list[dict] = []
     slow_point = False
 
     n = len(log10_k)
@@ -234,10 +281,17 @@ def _run_sweep(
                     f"solver returned {len(result.frequencies)} modes"
                 )
             freqs = result.frequencies[:n_modes]
-            shapes = result.mode_shapes_complex[:n_modes]
+            complex_shapes = getattr(result, "mode_shapes_complex", None)
+            shapes = (
+                complex_shapes[:n_modes]
+                if complex_shapes is not None
+                else result.mode_shapes[:n_modes]
+            )
 
+            # Reuse the reference solver: tracking only calls
+            # solve_complex_modal (read-only), so no second build needed.
             tracker = track_modes_across_velocity(
-                _elastic_solver(laminate, k, M, N),
+                solver,
                 ladder, n_modes=n_modes,
             )
             step_macs = tracker["mac_values"]
@@ -249,25 +303,21 @@ def _run_sweep(
         if elapsed > _SLOW_POINT_SECONDS:
             slow_point = True
 
-        entry = {
+        # A single-step ladder has no consecutive pairs: step MACs are
+        # undefined (None), never a perfect 1.0.
+        records.append({
             "point_index": i,
             "log10_k": float(log10_k[i]),
             "k": float(k),
             "solve_seconds": float(elapsed),
             "reference_frequencies_hz": freqs.tolist(),
-            "median_step_mac": float(np.median(step_macs)),
-            "worst_step_mac": float(step_macs.min()),
-            "cross_design_macs": None,
-        }
-        if ref_shapes is None:
-            ref_shapes, ref_freqs, ref_index = shapes, freqs, i
-            entry["cross_design_macs"] = [1.0] * n_modes  # self-match
-        else:
-            # _optimal_match returns macs already indexed by the reference
-            # (first design) branch order, so no reordering is needed.
-            macs, _ = _optimal_match(ref_shapes, shapes, ref_freqs, freqs)
-            entry["cross_design_macs"] = macs.tolist()
-        per_design.append(entry)
+            "median_step_mac": (float(np.median(step_macs))
+                                if step_macs.size else None),
+            "worst_step_mac": (float(step_macs.min())
+                               if step_macs.size else None),
+            "shapes": shapes,
+            "freqs": freqs,
+        })
 
         if verbose and ((i + 1) % 10 == 0 or i + 1 == n):
             done = i + 1
@@ -279,16 +329,46 @@ def _run_sweep(
                 flush=True,
             )
 
-    if ref_shapes is None:
+    if not records:
         raise RuntimeError(
             "no design point produced a usable modal solution; "
             f"{len(failures)} failures: {failures[:5]}"
         )
-    if failures:
-        pass  # recorded via returned list below
+
+    # Medoid reference: success closest to the median log10_k (ties broken
+    # by lowest point index for determinism).
+    median_log10 = float(np.median([r["log10_k"] for r in records]))
+    medoid_pos = min(
+        range(len(records)),
+        key=lambda r: (abs(records[r]["log10_k"] - median_log10),
+                       records[r]["point_index"]),
+    )
+    ref_shapes = records[medoid_pos]["shapes"]
+    ref_freqs = records[medoid_pos]["freqs"]
+    ref_index = records[medoid_pos]["point_index"]
+    for r_pos, r in enumerate(records):
+        if r_pos == medoid_pos:
+            cross = [1.0] * n_modes  # self-match
+        else:
+            # _optimal_match returns macs already indexed by the reference
+            # (medoid) branch order, so no reordering is needed.
+            macs, _ = _optimal_match(ref_shapes, r["shapes"],
+                                     ref_freqs, r["freqs"])
+            cross = macs.tolist()
+        per_design.append({
+            "point_index": r["point_index"],
+            "log10_k": r["log10_k"],
+            "k": r["k"],
+            "solve_seconds": r["solve_seconds"],
+            "reference_frequencies_hz": r["reference_frequencies_hz"],
+            "median_step_mac": r["median_step_mac"],
+            "worst_step_mac": r["worst_step_mac"],
+            "cross_design_macs": cross,
+        })
     return {
         "_per_design": per_design,
         "_ref_index": ref_index,
+        "_ref_pos": medoid_pos,
         "_slow_point": slow_point,
         "_failures": failures,
     }
