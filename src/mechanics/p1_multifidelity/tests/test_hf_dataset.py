@@ -135,9 +135,11 @@ def test_load_mode_shape_parses_header_and_orientation(tmp_path):
 
 
 def test_load_mode_shape_without_frequency(tmp_path):
+    n = hfd.GRID_RES
     lines = ["Correction field: COMSOL - FSDT", "x,y,delta_w",
-             f"{hfd.GRID_RES}x{hfd.GRID_RES} grid", "0,0,1.5"]
-    lines += ["0,0,0.0"] * (hfd.GRID_RES ** 2 - 1)
+             f"{n}x{n} grid", "0,0,1.5"]
+    lines += [f"{ix},{iy},0.0" for iy in range(n) for ix in range(n)
+              if (ix, iy) != (0, 0)]
     p = tmp_path / "correction_run1_mode1.csv"
     p.write_text("\n".join(lines) + "\n")
     field, freq = hfd.load_mode_shape(p)

@@ -293,11 +293,11 @@ class TestSampleBasedSBC:
         # k_i = i mod (S+1); the lattice decoder's sample j has severity
         # 1 - (j+0.5)/S, so rank_i = S - k_i. With n_val = S+1 the ranks hit
         # every point of {0..S} exactly once → uniform by construction.
-        n_samp, n_val = 9, 10
-        ds = _synthetic_dataset(n=20, gy=2, gx=2, seed=13)
+        n_samp, n_val = 20, 21
+        ds = _synthetic_dataset(n=42, gy=2, gx=2, seed=13)
         # Explicit splits so exactly n_val = S+1 validation observations exist:
         # ranks then hit every point of {0..S} once → uniform by construction.
-        ds["splits"] = {"train": list(range(10, 20)), "val": list(range(10)),
+        ds["splits"] = {"train": list(range(21, 42)), "val": list(range(21)),
                         "test": []}
         val_idx = ds["splits"]["val"]
         assert len(val_idx) == n_val
