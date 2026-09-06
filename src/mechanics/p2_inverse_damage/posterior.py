@@ -10,6 +10,13 @@ class ConditionalPosterior(nn.Module):
 
     Outputs mu, log_var → samples z via reparameterization trick.
     Prior: p(z) = N(0, I).
+
+    ``logvar_init`` sets the initial ``logvar_head`` bias so ``q`` starts
+    broad (default 1.5 → var ≈ 4.5, per-dim KL ≈ 0.99 at mu = 0, above the
+    0.5 free-bits floor). Zero-bias init would start at KL ≈ 0 where the
+    ``clamp(kl, min=0.5)`` floor kills the KL gradient (dead-clamp start)
+    and lets reconstruction crush variance unchecked; starting above the
+    floor keeps KL gradient alive once beta-annealing ramps it in.
     """
 
     def __init__(
@@ -18,10 +25,12 @@ class ConditionalPosterior(nn.Module):
         d_c: int = 128,
         hidden_dims: list[int] | None = None,
         seed: int = 42,
+        logvar_init: float = 1.5,
     ):
         super().__init__()
         self.d_z = d_z
         self.d_c = d_c
+        self.logvar_init = float(logvar_init)
 
         if hidden_dims is None:
             hidden_dims = [128, 128]
@@ -45,6 +54,8 @@ class ConditionalPosterior(nn.Module):
             if isinstance(m, nn.Linear):
                 nn.init.kaiming_normal_(m.weight, generator=gen)
                 nn.init.zeros_(m.bias)
+        with torch.no_grad():
+            self.logvar_head.bias.fill_(float(self.logvar_init))
 
     def forward(self, c: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """c: (batch, d_c) → mu: (batch, d_z), log_var: (batch, d_z)"""
