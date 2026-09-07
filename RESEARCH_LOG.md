@@ -138,3 +138,4 @@ A `pytest | tail` pipeline masked the exit code and a commit landed while a sibl
 4. P4 σ-width refinement toward exact nominal coverage (0.889 vs 0.90) — conformal layer is the deployed mechanism; raw-σ self-calibration is optional polish.
 5. P1 GP under-dispersed (22-36 pct coverage vs 95 nominal)
 6. P2 SBC uniformity fails at 1000 samples
+7. P1 COMSOL shape corpus VOID (2026-09-07): all 1000 `Simulation_ModeShapes/` files max|w| ≤ 4.4e-8 (export degeneracy, not physics); archived `correction_fields/` = −FSDT exactly (R²=1.0000), zero HF content. Field skill numbers (4.19 %) trained on fast-solver outputs, not HF data — void pending COMSOL re-export. Scalar calibration (5.35 %) unaffected. Loader now enforces 1e-6 magnitude floor.

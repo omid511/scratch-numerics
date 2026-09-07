@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import math
 import time
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -64,6 +65,10 @@ def _split_run_indices(n_runs: int, config: RealPipelineConfig) -> tuple[np.ndar
     """
     if n_runs < 2:
         raise ValueError(f"need at least 2 runs to split, got {n_runs}")
+    if not (0.0 < config.test_fraction < 1.0):
+        raise ValueError(
+            f"test_fraction must be in (0, 1), got {config.test_fraction}"
+        )
     n_test = int(math.ceil(config.test_fraction * n_runs))
     n_test = min(max(n_test, 0), n_runs - 1)
     rng = np.random.default_rng(config.seed)
@@ -77,7 +82,7 @@ def _standardize_fit(theta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Per-feature mean/std for theta standardization (std=1 where degenerate)."""
     mu = theta.mean(axis=0)
     sd = theta.std(axis=0)
-    sd = np.where(sd > 0, sd, 1.0)
+    sd = np.where(sd > 1e-12, sd, 1.0)
     return mu, sd
 
 
@@ -104,6 +109,13 @@ def _fit_on(
 ) -> dict:
     """Fit PCA encoder + theta->latent GP on TRAIN runs, evaluate on TEST runs.
 
+    .. deprecated::
+        Pooled inputs repeat each run's theta across its modes, so identical
+        GP inputs carry distinct latent targets and the posterior mean
+        collapses toward the mode average. Prefer :func:`_fit_on_modeconditioned`
+        (GP input [theta, one-hot(mode)]), which keeps this function's
+        metrics/models/arrays contract.
+
     Args:
         theta: (n_runs, d_theta) design parameters.
         fields: (n_runs, n_modes, ny, nx) correction fields.
@@ -113,6 +125,16 @@ def _fit_on(
     """
     if set(train_idx.tolist()) & set(test_idx.tolist()):
         raise ValueError("train and test runs overlap: split must be by run")
+    # Canonicalize to ascending run order: X_train/X_test are built with a
+    # boolean mask (sorted run-major), so GP inputs must follow the same order.
+    train_idx = np.sort(np.asarray(train_idx))
+    test_idx = np.sort(np.asarray(test_idx))
+    warnings.warn(
+        "_fit_on pools modes under duplicated theta inputs (posterior mean "
+        "averages modes); prefer _fit_on_modeconditioned for per-mode fidelity.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     n_runs, n_modes, ny, nx = fields.shape
     X = _fields_to_samples(fields)  # (n_runs*n_modes, ny, nx)
@@ -165,10 +187,12 @@ def _fit_on(
 
     pointwise_bias_map = err.mean(axis=0)  # (ny, nx) mean signed error
 
-    # Coverage proxy: propagate latent variance through the LINEAR PCA decode.
-    # decode(z) = (z @ C + mean); Var[pixel] = sum_d Var[z_d] * C_d[pixel]^2.
+    # Coverage proxy: propagate latent variance through the LINEAR PCA decode
+    # plus the decoder boundary envelope b (decode multiplies by b, so
+    # Var[pixel] = b[pixel]^2 * sum_d Var[z_d] * C_d[pixel]^2).
     comp = encoder.components_.reshape(-1, ny, nx)  # (d_z_eff, ny, nx)
-    var_field = np.einsum("nd,dhw->hw", z_var_samples, comp**2)
+    b_env = decoder.boundary_envelope  # (ny, nx)
+    var_field = np.einsum("nd,dhw->nhw", z_var_samples, comp**2) * b_env**2
     sigma_field = np.sqrt(var_field)
     covered = np.abs(err) <= 2.0 * sigma_field
     coverage_proxy_2sigma = float(covered.mean())
@@ -456,6 +480,10 @@ def _fit_on_modeconditioned(
     """
     if set(train_idx.tolist()) & set(test_idx.tolist()):
         raise ValueError("train and test runs overlap: split must be by run")
+    # Canonicalize to ascending run order: X_train/X_test are built with a
+    # boolean mask (sorted run-major), so GP inputs must follow the same order.
+    train_idx = np.sort(np.asarray(train_idx))
+    test_idx = np.sort(np.asarray(test_idx))
 
     n_runs, n_modes, ny, nx = fields.shape
     X = _fields_to_samples(fields)  # (n_runs*n_modes, ny, nx)
@@ -509,7 +537,8 @@ def _fit_on_modeconditioned(
     pointwise_bias_map = err.mean(axis=0)
 
     comp = encoder.components_.reshape(-1, ny, nx)
-    sigma_field = np.sqrt(np.einsum("nd,dhw->hw", z_var, comp**2))
+    b_env = decoder.boundary_envelope  # (ny, nx); decode scales fields by b
+    sigma_field = np.sqrt(np.einsum("nd,dhw->nhw", z_var, comp**2) * b_env**2)
     coverage_proxy_2sigma = float((np.abs(err) <= 2.0 * sigma_field).mean())
 
     per_mode_mse = np.zeros(n_modes)
@@ -582,6 +611,10 @@ def _fit_on_modeconditioned_ard(
     """
     if set(train_idx.tolist()) & set(test_idx.tolist()):
         raise ValueError("train and test runs overlap: split must be by run")
+    # Canonicalize to ascending run order: X_train/X_test are built with a
+    # boolean mask (sorted run-major), so GP inputs must follow the same order.
+    train_idx = np.sort(np.asarray(train_idx))
+    test_idx = np.sort(np.asarray(test_idx))
 
     n_runs, n_modes, ny, nx = fields.shape
     X = _fields_to_samples(fields)
@@ -646,7 +679,8 @@ def _fit_on_modeconditioned_ard(
     pointwise_bias_map = err.mean(axis=0)
 
     comp = encoder.components_.reshape(-1, ny, nx)
-    sigma_field = np.sqrt(np.einsum("nd,dhw->hw", z_var, comp**2))
+    b_env = decoder.boundary_envelope  # (ny, nx); decode scales fields by b
+    sigma_field = np.sqrt(np.einsum("nd,dhw->nhw", z_var, comp**2) * b_env**2)
     coverage_proxy_2sigma = float((np.abs(err) <= 2.0 * sigma_field).mean())
 
     per_mode_mse = np.zeros(n_modes)
@@ -739,6 +773,10 @@ def _fit_on_crossmodal(
     """
     if set(train_idx.tolist()) & set(test_idx.tolist()):
         raise ValueError("train and test runs overlap: split must be by run")
+    # Canonicalize to ascending run order: X_train/X_test are built with a
+    # boolean mask (sorted run-major), so GP inputs must follow the same order.
+    train_idx = np.sort(np.asarray(train_idx))
+    test_idx = np.sort(np.asarray(test_idx))
 
     n_runs, n_modes, ny, nx = fields.shape
 
@@ -814,7 +852,8 @@ def _fit_on_crossmodal(
     )
 
     comp = encoder.components_.reshape(-1, ny, nx)
-    sigma_field = np.sqrt(np.einsum("nd,dhw->hw", z_var, comp**2))
+    b_env = decoder.boundary_envelope  # (ny, nx); decode scales fields by b
+    sigma_field = np.sqrt(np.einsum("nd,dhw->nhw", z_var, comp**2) * b_env**2)
     coverage_proxy_2sigma = float((np.abs(err) <= 2.0 * sigma_field).mean())
     per_mode_mse = np.zeros(n_modes)
     for m in range(n_modes):
@@ -880,38 +919,49 @@ def run_field_pipeline_crossmodal(data_root, config: RealPipelineConfig | None =
 def conformal_frequency_intervals(
     data_root: str,
     alpha: float = 0.10,
+    config: RealPipelineConfig | None = None,
 ) -> dict:
     """Conformal prediction intervals for the P1 scalar frequency-error GP.
 
     Computes LOO GP predictions per mode, then uses the absolute LOO
     residuals as conformity scores. Distribution-free coverage guarantee.
+
+    Each LOO fold standardizes theta with TRAIN-fold stats only (the held-out
+    design never enters its own standardizer). Kernel length scale and noise
+    come from ``config`` (raw theta has heterogeneous scales, which is why a
+    fixed length_scale=1.0 without standardization gave half-widths 13-18 pct
+    pts vs 5.35 RMSE).
+
+    Primary (honest) coverage is ``split_half_coverages`` and per-mode
+    ``split_half_coverage``: quantiles fit on one half, evaluated on the
+    other half. Per-mode ``empirical_coverage`` is retained for
+    compatibility but is resubstitution (quantile and coverage on the same
+    residuals) and is optimistic; do not use it for calibration claims.
     """
     import numpy as np
     from mechanics.p1_multifidelity.hf_dataset import load_design, load_frequency_errors
     from mechanics.p1_multifidelity.real_pipeline import LatentGP, RBFKernel, RealPipelineConfig
 
-    cfg = RealPipelineConfig()
+    cfg = config or RealPipelineConfig()
     theta = np.asarray(load_design(data_root), dtype=np.float64)
     freq_errs = load_frequency_errors(data_root)
     rel = np.asarray(freq_errs['rel_err_pct'], dtype=np.float64)
     n, n_modes = rel.shape
 
-    # Standardize theta (fixes length_scale selection: raw theta has
-    # heterogeneous scales causing half-widths 13-18 pct pts vs 5.35 RMSE)
-    theta_mean = theta.mean(axis=0)
-    theta_std = theta.std(axis=0)
-    theta_std[theta_std < 1e-12] = 1.0
-    theta_z = (theta - theta_mean) / theta_std
-
-    # LOO GP predictions per mode on standardized theta
+    # LOO GP predictions per mode on train-standardized theta.
     loo_pred = np.zeros_like(rel)
     for m in range(n_modes):
         for i in range(n):
             mask = np.ones(n, dtype=bool)
             mask[i] = False
-            gp = LatentGP(d_z=1, kernel=RBFKernel(length_scale=1.0))
-            gp.fit(theta_z[mask], rel[mask, m:m+1])
-            mu, var = gp.predict(theta_z[i:i+1])
+            mu_tr, sd_tr = _standardize_fit(theta[mask])
+            gp = LatentGP(
+                d_z=1,
+                kernel=RBFKernel(length_scale=cfg.length_scale),
+                noise=cfg.noise,
+            )
+            gp.fit((theta[mask] - mu_tr) / sd_tr, rel[mask, m:m+1])
+            mu, var = gp.predict((theta[i:i+1] - mu_tr) / sd_tr)
             loo_pred[i, m] = float(np.ravel(mu)[0])
 
     residuals = np.abs(rel - loo_pred)
@@ -931,15 +981,28 @@ def conformal_frequency_intervals(
         total = len(residuals[half_eval].ravel())
         split_covs.append(covered / total if total > 0 else 0.0)
     per_mode = []
+    n_a, n_b = len(half_a), len(half_b)
     for m in range(n_modes):
         scores = np.sort(residuals[:, m])
         q_idx = min(int(np.ceil((n + 1) * (1 - alpha))) - 1, n - 1)
         hw = float(scores[q_idx])
         cov = int(np.sum(residuals[:, m] <= hw))
+        # Honest split-half per mode: quantile on fit half, coverage on eval half.
+        split_covs_m = []
+        split_hws_m = []
+        for half_fit, half_eval in [(half_a, half_b), (half_b, half_a)]:
+            s_fit = np.sort(residuals[half_fit, m])
+            n_fit = len(s_fit)
+            qf_idx = min(int(np.ceil((n_fit + 1) * (1 - alpha))) - 1, n_fit - 1)
+            qf = float(s_fit[qf_idx])
+            split_hws_m.append(qf)
+            split_covs_m.append(float(np.mean(residuals[half_eval, m] <= qf)))
         per_mode.append({
             'mode': m + 1,
             'interval_half_width_pct': hw,
             'empirical_coverage': cov / n,
+            'split_half_half_width_pct': float(np.mean(split_hws_m)),
+            'split_half_coverage': float(np.mean(split_covs_m)),
         })
 
     return {
@@ -947,5 +1010,5 @@ def conformal_frequency_intervals(
         'split_half_coverages': split_covs,
         'alpha': alpha,
         'n_samples': n,
-        'method': 'leave-one-out conformal with standardized theta (distribution-free)',
+        'method': 'leave-one-out conformal with standardized theta; split-half coverage primary (distribution-free)',
     }

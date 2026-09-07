@@ -72,15 +72,15 @@ def apply_sensitivity_transform(lhs_unit: np.ndarray) -> np.ndarray:
     transformed = np.zeros_like(lhs_unit)
 
     # alpha (column 0): power transform to concentrate at upper end (alpha > 0.8)
-    # Exponent > 1 stretches the upper end
+    # Exponent < 1 concentrates density at the upper end
     transformed[:, 0] = lhs_unit[:, 0] ** 0.6  # More samples near alpha=0.8-0.9
 
     # beta (column 1): power transform to concentrate at lower end (beta < 0.5)
-    # Exponent < 1 stretches the lower end
+    # Exponent > 1 concentrates density at the lower end
     transformed[:, 1] = lhs_unit[:, 1] ** 1.8  # More samples near beta=0.1-0.4
 
     # theta_c (column 2): power transform to concentrate at upper end (theta_c > 50 deg)
-    # Exponent > 1 stretches the upper end
+    # Exponent < 1 concentrates density at the upper end
     transformed[:, 2] = lhs_unit[:, 2] ** 0.5  # More samples near theta_c=50-75 deg
 
     # eta1 (column 3): Beta-like transform centered around eta1=1
@@ -144,10 +144,15 @@ def load_frequency_errors(data_root) -> dict[str, np.ndarray]:
         for row in csv.DictReader(f):
             comsol_freqs.append([float(row[f"f{i}"]) for i in range(1, N_MODES + 1)])
 
-    fsdt = np.array(fsdt_freqs)
-    comsol = np.array(comsol_freqs)
+    fsdt = np.array(fsdt_freqs, dtype=np.float64)
+    comsol = np.array(comsol_freqs, dtype=np.float64)
+    if not (np.all(np.isfinite(fsdt)) and np.all(np.isfinite(comsol))):
+        raise ValueError("frequency tables contain non-finite values")
+    denom = np.abs(comsol)
+    if np.any(denom < 1e-12):
+        raise ValueError("COMSOL frequency magnitude < 1e-12: relative error undefined")
     abs_err = comsol - fsdt
-    rel_err_pct = abs_err / np.abs(comsol) * 100.0
+    rel_err_pct = abs_err / denom * 100.0
     return {
         "fsdt": fsdt,
         "comsol": comsol,
@@ -176,7 +181,31 @@ def load_mode_shape(path) -> tuple[np.ndarray, float | None]:
         freq_hz = float(_m.group(1))
 
     data = np.loadtxt(path, skiprows=3, delimiter=",")
-    field = data[:, -1].reshape(GRID_RES, GRID_RES)
+    if data.ndim != 2 or data.shape[0] != GRID_RES * GRID_RES or data.shape[1] < 3:
+        raise ValueError(
+            f"{path}: expected {(GRID_RES*GRID_RES, '>=3')} rows/cols, got {data.shape}"
+        )
+    if not np.all(np.isfinite(data)):
+        raise ValueError(f"{path}: non-finite values in mode-shape table")
+    xs, ys, vals = data[:, 0], data[:, 1], data[:, -1]
+    x_vals = np.unique(xs)
+    y_vals = np.unique(ys)
+    if x_vals.size != GRID_RES or y_vals.size != GRID_RES:
+        raise ValueError(
+            f"{path}: expected {GRID_RES} unique x and y, got {x_vals.size}/{y_vals.size}"
+        )
+    # Map coordinates to indices (handles x-fastest or y-fastest ordering).
+    x_idx = np.searchsorted(x_vals, xs)
+    y_idx = np.searchsorted(y_vals, ys)
+    if not (np.allclose(x_vals[x_idx], xs) and np.allclose(y_vals[y_idx], ys)):
+        raise ValueError(f"{path}: coordinate grid mismatch")
+    # NaN-init: unfilled cells stay non-finite so truncated/duplicated row
+    # sets fail loudly below instead of leaking uninitialized memory.
+    field = np.full((GRID_RES, GRID_RES), np.nan, dtype=np.float64)
+    field[y_idx, x_idx] = vals
+    # Detect duplicated (x, y) rows: every cell must be filled exactly once.
+    if not np.isfinite(field).all():
+        raise ValueError(f"{path}: incomplete coordinate coverage")
     return field, freq_hz
 
 
@@ -201,11 +230,25 @@ def load_shape_corpus(data_root, side: str) -> tuple[np.ndarray, np.ndarray]:
     shape_dir = _data_path(data_root, shape_dirs[side])
 
     fields = np.empty((N_SAMPLES, N_MODES, GRID_RES, GRID_RES))
-    freqs = np.empty((N_SAMPLES, N_MODES))
+    freqs = np.full((N_SAMPLES, N_MODES), np.nan)
+    degenerate = []
     for run in range(N_SAMPLES):
         for mode in range(N_MODES):
             path = os.path.join(shape_dir, prefixes[side].format(run + 1, mode + 1))
-            fields[run, mode], freqs[run, mode] = load_mode_shape(path)
+            field, freq = load_mode_shape(path)
+            # Physical-plausibility floor: a genuine exported mode shape is
+            # O(1e-3..1), never solver-noise scale. The 2026-07 COMSOL corpus
+            # shipped max|w| <= 4.4e-8 in all 1000 files (broken export) and
+            # silently poisoned every downstream correction. Fail loudly.
+            if not np.isfinite(field).all() or np.abs(field).max() < 1e-6:
+                degenerate.append(f"{path} (max|w|={np.abs(field).max():.2e})")
+            fields[run, mode] = field
+            freqs[run, mode] = np.nan if freq is None else float(freq)
+    if degenerate:
+        raise ValueError(
+            f"{side} shape corpus has {len(degenerate)} degenerate files "
+            f"(max|w| < 1e-6); first: {degenerate[0]}"
+        )
     return fields, freqs
 
 
@@ -239,6 +282,14 @@ def build_laminate(alpha, beta, theta_c, eta1, eta2, H=0.01, l1=0.003) -> Lamina
         remaining face h3 = H - h1 - h2
     z-coordinates centered at the midplane; ply angles [0, 0, 0].
     """
+    if not (0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+    if not (beta > 0.0):
+        raise ValueError(f"beta must be positive, got {beta}")
+    if not (eta1 > 0.0 and eta2 > 0.0):
+        raise ValueError(f"eta1/eta2 must be positive, got {eta1}/{eta2}")
+    if not (H > 0.0 and l1 > 0.0):
+        raise ValueError(f"H/l1 must be positive, got {H}/{l1}")
     E_face = 70e9             # Young's modulus (Pa)
     rho_face = 2710           # Density (kg/m^3)
     nu_face = 0.33            # Poisson's ratio

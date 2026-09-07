@@ -12,11 +12,21 @@ class SampleConfig:
     L2: float = 0.3
     M: int = 15
     N: int = 15
+    # Grid point counts as (nx, ny): nx points along x (L1), ny along y (L2).
+    # Matches FSDTSolver(grid=(nx, ny)). Encoder/decoder/INR grid_size uses the
+    # transposed (ny, nx) order matching field arrays (n, ny, nx): convert via
+    # grid_size=(config.grid[1], config.grid[0]).
     grid: tuple[int, int] = (64, 64)
     n_modes: int = 6
     face_thickness_range: tuple[float, float] = (0.001, 0.005)
     core_thickness_range: tuple[float, float] = (0.005, 0.02)
     cell_angle_range: tuple[float, float] = (np.pi / 12, np.pi / 4)
+    # Honeycomb cell geometry (distinct from sandwich core thickness):
+    # wall thickness tc_wall << cell length, otherwise Gibson
+    # homogenization leaves its physical regime (tc/l ~ 1-4 is non-physical).
+    cell_wall_thickness: float = 5e-05
+    cell_length_l1c: float = 0.005
+    cell_length_l2c: float = 0.005
     seed: int = 42
 
 
@@ -85,7 +95,10 @@ def generate_lf_dataset(
         # Core: use honeycomb homogenization
         from mechanics.honeycomb import honeycomb_properties
         core_props = honeycomb_properties(
-            Ec=1.0e6, Gc=0.5e6, rho_c=50, tc=tc, l1c=0.005, l2c=0.005, theta_c=theta,
+            Ec=1.0e6, Gc=0.5e6, rho_c=50,
+            tc=config.cell_wall_thickness,
+            l1c=config.cell_length_l1c, l2c=config.cell_length_l2c,
+            theta_c=theta,
         )
         core_mat = Material(**core_props)
 
@@ -115,6 +128,17 @@ def generate_lf_dataset(
             bottom={"type": "simply_supported"},
         )
         result = solver.solve_modal(n_modes=config.n_modes)
+        if result.mode_shapes.shape != (config.n_modes, grid_ny, grid_nx):
+            raise ValueError(
+                f"solver mode_shapes {result.mode_shapes.shape} != "
+                f"(n_modes={config.n_modes}, ny={grid_ny}, nx={grid_nx}); "
+                "config.grid is (nx, ny), fields are (ny, nx)"
+            )
+        if result.grid_x.shape != (grid_nx,) or result.grid_y.shape != (grid_ny,):
+            raise ValueError(
+                f"solver grids {(result.grid_x.shape, result.grid_y.shape)} != "
+                f"(nx={grid_nx}, ny={grid_ny})"
+            )
         all_freqs[i] = result.frequencies
         all_shapes[i] = result.mode_shapes
         if grid_x is None:
@@ -185,16 +209,37 @@ def extract_correction_fields(
     lf: dict[str, Any],
     hf: dict[str, Any],
     mode_idx: int = 0,
+    cap: float = 5.0,
 ) -> np.ndarray:
     """Compute correction fields Δ(x,y) = hf_mode / lf_mode - 1.
 
+    Regularized near nodal lines (lf ~ 0) via hf*lf/(lf^2+eps^2)-1,
+    exact nodes forced to 0, clipped to [-cap_eff, cap_eff] where cap_eff
+    is scale-aware: min(cap, P99 of |correction| over trustworthy cells).
+    Where mode shapes disagree on node locations, the raw ratio blows up to
+    hf/lf >> 1 in rings around lf nodes; the fixed ±cap let those rings
+    saturate at ±500% and dominate PCA, so the cap tracks the bulk scale.
+
     Returns: (n_samples, grid_ny, grid_nx)
     """
-    lf_shapes = lf["mode_shapes"][:, mode_idx]
-    hf_shapes = hf["mode_shapes"][:, mode_idx]
-    # Sign-aware normalization: hf/lf - 1 preserves relative sign
+    lf_shapes = np.asarray(lf["mode_shapes"][:, mode_idx], dtype=np.float64)
+    hf_shapes = np.asarray(hf["mode_shapes"][:, mode_idx], dtype=np.float64)
     lf_abs = np.abs(lf_shapes)
-    mask = lf_abs < 1e-12
-    result = np.zeros_like(lf_shapes)
-    result[~mask] = hf_shapes[~mask] / lf_shapes[~mask] - 1.0
+    ref = float(np.median(lf_abs)) if lf_shapes.size else 1.0
+    if not np.isfinite(ref) or ref <= 0.0:
+        ref = 1.0
+    eps = 1e-8 * ref
+    node_tol = 1e-6 * ref + 1e-12
+    # Regularized ratio: -> hf/lf for |lf| >> eps, -> -1 for lf -> 0.
+    ratio = (hf_shapes * lf_shapes) / (lf_shapes**2 + eps**2)
+    result = ratio - 1.0
+    # Exact nodes (0/0) carry no information: force to 0, not -1.
+    result[lf_abs < node_tol] = 0.0
+    bulk = np.abs(result[lf_abs >= node_tol])
+    bulk = bulk[np.isfinite(bulk)]
+    if bulk.size:
+        cap_eff = min(float(cap), max(float(np.quantile(bulk, 0.99)), 10.0 * eps))
+    else:
+        cap_eff = float(cap)
+    result = np.clip(result, -cap_eff, cap_eff)
     return result

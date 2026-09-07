@@ -24,11 +24,33 @@ from __future__ import annotations
 import numpy as np
 
 __all__ = [
+    "broadcast_scalar_to_series",
     "compute_lead_time",
     "lead_time_precision_recall",
     "false_alarm_rate",
     "roc_auc",
 ]
+
+
+def broadcast_scalar_to_series(
+    scalar_margins: np.ndarray,
+    n_timesteps: int,
+) -> np.ndarray:
+    """Broadcast per-clip scalar margins to constant series.
+
+    Current margin heads (TCN quantile median, GRU, growth-rate) emit one
+    scalar margin per clip. Lead-time analysis needs a margin SERIES per
+    clip on its time grid; this adapter broadcasts each scalar to a
+    constant ``(n_clips, n_timesteps)`` series. Honest caveat: a constant
+    series warns at index 0 or never, so lead times degenerate to
+    ``0``/``NaN`` — genuine early-warning evaluation requires a
+    per-timestep head. Do not fabricate ramps; use this only to run the
+    warning metrics without inventing temporal structure.
+    """
+    scalars = np.asarray(scalar_margins, dtype=float).ravel()
+    if n_timesteps < 1:
+        raise ValueError(f"n_timesteps must be positive, got {n_timesteps}")
+    return np.repeat(scalars[:, None], int(n_timesteps), axis=1)
 
 
 def compute_lead_time(
@@ -45,9 +67,20 @@ def compute_lead_time(
 
     Returns NaN when either series never crosses the threshold (no warning,
     or no actual instability to warn about), since lead time is undefined.
+
+    Requires per-timestep SERIES of shape ``(T,)`` (not per-clip scalars):
+    scalar heads must go through :func:`broadcast_scalar_to_series` first
+    (with its degenerate-lead-time caveat). A 0-d/scalar input raises an
+    informative error instead of silently returning a fake metric.
     """
     pred = np.asarray(pred_margin_series)
     true = np.asarray(true_margin_series)
+    if pred.ndim != 1 or true.ndim != 1:
+        raise ValueError(
+            "compute_lead_time needs one 1-d margin SERIES per clip with shape "
+            f"(T,), got {pred.shape} vs {true.shape}. Broadcast scalar margins "
+            "with broadcast_scalar_to_series() first and index one row per clip."
+        )
     if pred.shape != true.shape:
         raise ValueError(f"series shape mismatch: {pred.shape} vs {true.shape}")
 

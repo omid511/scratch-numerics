@@ -199,6 +199,7 @@ def _worker_process_design(args):
                     try:
                         clip = generate_clip_from_eigendecomposition(
                             eigs, rng, u_crit=u_crit_r,
+                            design_id=design.design_id,
                         )
                     except Exception as e:
                         failures.append({

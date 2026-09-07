@@ -91,17 +91,32 @@ def _active_probabilities(mu: np.ndarray, sigma: np.ndarray,
     # P(f_k <= z): branch k is BELOW z (i.e. beats j for the min).
     cdf_leq = norm.cdf(zn)
 
+    # NOTE: the k != j product below is computed directly per branch. The
+    # algebraically equivalent total-product-divided-by-own-factor form
+    # loses tail mass when the own-tail term underflows, so it is not used.
+    p = np.empty((n, m))
     if minimize:
         # j governs iff every other branch stays above z.
-        others_above = np.prod(1.0 - cdf_leq, axis=1, keepdims=True)
-        # Remove j's own factor (prod over k != j).
-        own_below = 1.0 - cdf_leq
-        integrand = pdf_self * others_above / np.maximum(own_below, 1e-300)
+        surv = 1.0 - cdf_leq  # P(f_k > z), (n, m, G)
+        for j in range(m):
+            keep = [k for k in range(m) if k != j]
+            if keep:
+                others = np.prod(surv[:, keep, :], axis=1)[:, None, :]
+            else:
+                others = np.ones((n, 1, n_grid))
+            p[:, j] = np.trapezoid(
+                pdf_self[:, j:j + 1, :] * others, x=z, axis=2
+            )[:, 0]
     else:
-        others_below = np.prod(cdf_leq, axis=1, keepdims=True)
-        integrand = pdf_self * others_below / np.maximum(cdf_leq, 1e-300)
-
-    p = np.trapezoid(integrand, x=z, axis=2)
+        for j in range(m):
+            keep = [k for k in range(m) if k != j]
+            if keep:
+                others = np.prod(cdf_leq[:, keep, :], axis=1)[:, None, :]
+            else:
+                others = np.ones((n, 1, n_grid))
+            p[:, j] = np.trapezoid(
+                pdf_self[:, j:j + 1, :] * others, x=z, axis=2
+            )[:, 0]
     p = np.clip(p, 0.0, None)
     total = p.sum(axis=1, keepdims=True)
     return p / np.maximum(total, 1e-300)
@@ -163,9 +178,9 @@ class ModeDecompositionGP:
             y_per_mode: per-mode training targets from the mode-tracking
                 infrastructure — array of shape (n, n_modes), or a
                 sequence of (n,) arrays, one per tracked branch.
-            objective_fns: Optional sequence of callables (one per mode),
-                each X -> y, used only when the underlying GPs are
-                gradient-enhanced (finite-difference gradients).
+            objective_fns: Must be None. Per-mode gradient enhancement is
+                not implemented; any non-None value raises ValueError
+                rather than being silently ignored.
 
         Returns:
             self.
@@ -173,12 +188,22 @@ class ModeDecompositionGP:
         X = np.atleast_2d(np.asarray(X, dtype=float))
         if isinstance(y_per_mode, np.ndarray) and y_per_mode.ndim == 2:
             Y = np.asarray(y_per_mode, dtype=float)
+        elif isinstance(y_per_mode, np.ndarray) and y_per_mode.ndim == 1:
+            Y = np.asarray(y_per_mode, dtype=float).reshape(-1, 1)
         else:
-            Y = np.column_stack([np.asarray(y, dtype=float).ravel()
-                                 for y in y_per_mode])
+            cols = [np.asarray(y, dtype=float).ravel() for y in y_per_mode]
+            if not cols:
+                raise ValueError("y_per_mode must contain at least one mode")
+            Y = np.column_stack(cols)
         if Y.shape[0] != X.shape[0]:
             raise ValueError(
                 f"X has {X.shape[0]} rows but y_per_mode has {Y.shape[0]}"
+            )
+        if objective_fns is not None:
+            raise ValueError(
+                "ModeDecompositionGP.fit: objective_fns (per-mode gradient "
+                "enhancement) is not implemented; pass objective_fns=None "
+                "for plain per-mode GPs."
             )
 
         self.n_modes = Y.shape[1]
@@ -192,8 +217,7 @@ class ModeDecompositionGP:
                 signal_var=self.signal_var,
                 noise_var=self.noise_var,
             )
-            obj = None if objective_fns is None else objective_fns[j]
-            gp.fit(X, Y[:, j], objective_fn=obj,
+            gp.fit(X, Y[:, j],
                    optimize_hyperparams=self.optimize_hyperparams)
             self.mode_gps.append(gp)
         return self
@@ -253,6 +277,9 @@ class ModeDecompositionGP:
                 gp.get_training_data()[1] for gp in self.mode_gps
             ])
             tol = 0.01 * float(y_train.max() - y_train.min() + 1e-30)
+            # Floor so constant training targets (range 0) cannot pin the
+            # tolerance near 1e-32 and silently disable crossing routing.
+            tol = max(tol, 1e-6 * max(1.0, float(np.abs(y_train).max())))
         near_crossing = gap < tol
 
         return ModePrediction(

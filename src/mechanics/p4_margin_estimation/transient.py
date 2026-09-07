@@ -17,22 +17,10 @@ from mechanics.eigenanalysis import solve_eigenproblem, EigenFilter, TRANSIENT_F
 
 logger = logging.getLogger(__name__)
 
-_u_crit_cache: dict[int, float | None] = {}
-
-
-def _get_u_crit(solver, rho, c_sound, zeta,
-                v_lower=None, v_upper=3000.0) -> float | None:
-    """Cache flutter velocity by solver identity."""
-    if v_lower is None:
-        v_lower = 2.0 * c_sound * 1.01  # M >= 2.0 lower bound
-    key = id(solver)
-    if key not in _u_crit_cache:
-        _u_crit_cache[key] = solver.find_flutter_velocity(
-            rho=rho, c_sound=c_sound, zeta=zeta,
-            v_lower=v_lower, v_upper=v_upper,
-            n_scan=10, velocity_tol=5.0,
-        )
-    return _u_crit_cache[key]
+# NOTE: a previous `id(solver)`-keyed flutter-velocity cache lived here. It was
+# removed: `id()` keys collide after garbage collection and the key ignored
+# rho/c_sound/zeta/velocity bounds, so reviving it would return stale
+# velocities. Callers compute `u_crit` explicitly per design/condition.
 
 
 @dataclass
@@ -111,13 +99,28 @@ def validate_sensor_indices(sensor_iy, sensor_ix, *, grid_shape):
             raise ValueError(f"Sensor index out of bounds: {(iy, ix)}")
 
 
-def causal_calibration_normalize(signals, calibration_samples=64, eps=1e-8):
+def causal_calibration_normalize(signals, calibration_samples=64, eps=1e-8,
+                                 normalize_mode="per_channel"):
+    """Causally normalize from the leading calibration window.
+
+    `normalize_mode="per_channel"` (default, legacy): per-channel offset and
+    scale. `normalize_mode="global"`: per-channel offsets but a SINGLE global
+    scale from the whole calibration block, preserving inter-channel
+    amplitude ratios (flutter mode-shape cue) that per-channel scaling
+    erases. Both modes use only the leading window (causal).
+    """
     if signals.ndim != 2:
         raise ValueError(f"Expected (channels, time), got {signals.shape}")
     if not 1 <= calibration_samples <= signals.shape[1]:
         raise ValueError("Invalid calibration_samples")
+    if normalize_mode not in ("per_channel", "global"):
+        raise ValueError(f"Unknown normalize_mode: {normalize_mode!r}")
     calibration = signals[:, :calibration_samples]
     offset = calibration.mean(axis=1, keepdims=True)
+    if normalize_mode == "global":
+        scale = np.sqrt(np.mean((calibration - offset) ** 2))
+        scale = max(float(scale), eps)
+        return (signals - offset) / scale
     scale = np.sqrt(np.mean((calibration - offset) ** 2, axis=1, keepdims=True))
     scale = np.maximum(scale, eps)
     return (signals - offset) / scale
@@ -346,6 +349,19 @@ def compute_eigendecomposition(
     )
 
 
+# Clamp for unstable growth: exp(20) ~ 4.9e8 keeps ordering/finite in float64
+# while exp(>709) overflows. Floor -50 keeps decaying modes finite.
+_MAX_LOG_AMP = 20.0
+_MIN_LOG_AMP = -50.0
+
+
+def _clamped_modal_response(eigvals, t, coeffs):
+    """Modal responses with real-part-clamped growth (finite, order-preserving)."""
+    real_arg = np.clip(eigvals.real[:, None] * t[None, :], _MIN_LOG_AMP, _MAX_LOG_AMP)
+    osc = np.exp(1j * eigvals.imag[:, None] * t[None, :])
+    return coeffs[:, None] * np.exp(real_arg) * osc
+
+
 def generate_clip_from_eigendecomposition(
     eigs: Eigendecomposition,
     rng: np.random.Generator,
@@ -353,6 +369,8 @@ def generate_clip_from_eigendecomposition(
     n_timesteps: int = 512,
     normalize_window_frac: float = 0.1,
     u_crit: float | None = None,
+    design_id: str | None = None,
+    normalize_mode: str = "per_channel",
 ) -> TransientClip:
     """Generate one clip from cached eigendecomposition with random ICs.
 
@@ -363,6 +381,10 @@ def generate_clip_from_eigendecomposition(
     Eigendecomposition by compute_eigendecomposition, so the sampled grid
     always matches the dt chosen for the retained mode band. Passing an
     explicit t_span keeps the legacy behavior.
+
+    ``design_id=None`` (default) falls back to the legacy ``v<velocity>``
+    label for single-solver scripts. Multi-design callers must pass the
+    nominal design ID so grouped splits group by design, not velocity.
     """
     if t_span is None:
         t_span = getattr(eigs, "t_span", None) or (0.0, 0.5)
@@ -381,8 +403,10 @@ def generate_clip_from_eigendecomposition(
 
     # Propagate using positive-imaginary eigenvalues only
     # Each selected mode has Im(s) > 0, contribution is 2*Re[c_k * v_k * exp(s_k * t)]
-    # P1-15: Overflow control for unstable exponentials
-    modal_exponentials(eigvals, t, max_real_exponent=1000.0)
+    # Overflow control: clamp the REAL growth argument to [_MIN_LOG_AMP,
+    # _MAX_LOG_AMP] so supercritical (negative-margin) clips stay finite and
+    # ordered instead of overflowing to inf and being rejected (which biased
+    # the dataset toward stable clips). Oscillation phase is unclamped.
     w_all = np.zeros((MN_eff, n_timesteps))
 
     for k in range(n_phys):
@@ -390,7 +414,7 @@ def generate_clip_from_eigendecomposition(
         v_k = eigvecs[:size, k]
         c_k = coeffs_modal[k]
 
-        exp_t = np.exp(lam_k.real * t)
+        exp_t = np.exp(np.clip(lam_k.real * t, _MIN_LOG_AMP, _MAX_LOG_AMP))
         cos_t = np.cos(lam_k.imag * t)
         sin_t = np.sin(lam_k.imag * t)
         w_v_real = v_k[w_start:w_start + MN_eff].real
@@ -406,7 +430,8 @@ def generate_clip_from_eigendecomposition(
     n_sensors = len(eigs.sensor_iy)
     if eigs.sensor_modes is not None:
         # Use cached projection: signals = sensor_modes @ modal_response
-        modal_response = coeffs_modal[:, None] * np.exp(eigvals[:, None] * t[None, :])  # (n_phys, n_t)
+        # (growth-clamped; see above).
+        modal_response = _clamped_modal_response(eigvals, t, coeffs_modal)  # (n_phys, n_t)
         sensor_signals = 2.0 * np.real(eigs.sensor_modes @ modal_response)
     else:
         sensor_signals = np.zeros((n_sensors, n_timesteps))
@@ -419,7 +444,9 @@ def generate_clip_from_eigendecomposition(
 
     # Causal normalization using fixed calibration window
     calibration_samples = max(1, int(n_timesteps * normalize_window_frac))
-    sensor_signals = causal_calibration_normalize(sensor_signals, calibration_samples=calibration_samples)
+    sensor_signals = causal_calibration_normalize(
+        sensor_signals, calibration_samples=calibration_samples,
+        normalize_mode=normalize_mode)
 
     # Reject non-finite clips
     if not np.isfinite(sensor_signals).all():
@@ -434,6 +461,8 @@ def generate_clip_from_eigendecomposition(
     if u_crit is not None and u_crit > 0:
         margin = (u_crit - eigs.velocity) / u_crit
 
+    if design_id is None:
+        design_id = f"v{eigs.velocity:.0f}"
     return TransientClip(
         sensor_signals=sensor_signals,
         time=t,
@@ -442,7 +471,7 @@ def generate_clip_from_eigendecomposition(
         margin=margin,
         eigenvalues=eigvals,
         sensor_xy=np.column_stack([eigs.sensor_iy, eigs.sensor_ix]),
-        design_id=f"v{eigs.velocity:.0f}",
+        design_id=design_id,
     )
 
 
@@ -452,7 +481,7 @@ def generate_transient_clips_batch(
     n_realizations: int = 5,
     n_modes: int = 20,
     n_sensors: int = 8,
-    t_span: tuple = (0.0, 0.5),
+    t_span: tuple | None = None,
     n_timesteps: int = 512,
     seed: int | None = None,
     normalize_window_frac: float = 0.1,
@@ -462,15 +491,23 @@ def generate_transient_clips_batch(
     c_sound: float = 340.0,
     zeta: float = 0.0,
     nyquist_strict: bool = True,
+    design_id: str | None = None,
+    normalize_mode: str = "per_channel",
 ) -> list[TransientClip]:
     """Generate multiple clips at the same velocity with different random ICs.
 
     Calls compute_eigendecomposition ONCE (expensive) and reuses the
     eigendecomposition for all realizations.
+
+    ``t_span=None`` (default) uses the adaptive eigendecomposition window
+    for the clip grid; pass an explicit window for legacy fixed-window
+    behavior. ``design_id`` is forwarded to each clip (default: velocity
+    label).
     """
     eigs = compute_eigendecomposition(
         solver, velocity, n_modes, n_sensors, sensor_xy,
-        t_span=t_span, n_timesteps=n_timesteps,
+        t_span=t_span if t_span is not None else (0.0, 0.5),
+        n_timesteps=n_timesteps,
         rho=rho, c_sound=c_sound, zeta=zeta,
         nyquist_strict=nyquist_strict,
     )
@@ -478,7 +515,8 @@ def generate_transient_clips_batch(
     clips = []
     for _ in range(n_realizations):
         clip = generate_clip_from_eigendecomposition(
-            eigs, rng, None, n_timesteps, normalize_window_frac, u_crit,
+            eigs, rng, t_span, n_timesteps, normalize_window_frac, u_crit,
+            design_id=design_id, normalize_mode=normalize_mode,
         )
         clips.append(clip)
     return clips
@@ -487,7 +525,7 @@ def generate_transient_clips_batch(
 def generate_transient_clip(
     solver,
     velocity: float,
-    t_span: tuple[float, float] = (0.0, 0.5),
+    t_span: tuple[float, float] | None = None,
     n_timesteps: int = 512,
     n_sensors: int = 8,
     n_modes: int = 20,
@@ -499,6 +537,8 @@ def generate_transient_clip(
     c_sound: float = 340.0,
     zeta: float = 0.0,
     nyquist_strict: bool = True,
+    design_id: str | None = None,
+    normalize_mode: str = "per_channel",
 ) -> TransientClip:
     """Generate a single transient clip via full state-space propagation.
 
@@ -506,7 +546,7 @@ def generate_transient_clip(
     ----------
     solver : FSDTSolver
     velocity : float  — flight velocity (m/s)
-    t_span : (t_start, t_end) seconds
+    t_span : (t_start, t_end) seconds, or None for the adaptive window
     n_timesteps : number of time samples
     n_sensors : how many grid points to sample
     n_modes : modes to keep from eigen-solve
@@ -526,13 +566,15 @@ def generate_transient_clip(
 
     eigs = compute_eigendecomposition(
         solver, velocity, n_modes, n_sensors, sensor_xy,
-        t_span=t_span, n_timesteps=n_timesteps,
+        t_span=t_span if t_span is not None else (0.0, 0.5),
+        n_timesteps=n_timesteps,
         rho=rho, c_sound=c_sound, zeta=zeta,
         nyquist_strict=nyquist_strict,
     )
 
     return generate_clip_from_eigendecomposition(
-        eigs, rng, None, n_timesteps, normalize_window_frac, u_crit,
+        eigs, rng, t_span, n_timesteps, normalize_window_frac, u_crit,
+        design_id=design_id, normalize_mode=normalize_mode,
     )
 
 
@@ -540,7 +582,7 @@ def generate_dataset(
     solver,
     n_samples: int = 100,
     velocity_range: tuple[float, float] = (400.0, 800.0),
-    t_span: tuple[float, float] = (0.0, 0.5),
+    t_span: tuple[float, float] | None = None,
     n_timesteps: int = 512,
     n_sensors: int = 8,
     n_modes: int = 20,
@@ -548,6 +590,8 @@ def generate_dataset(
     sensor_xy: np.ndarray | None = None,
     u_crit: float | None = None,
     nyquist_strict: bool = True,
+    design_id: str | None = None,
+    normalize_mode: str = "per_channel",
 ) -> list[TransientClip]:
     """Generate a dataset of transient clips across random velocities.
 
@@ -561,6 +605,7 @@ def generate_dataset(
             clip = generate_transient_clip(
                 solver, float(v), t_span, n_timesteps, n_sensors, n_modes, rng=rng,
                 sensor_xy=sensor_xy, u_crit=u_crit, nyquist_strict=nyquist_strict,
+                design_id=design_id, normalize_mode=normalize_mode,
             )
             clips.append(clip)
         except (ValueError, AttributeError, np.linalg.LinAlgError, RuntimeError, FloatingPointError) as e:

@@ -8,6 +8,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from ..piston_theory import SOUND_SPEED
 from ..solver import FSDTSolver
 
 
@@ -49,10 +50,20 @@ def _optimal_match(
         macs: MAC values for each assigned mode pair.
         assignment: mapping from prev index -> curr index.
     """
+    if len(prev) != len(curr):
+        raise ValueError(
+            f"_optimal_match requires equal mode counts, got "
+            f"len(prev)={len(prev)} vs len(curr)={len(curr)}"
+        )
     n = len(curr)
     cost = np.zeros((n, n))
     use_freqs = prev_freqs is not None and curr_freqs is not None
     if use_freqs:
+        if len(prev_freqs) != n or len(curr_freqs) != n:
+            raise ValueError(
+                f"_optimal_match frequency arrays must match the {n} modes, got "
+                f"len(prev_freqs)={len(prev_freqs)} vs len(curr_freqs)={len(curr_freqs)}"
+            )
         f_scale = 0.5 * (np.mean(prev_freqs) + np.mean(curr_freqs)) + 1e-30
     for i in range(n):
         for j in range(n):
@@ -95,11 +106,15 @@ def track_modes_across_velocity(
 
     prev_modes = None
     prev_freqs = None
-    prev_damp = None
     current_labels = np.arange(n_modes)
 
     for vi, v in enumerate(velocities):
         result = solver.solve_complex_modal(float(v), n_modes=n_modes)
+        if len(result.frequencies) < n_modes:
+            raise ValueError(
+                f"solver returned {len(result.frequencies)} modes at "
+                f"velocity={v}, expected >= {n_modes}"
+            )
         freqs = result.frequencies[:n_modes]
         damp = np.array([
             -e.real / (abs(e) + 1e-30) for e in result.eigenvalues[:n_modes]
@@ -121,7 +136,11 @@ def track_modes_across_velocity(
             freqs_all[vi] = freqs[assignment]
             damp_all[vi] = damp[assignment]
             mac_all[vi - 1] = mac_vals
-            labels[vi] = current_labels[assignment]
+            # Rows are already reordered onto the previous step's branch
+            # order, so branch j keeps its persistent label: indexing by
+            # `assignment` (a prev->curr map) would misattribute labels
+            # after any swap.
+            labels[vi] = current_labels
             current_labels = labels[vi].copy()
         else:
             freqs_all[vi] = freqs
@@ -136,7 +155,6 @@ def track_modes_across_velocity(
             prev_modes = mode_shapes
 
         prev_freqs = freqs_all[vi]
-        prev_damp = damp_all[vi]
 
     return {
         "frequencies": freqs_all,
@@ -151,7 +169,7 @@ def track_modes_across_parameter(
     param_name: str,
     param_values,
     *,
-    velocity: float = 1.0,
+    velocity: float | None = None,
     n_modes: int = 6,
     freq_weight: float = 0.1,
 ) -> dict:
@@ -169,6 +187,8 @@ def track_modes_across_parameter(
         param_values: Sequence of parameter values, one solver build per value.
         velocity: Free-stream velocity in m/s passed to
             ``solve_complex_modal`` (must be supersonic, Mach > 1).
+            Defaults to Mach 1.05; subsonic values raise ValueError
+            since piston theory is invalid there.
         n_modes: Number of modes to track.
         freq_weight: Weight of the frequency-proximity term in the
             assignment cost (same convention as ``_optimal_match``).
@@ -184,6 +204,13 @@ def track_modes_across_parameter(
             'mode_labels': (n_steps, n_modes) integer branch labels
             'summary': {'n_steps', 'median_step_mac', 'worst_step_mac'}
     """
+    v_run = 1.05 * SOUND_SPEED if velocity is None else float(velocity)
+    if not v_run / SOUND_SPEED > 1.0:
+        raise ValueError(
+            "track_modes_across_parameter requires supersonic flow "
+            f"(Mach > 1); got velocity={v_run} m/s "
+            f"(Mach {v_run / SOUND_SPEED:.3f})"
+        )
     param_values = [float(v) for v in param_values]
     n_steps = len(param_values)
     if n_steps < 1:
@@ -199,7 +226,7 @@ def track_modes_across_parameter(
 
     for si, value in enumerate(param_values):
         solver = solver_factory(value)
-        result = solver.solve_complex_modal(velocity, n_modes=n_modes)
+        result = solver.solve_complex_modal(v_run, n_modes=n_modes)
         if len(result.frequencies) < n_modes:
             raise ValueError(
                 f"solver returned {len(result.frequencies)} modes at "
@@ -221,7 +248,9 @@ def track_modes_across_parameter(
             )
             freqs_all[si] = freqs[assignment]
             mac_all[si - 1] = mac_vals
-            labels[si] = current_labels[assignment]
+            # Same convention as the velocity tracker: rows follow the
+            # previous step's branch order, so labels carry over unchanged.
+            labels[si] = current_labels
             current_labels = labels[si].copy()
         else:
             freqs_all[si] = freqs

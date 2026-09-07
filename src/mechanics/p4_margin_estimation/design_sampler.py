@@ -53,7 +53,8 @@ def sample_designs(n_designs: int, seed: int = 0) -> list[DesignSample]:
 
     11 Sobol dimensions: L1, L2_ratio, face_thick, core_thick, face_E,
     face_rho, core_G, core_rho, zeta, rho_air, c_air.
-    Uses random_base2 to preserve Sobol balance properties.
+    Uses random_base2 (powers of two preserve Sobol balance; a non-power-of-2
+    n_designs takes a prefix, which stays space-filling but is not perfectly balanced).
     """
     if n_designs <= 0:
         raise ValueError("n_designs must be positive")

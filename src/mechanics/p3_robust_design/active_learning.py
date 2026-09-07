@@ -26,10 +26,16 @@ def expected_improvement_reliability(
 ) -> np.ndarray:
     """Acquisition: reliability-oriented expected improvement.
 
-    EI_rel(x) = P(λ_cr(x) < λ_target) * (λ_target - μ(x))
-    when μ(x) < λ_target, else 0.
+    EI_rel(x) = E[max(λ_target − λ_cr(x), 0)]
+             = (λ_target − μ(x))·Φ(z) + σ(x)·φ(z),
+    with z = (λ_target − μ(x)) / σ(x).
 
-    High EI_rel means: likely to be near failure boundary and informative.
+    SPEC CHANGE (2026-09-06): this was previously exploitation-only,
+    ``P(λ_cr < λ_target) * max(λ_target − μ, 0)`` with the σ·φ(z)
+    exploration term omitted, so every candidate with μ above the target
+    scored exactly 0 regardless of σ and batches degenerated to arbitrary
+    picks when nothing was predicted below threshold. The σ·φ(z) term
+    restores the standard EI exploration bonus near the boundary.
     """
     mu, std = gp.predict(X_candidates)
     std = np.maximum(std, 1e-10)
@@ -41,7 +47,7 @@ def expected_improvement_reliability(
     # Improvement: how far below threshold (positive when below)
     improvement = np.maximum(lambda_target - mu, 0.0)
 
-    return prob_below * improvement
+    return prob_below * improvement + std * norm.pdf(z)
 
 
 def boundary_seeking(
@@ -89,8 +95,16 @@ def select_batch(
     else:
         raise ValueError(f"Unknown method: {method}")
 
-    # Greedy selection with minimum-distance dedup
-    ranked = np.argsort(scores)[::-1]
+    scores = np.asarray(scores, dtype=float)
+    if batch_size > X_candidates.shape[0]:
+        raise ValueError(
+            f"batch_size={batch_size} exceeds "
+            f"n_candidates={X_candidates.shape[0]}"
+        )
+
+    # Greedy selection with minimum-distance dedup. NaN scores sort last
+    # so undefined acquisitions are picked only when nothing else remains.
+    ranked = np.argsort(np.nan_to_num(scores, nan=-np.inf))[::-1]
     selected = []
     for idx in ranked:
         if len(selected) >= batch_size:
