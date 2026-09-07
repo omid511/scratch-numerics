@@ -39,6 +39,16 @@ same split:
 | **mode-conditioned**, d_z=32 | 0.1950 | 0.2035 | **4.19 %** |
 | coverage proxy (2σ, uncalibrated) | — | — | ~0.996 |
 
+> **2026-09-07 finding — field numbers above are VOID pending COMSOL re-export.**
+> Corpus-wide audit of `Simulation_ModeShapes/` (all 1000 files, max|w| ≤ 4.4e-8:
+> solver-noise scale, no physical mode shape in any file) plus least-squares
+> provenance fit (`archived = +0.000·COMSOL − 1.000·FSDT`, R² = 1.0000, residual
+> 3e-16, 6 sampled pairs) proves the archived `correction_fields/` contain zero
+> HF information — they are negated normalized FSDT shapes. The 4.19 % skill was
+> learned from the fast solver's own outputs relabeled as corrections. Scalar
+> calibration results are unaffected (COMSOL *frequencies* are physical).
+> Loader now rejects degenerate corpora (`load_shape_corpus` 1e-6 floor).
+
 Diagnostics (roadmap SP-gate checks):
 
 | probe | result |

@@ -231,12 +231,24 @@ def load_shape_corpus(data_root, side: str) -> tuple[np.ndarray, np.ndarray]:
 
     fields = np.empty((N_SAMPLES, N_MODES, GRID_RES, GRID_RES))
     freqs = np.full((N_SAMPLES, N_MODES), np.nan)
+    degenerate = []
     for run in range(N_SAMPLES):
         for mode in range(N_MODES):
             path = os.path.join(shape_dir, prefixes[side].format(run + 1, mode + 1))
             field, freq = load_mode_shape(path)
+            # Physical-plausibility floor: a genuine exported mode shape is
+            # O(1e-3..1), never solver-noise scale. The 2026-07 COMSOL corpus
+            # shipped max|w| <= 4.4e-8 in all 1000 files (broken export) and
+            # silently poisoned every downstream correction. Fail loudly.
+            if not np.isfinite(field).all() or np.abs(field).max() < 1e-6:
+                degenerate.append(f"{path} (max|w|={np.abs(field).max():.2e})")
             fields[run, mode] = field
             freqs[run, mode] = np.nan if freq is None else float(freq)
+    if degenerate:
+        raise ValueError(
+            f"{side} shape corpus has {len(degenerate)} degenerate files "
+            f"(max|w| < 1e-6); first: {degenerate[0]}"
+        )
     return fields, freqs
 
 
