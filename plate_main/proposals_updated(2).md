@@ -17,12 +17,12 @@ All four proposals build outward from the same fast FSDT solver, each addressing
         │                 │             │                 │
    Proposal 1         Proposal 2    Proposal 3        Proposal 4
    Improve fidelity   Inverse       Robust design      Online monitoring
-   (correct the       damage        under boundary     (early-warning
-   ~4% FSDT/FEM        inference     uncertainty        margin estimation
-   gap via HF data)    (localize     (mode-veering-     from transient
-                        damage from   aware reliability  response)
-                        sparse        surrogate)
-                        sensors)
+   (measure the       damage        under boundary     (early-warning
+   design-dependent   inference     uncertainty        margin estimation
+   FSDT/FEM gap)      (localize     (mode-veering-     from transient
+                      damage from   aware reliability  response)
+                      sparse        surrogate)
+                      sensors)
 ```
 
 Each proposal produces a standalone result on its own (see individual project charters below), but together they form one research narrative: a corrected, uncertainty-aware solver (P1) that can be queried safely under uncertain boundary conditions (P3), whose designs can be monitored for both internal damage (P2) and approaching instability (P4) once deployed. The integration story (P1 feeding P2/P3; P3 and P4 pairing as offline/online safety margins) is the layer to build out if time allows — see Execution Order below for how the individual results sequence toward it.
@@ -31,8 +31,17 @@ Each proposal produces a standalone result on its own (see individual project ch
 
 ## Proposal 1: Multi-Fidelity Correction Field via Latent-Space Gaussian Process
 
-### 1. Scientific Justification (unchanged)
-FSDT's global shear correction factor (κ = 5/6) is a known weak point for soft-core sandwich plates with elastic boundary conditions. The fast solver carries a systematic ~4% error against 3D FEM that varies continuously across the plate and across design conditions. A multi-fidelity model can learn this error field and calibrate the fast solver toward FEM accuracy without needing a large FEM dataset.
+### 1. Scientific Justification
+The LF implementation does not use a constant global ``kappa = 5/6``.  It
+computes layerwise modified shear-correction factors using the
+Vlachoutsis-style laminate integrals; the baseline factor is approximately
+0.16875 for the current reference laminate.  Proposal 1 therefore learns the
+remaining discrepancy between this implemented FSDT model and the explicit
+shell reference, rather than attributing the whole gap to replacing 5/6.
+The source paper's fixed CCCC comparison cases report an approximately 4%
+FSDT-versus-FEM difference; that number is a benchmark, not a design-wide
+pilot result.  The correction model must measure, rather than assume, how the
+error varies across the sampled design conditions.
 
 **Positioning against existing multi-fidelity surrogate work:** this is not generic multi-fidelity regression (fitting a cheap-to-expensive mapping for its own sake). The contribution is a **physics-consistent correction field with calibrated uncertainty** — boundary behavior is enforced by construction rather than learned, and the uncertainty is specifically epistemic over the design space (grows outside sampled conditions) rather than a generic residual-noise estimate. That distinction should be stated explicitly wherever this proposal is written up, since it's what separates it from a standard multi-fidelity Kriging/co-kriging baseline.
 
@@ -69,7 +78,11 @@ This guarantees the correction vanishes at the domain edge by construction, at n
 Leave-p-out CV over HF runs, pointwise error maps (not just aggregate norms), coverage checks on the GP's uncertainty against held-out FEM.
 
 ### 5. Project Charter
-- **Primary claim:** a latent+GP correction model, trained on ≤100 HF samples, reduces FSDT-vs-FEM error meaningfully below the baseline ~4%, with calibrated uncertainty that grows appropriately outside the sampled design region.
+- **Primary claim:** a latent+GP correction model, trained on <=100 HF samples,
+  should be tested for improvement against the fixed-case benchmark and
+  validated by held-out HF runs; calibrated uncertainty must grow
+  appropriately outside the sampled design region.  No universal 4% pilot
+  claim is permitted without the corresponding held-out evidence.
 - **MVP:** fixed decoder (no active learning yet) trained on one deliberately-designed HF batch; GP fit on top; compared against the plain co-kriging baseline from v1 and the INR baseline above; evaluated via leave-p-out CV.
 - **Upgrade path:** if the MVP's GP uncertainty is poorly calibrated or the decoder underfits observed correction diversity, consider a richer decoder (e.g. neural operator backbone) or a second HF batch guided by GP uncertainty. Only pursue if the MVP result specifically points at one of these as the bottleneck.
 - **Dependencies:** none required from other proposals; can share encoder/decoder infrastructure with Proposal 2 (see cross-cutting notes) but isn't blocked by it.

@@ -180,8 +180,12 @@ class Profile:
 
     @ClassConstant()
     def kappa(self):
-        """Calculate the shear correction factor of the laminate.
-        This method is from Ref[2]."""
+        """Calculate shear correction factors in ``[xz, yz]`` order.
+
+        The diagonal entries correspond to Q55 (xz) and Q44 (yz).  Plate
+        assembly reorders them to match As and the FSDT strain order
+        ``[gamma_yz, gamma_xz]``.
+        """
         z = self._z
         moment = np.zeros([3, 2], dtype=self._dtype)
         d = np.zeros([2], dtype=self._dtype)

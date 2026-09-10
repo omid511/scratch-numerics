@@ -23,6 +23,18 @@ AIR_DENSITY = 1.2
 SOUND_SPEED = 340
 
 
+def _ordered_shear_stiffness(profile):
+    """Return FSDT shear stiffness in the [gamma_yz, gamma_xz] order.
+
+    Profile.kappa() follows the paper's alpha order [xz, yz], while As()
+    follows the plate strain order [yz, xz].  Reordering both axes before
+    left multiplication prevents anisotropic shear factors from swapping.
+    """
+    kappa = np.asarray(profile.kappa())
+    kappa = kappa[np.ix_([1, 0], [1, 0])]
+    return kappa @ np.asarray(profile.As())
+
+
 class PlateMeta(type):
     def __init__(self, clsname, bases, dct):
         if '_assemble' not in dct:
@@ -546,7 +558,7 @@ class Plate(PlateBase, metaclass=PlateMeta):
         self._pop_force_vector('force')
         if np.iterable(dof):
             for dofi in dof:
-                self.add_force(value, dof, x=x, y=y)
+                self.add_force(value, dofi, x=x, y=y)
         else:
             self._force.append((value, dof, x, y))
 
@@ -562,7 +574,7 @@ class Plate(PlateBase, metaclass=PlateMeta):
 
     def reset_user_C(self):
         """Remove additional damping matrixes."""
-        self._pop_damping_matrix('user')
+        self._pop_damping_matrix('user_C')
         self._user_C = []
 
     def _assemble_mass_matrix_fsdt(self):
@@ -593,7 +605,7 @@ class Plate(PlateBase, metaclass=PlateMeta):
         ABDAs[3:6, :3] = ABDAs[:3, 3:6] = np.asarray(self._profile.B(),
                                                      dtype=self._dtype)
         ABDAs[3:6, 3:6] = np.asarray(self._profile.D(), dtype=self._dtype)
-        ABDAs[6:, 6:] = np.asarray(self._profile.kappa() * self._profile.As(),
+        ABDAs[6:, 6:] = np.asarray(_ordered_shear_stiffness(self._profile),
                                    dtype=self._dtype)
         # Optimization can be done here as T.T.dot(ABDAs).dot(T) is actually
         # reordering the elements in ABDAs. The result can be easily obtained
@@ -906,7 +918,7 @@ class PressurizedPlate(Plate):
             # but much faster (about twice the speed)
             pi = np.einsum('jk, ijk', pv, wv)
             block[self._MN * 2: self._MN * 3] += pi
-        self._force_vector['force'] = block
+        self._force_vector['pressure'] = block
 
 
 class PressurizedSupersonicPlate(SupersonicPlate, PressurizedPlate):

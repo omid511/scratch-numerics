@@ -234,11 +234,11 @@ def trigonometric_basis(order, interval=[0, 1], x=sym.Symbol('x'),
         elif i % 2:
             k = i // 2 + 1
             k = k * sym.pi / length
-            func.append(sym.sin(k * x - start))
+            func.append(sym.sin(k * (x - start)))
         else:
             k = i // 2
             k = k * sym.pi / length
-            func.append(sym.cos(k * x - start))
+            func.append(sym.cos(k * (x - start)))
     return Basis(func, x, name)
 
 
@@ -252,7 +252,7 @@ def cosine_basis(order, interval=[0, 1], x=sym.Symbol('x'),
             func.append(sym.core.numbers.One())
         else:
             k = i * sym.pi / length
-            func.append(sym.cos(k * x - start))
+            func.append(sym.cos(k * (x - start)))
     return Basis(func, x, name)
 
 
