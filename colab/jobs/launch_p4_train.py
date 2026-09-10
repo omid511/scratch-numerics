@@ -7,7 +7,7 @@ import subprocess
 import sys
 REPO = "https://github.com/omid511/scratch-numerics.git"
 WORK = "/content/mech"
-BRANCH = sys.argv[1] if len(sys.argv) > 1 else "p4-review-fixes"
+BRANCH = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "p4-review-fixes"
 
 
 def sh(cmd, **kw):
