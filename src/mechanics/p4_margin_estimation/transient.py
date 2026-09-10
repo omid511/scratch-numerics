@@ -13,9 +13,78 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import linalg
 
-from mechanics.eigenanalysis import solve_eigenproblem, EigenFilter, TRANSIENT_FILTER
-
+from mechanics.eigenanalysis import solve_eigenproblem, EigenFilter, TRANSIENT_FILTER, spectral_abscissa
 logger = logging.getLogger(__name__)
+NYQUIST_MARGIN = 0.90
+# Numerical safety for the adaptive-timebase guard (review finding 1):
+# dt = MARGIN*pi/omega makes the representability guard an exact equality in
+# real arithmetic, so floating-point rounding alone could reject valid modes
+# (6,310/100,000 sampled frequencies tripped the unguarded comparison). The
+# (1 - _DT_EPS) factor puts dt strictly inside the representable set and the
+# guard below carries a matching relative tolerance.
+_DT_EPS = 1e-9
+def _adaptive_dt(omega_max: float, dt_nominal: float) -> float:
+    """Sampling interval fitting omega_max under NYQUIST_MARGIN of Nyquist.
+    Returns dt_nominal for empty/non-finite/non-positive bands; the result is
+    always strictly inside the representability guard, never on its edge.
+    """
+    if not np.isfinite(dt_nominal) or dt_nominal <= 0.0:
+        raise ValueError(f"Invalid dt_nominal: {dt_nominal}")
+    if not np.isfinite(omega_max) or omega_max <= 0.0:
+        return dt_nominal
+    return min(dt_nominal, NYQUIST_MARGIN * np.pi / omega_max * (1.0 - _DT_EPS))
+
+
+def _eig_match(eigvals: np.ndarray, target: complex, tol: float = 1e-6) -> bool:
+    """Whether ``target`` is represented in ``eigvals``, up to conjugation.
+    The label solve maximizes over both ±imag branches, so its critical
+    eigenvalue is arbitrary up to conjugation (same physical oscillation,
+    distance 2|omega| for the mirror branch). Only a genuinely different
+    mode should flag as unrepresented.
+    """
+    eigvals = np.asarray(eigvals)
+    if eigvals.size == 0 or not (np.isfinite(target.real) and np.isfinite(target.imag)):
+        return False
+    _tol = tol * (1.0 + abs(target))
+    _d = np.minimum(np.abs(eigvals - target), np.abs(eigvals - np.conj(target)))
+    return bool(np.any(_d <= _tol))
+
+
+SIGN_TOL = 1e-6  # 1/s deadband: |alpha| below this is marginally stable either way.
+def stability_sign_agrees(label_alpha: float, retained_alpha: float, tol: float = SIGN_TOL) -> bool:
+    """Whether label and retained spectra agree on stability sign.
+    Review caveat 1: :func:`_eig_match` is spectrum matching whose tolerance
+    scales with the full complex eigenvalue (frequency-dominated), so
+    opposite-sign growth rates at matched frequency still match. This
+    compares signs separately: both stable, both unstable, or either inside
+    the near-zero deadband (marginal — sign numerically undecidable, counted
+    as agree). NaN (unresolved label solve) disagrees.
+    """
+    if not (np.isfinite(label_alpha) and np.isfinite(retained_alpha)):
+        return False
+    if abs(label_alpha) <= tol or abs(retained_alpha) <= tol:
+        return True
+    return bool(np.sign(label_alpha) == np.sign(retained_alpha))
+
+def _label_path_consistency(M_mat, K_total, C_total, eigvals, velocity):
+    """Replicate the flutter-label contract at one velocity and compare.
+    Runs ``spectral_abscissa`` with the label gates (eta_w_min=1e-3, no
+    oscillatory/band restriction — as in ``_max_real_eigenvalue``) and checks
+    the label-driving mode against the retained signal spectrum.
+    One extra dense solve per cached velocity (~17% generation overhead);
+    an unresolved label solve warns and returns (None, nan, False) rather
+    than killing generation, mirroring the flutter scan's tolerance.
+    Returns (label_crit|None, label_alpha, label_represented).
+    """
+    try:
+        _label = spectral_abscissa(M_mat, K_total, C_total, eta_w_min=1e-3)
+        label_crit: complex | None = complex(_label.critical_eigenvalue)
+        label_alpha = float(_label.alpha)
+        return label_crit, label_alpha, _eig_match(eigvals, label_crit)
+    except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
+        logger.warning("Label-path abscissa unresolved at V=%.1f: %s", velocity, exc)
+        return None, float("nan"), False
+
 
 # NOTE: a previous `id(solver)`-keyed flutter-velocity cache lived here. It was
 # removed: `id()` keys collide after garbage collection and the key ignored
@@ -46,9 +115,16 @@ class Eigendecomposition:
     sensor_modes: np.ndarray | None = None  # P2-2: cached (n_sensors, n_modes) projection
     # P2-3: adaptive sampling time base chosen by compute_eigendecomposition
     # so the retained mode band fits under 90% of Nyquist. generate_clip uses
-    # it unless the caller passes an explicit t_span.
     t_span: tuple = (0.0, 0.5)
     dt: float | None = None
+    # Label-path consistency (review finding 3): critical eigenvalue from the
+    # same full-spectrum spectral-abscissa contract the flutter label uses
+    # (eta_w_min=1e-3, no oscillatory/band restriction), evaluated at the clip
+    # velocity, plus whether it is represented in the retained signal modes.
+    # None/nan when the label-path solve itself is unresolved.
+    label_crit: complex | None = None
+    label_alpha: float = float("nan")
+    label_represented: bool = False
 
 
 @dataclass
@@ -62,6 +138,21 @@ class TransientClip:
     eigenvalues: np.ndarray      # complex, (n_modes,)
     sensor_xy: np.ndarray        # (n_sensors, 2) — grid indices [iy, ix]
     design_id: str = ""          # unique ID for grouped splitting
+    # Provenance (review §4.1/4.2/4.4): sampling + saturation + critical mode.
+    # Defaults preserve backward compatibility with older call sites/tests.
+    dt: float | None = None             # seconds per sample (time[1]-time[0])
+    duration: float | None = None       # physical clip length in seconds
+    clamp_frac: float = 0.0             # fraction of (mode,time) growth args hitting clamp bounds
+    max_log_amp: float = 0.0            # max Re(lambda*t) before clamping
+    critical_idx: int = 0               # index into eigenvalues of most-dangerous oscillatory mode
+    alpha: float = 0.0                  # spectral abscissa over retained modes (max Re)
+    omega_crit: float = 0.0             # |Im| of the critical mode
+    # Label-path consistency (review finding 3): abscissa + critical mode from
+    # the flutter-label contract at the clip velocity. A label_represented of
+    # False means margin zero is driven by a mode absent from the signal.
+    label_alpha: float = float("nan")
+    label_omega: float = float("nan")   # |Im| of the label-path critical mode
+    label_represented: bool = False
 
 
 def default_sensor_xy(ny: int, nx: int, n_sensors: int = 8) -> np.ndarray:
@@ -241,59 +332,60 @@ def compute_eigendecomposition(
         om_hi = filt.omega_max if filt.omega_max is not None else np.inf
         band = (np.abs(cand_vals.imag) >= om_lo) & (np.abs(cand_vals.imag) <= om_hi)
         cand_vals, cand_vecs = cand_vals[band], cand_vecs[:, band]
-
-    # P2-3: ADAPTIVE sampling window — determine the retained modes' frequency
-    # band FIRST, then choose dt so that 90% of Nyquist covers it. The output
-    # series LENGTH (n_timesteps) is unchanged; only dt (and hence the clip
-    # duration t1 - t0) adapts.
-    omega = np.abs(cand_vals.imag)
-    omega_max = float(omega.max()) if omega.size else 0.0
-    dt_needed = 0.90 * np.pi / omega_max if omega_max > 0.0 else dt_nominal
-    dt = min(dt_nominal, dt_needed)
+    # Review §4.1: select the RETAINED modes first, then set the timebase from
+    # the retained band only. The previous code derived dt from all candidates,
+    # so high-frequency modes that never entered the signal could shorten the
+    # window and hide slow near-flutter growth.
+    if cand_vals.size == 0:
+        raise RuntimeError(f"No candidate modes at V={velocity:.1f}")
+    # Sort candidates by frequency; critical (most-dangerous oscillatory) first.
+    freq_order = np.argsort(np.abs(cand_vals.imag))
+    critical_cand = most_dangerous_oscillatory_mode(cand_vals)
+    keep_cand = [int(critical_cand)]
+    for idx in (int(i) for i in freq_order):
+        if idx not in keep_cand:
+            keep_cand.append(idx)
+        if len(keep_cand) >= n_modes:
+            break
+    keep_cand = np.array(keep_cand[:n_modes])
+    retained_vals = cand_vals[keep_cand]
+    retained_vecs = cand_vecs[:, keep_cand]
+    # Timebase from the retained band: dt adapts so retained modes fit under
+    # 90% of Nyquist. Retained modes are never silently dropped for Nyquist
+    # reasons — dt moves instead.
+    omega_ret = np.abs(retained_vals.imag)
+    omega_max = float(omega_ret.max()) if omega_ret.size else 0.0
+    dt = _adaptive_dt(omega_max, dt_nominal)
     nyquist_omega = np.pi / dt
     t1_adapted = t0 + n_timesteps * dt
-
-    representable = omega <= 0.90 * nyquist_omega
-    filtered_eigvals = cand_vals[representable]
-    filtered_eigvecs = cand_vecs[:, representable]
-
-    if filtered_eigvals.size == 0:
+    if bool(np.any(omega_ret > NYQUIST_MARGIN * nyquist_omega * (1.0 + _DT_EPS))):
         raise RuntimeError(
-            f"No modes below 90% of Nyquist ({nyquist_omega:.1f} rad/s) at "
+            f"Retained band exceeds {NYQUIST_MARGIN:.0%} of Nyquist ({nyquist_omega:.1f} rad/s) at "
             f"V={velocity:.1f} even after adaptive dt selection"
         )
-
-    # Ensure the critical flutter mode is always included
-    n_phys = len(filtered_eigvals)
-    if n_phys == 0:
-        raise RuntimeError(
-            f"No physical modes found at V={velocity:.1f}"
-        )
-
-    # Sort by frequency for the main set
-    freq_order = np.argsort(filtered_eigvals.imag)
-
-    # Identify the most dangerous oscillatory mode
-    critical_idx = most_dangerous_oscillatory_mode(filtered_eigvals)
-
-    # Build keep list: critical mode first, then fill by frequency
-    keep = [critical_idx]
-    for idx in freq_order:
-        if idx not in keep:
-            keep.append(idx)
-        if len(keep) >= n_modes or len(keep) >= n_phys:
-            break
-
-    keep = np.array(keep[:n_modes])
-
-    eigvals = filtered_eigvals[keep]
-    eigvecs = filtered_eigvecs[:, keep]
-
+    # Reorder retained: critical mode first, then remaining by frequency.
+    freq_order_ret = np.argsort(retained_vals.imag)
+    critical_pos = int(np.flatnonzero(keep_cand == int(critical_cand))[0])
+    order = [critical_pos] + [i for i in (int(j) for j in freq_order_ret) if i != critical_pos]
+    order = np.array(order)
+    eigvals = retained_vals[order]
+    eigvecs = retained_vecs[:, order]
+    # Critical mode is index 0 by construction.
+    critical_idx = 0
     if len(eigvals) < min_modes:
         raise RuntimeError(
             f"Only {len(eigvals)} physical modes found at V={velocity:.1f} "
             f"(need {min_modes})"
         )
+    # Review finding 3: replicate the label-path contract (full validated
+    # spectrum, eta_w_min=1e-3, no oscillatory/band restriction — the same
+    # gates find_flutter_velocity uses via _max_real_eigenvalue) at the clip
+    # velocity, and check the label-driving mode is represented in the
+    # retained signal modes. A static-divergence (imag≈0) or out-of-band
+    # driver crosses margin zero with no observable transient signature;
+    # that must be measured per clip, not assumed from shared infrastructure.
+    label_crit, label_alpha, label_represented = _label_path_consistency(
+        M_mat, K_total, C_total, eigvals, velocity)
 
     # Sensor locations
     ny = solver.grid[1]
@@ -346,6 +438,9 @@ def compute_eigendecomposition(
         sensor_modes=sensor_modes,
         t_span=(t0, t1_adapted),
         dt=dt,
+        label_crit=label_crit,
+        label_alpha=label_alpha,
+        label_represented=label_represented,
     )
 
 
@@ -407,26 +502,15 @@ def generate_clip_from_eigendecomposition(
     # _MAX_LOG_AMP] so supercritical (negative-margin) clips stay finite and
     # ordered instead of overflowing to inf and being rejected (which biased
     # the dataset toward stable clips). Oscillation phase is unclamped.
-    w_all = np.zeros((MN_eff, n_timesteps))
-
-    for k in range(n_phys):
-        lam_k = eigvals[k]
-        v_k = eigvecs[:size, k]
-        c_k = coeffs_modal[k]
-
-        exp_t = np.exp(np.clip(lam_k.real * t, _MIN_LOG_AMP, _MAX_LOG_AMP))
-        cos_t = np.cos(lam_k.imag * t)
-        sin_t = np.sin(lam_k.imag * t)
-        w_v_real = v_k[w_start:w_start + MN_eff].real
-        w_v_imag = v_k[w_start:w_start + MN_eff].imag
-        c_real = c_k.real
-        c_imag = c_k.imag
-        real_part = c_real * w_v_real - c_imag * w_v_imag
-        imag_part = -c_imag * w_v_real - c_real * w_v_imag
-        contrib = 2.0 * (np.outer(real_part, cos_t * exp_t) + np.outer(imag_part, sin_t * exp_t))
-        w_all += contrib
-
-    # Map w-DOFs to grid at sensor locations (P2-2: use cached sensor_modes)
+    # Review §4.2: record saturation incidence — clamped trajectories are not
+    # exact linear responses and must be auditable per clip.
+    real_arg = eigvals.real[:, None] * t[None, :]
+    max_log_amp = float(np.max(real_arg)) if real_arg.size else 0.0
+    min_log_amp = float(np.min(real_arg)) if real_arg.size else 0.0
+    clamp_frac = float(np.mean((real_arg > _MAX_LOG_AMP) | (real_arg < _MIN_LOG_AMP))) if real_arg.size else 0.0
+    # Map w-DOFs to grid at sensor locations (P2-2: use cached sensor_modes).
+    # Review §6.1: skip the full-field w_all reconstruction on the cached path —
+    # it was built then discarded. Only the uncached fallback needs it.
     n_sensors = len(eigs.sensor_iy)
     if eigs.sensor_modes is not None:
         # Use cached projection: signals = sensor_modes @ modal_response
@@ -434,6 +518,22 @@ def generate_clip_from_eigendecomposition(
         modal_response = _clamped_modal_response(eigvals, t, coeffs_modal)  # (n_phys, n_t)
         sensor_signals = 2.0 * np.real(eigs.sensor_modes @ modal_response)
     else:
+        w_all = np.zeros((MN_eff, n_timesteps))
+        for k in range(n_phys):
+            lam_k = eigvals[k]
+            v_k = eigvecs[:size, k]
+            c_k = coeffs_modal[k]
+            exp_t = np.exp(np.clip(lam_k.real * t, _MIN_LOG_AMP, _MAX_LOG_AMP))
+            cos_t = np.cos(lam_k.imag * t)
+            sin_t = np.sin(lam_k.imag * t)
+            w_v_real = v_k[w_start:w_start + MN_eff].real
+            w_v_imag = v_k[w_start:w_start + MN_eff].imag
+            c_real = c_k.real
+            c_imag = c_k.imag
+            real_part = c_real * w_v_real - c_imag * w_v_imag
+            imag_part = -c_imag * w_v_real - c_real * w_v_imag
+            contrib = 2.0 * (np.outer(real_part, cos_t * exp_t) + np.outer(imag_part, sin_t * exp_t))
+            w_all += contrib
         sensor_signals = np.zeros((n_sensors, n_timesteps))
         w_3d = w_all.reshape(eigs.M_eff, eigs.N_eff, n_timesteps)
         for s_idx in range(n_sensors):
@@ -455,14 +555,20 @@ def generate_clip_from_eigendecomposition(
     # Reject all-zero clips
     if np.all(sensor_signals == 0):
         raise RuntimeError("All-zero sensor signal after propagation")
-
     # Margin
     margin = float("nan")
     if u_crit is not None and u_crit > 0:
         margin = (u_crit - eigs.velocity) / u_crit
-
     if design_id is None:
         design_id = f"v{eigs.velocity:.0f}"
+    dt_clip = float(t[1] - t[0]) if len(t) > 1 else (float(eigs.dt) if eigs.dt else 0.0)
+    duration = float(t[-1] - t[0] + dt_clip) if len(t) else 0.0
+    alpha = float(np.max(eigvals.real)) if len(eigvals) else 0.0
+    try:
+        crit = int(most_dangerous_oscillatory_mode(eigvals))
+    except RuntimeError:
+        crit = 0
+    omega_crit = float(abs(eigvals[crit].imag)) if len(eigvals) else 0.0
     return TransientClip(
         sensor_signals=sensor_signals,
         time=t,
@@ -472,6 +578,16 @@ def generate_clip_from_eigendecomposition(
         eigenvalues=eigvals,
         sensor_xy=np.column_stack([eigs.sensor_iy, eigs.sensor_ix]),
         design_id=design_id,
+        dt=dt_clip,
+        duration=duration,
+        clamp_frac=float(clamp_frac),
+        max_log_amp=float(max_log_amp),
+        critical_idx=int(crit),
+        alpha=float(alpha),
+        omega_crit=float(omega_crit),
+        label_alpha=float(getattr(eigs, "label_alpha", float("nan"))),
+        label_omega=float(abs(eigs.label_crit.imag)) if getattr(eigs, "label_crit", None) is not None else float("nan"),
+        label_represented=bool(getattr(eigs, "label_represented", False)),
     )
 
 

@@ -26,6 +26,8 @@ import numpy as np
 __all__ = [
     "broadcast_scalar_to_series",
     "compute_lead_time",
+    "lead_time_to_event",
+    "prefix_warning_available",
     "lead_time_precision_recall",
     "false_alarm_rate",
     "roc_auc",
@@ -179,3 +181,76 @@ def roc_auc(scores: np.ndarray, labels: np.ndarray) -> float:
     rank_sum_pos = ranks[pos].sum()
     u = rank_sum_pos - n_pos * (n_pos + 1) / 2.0
     return float(u / (n_pos * n_neg))
+
+
+def lead_time_to_event(
+    pred_margin_series: np.ndarray,
+    true_margin_series: np.ndarray,
+    warn_threshold: float = 0.15,
+    event_threshold: float = 0.0,
+    dt: float | None = None,
+) -> float:
+    """Lead time between a WARNING crossing and the INSTABILITY event.
+    Review §3.2: ``compute_lead_time`` uses one threshold for both series,
+    which measures warning-region anticipation, not flutter anticipation.
+    Here the warning time is the first predicted ``<= warn_threshold`` and
+    the event time is the first true ``<= event_threshold`` (default margin
+    zero = flutter). Positive means warning preceded instability.
+    With ``dt`` (seconds/sample) the result is in seconds, otherwise samples.
+    NaN when either never crosses. Both inputs must be 1-d ``(T,)`` series.
+    """
+    pred = np.asarray(pred_margin_series)
+    true = np.asarray(true_margin_series)
+    if pred.ndim != 1 or true.ndim != 1:
+        raise ValueError(
+            "lead_time_to_event needs one 1-d margin SERIES per clip with shape "
+            f"(T,), got {pred.shape} vs {true.shape}."
+        )
+    if pred.shape != true.shape:
+        raise ValueError(f"series shape mismatch: {pred.shape} vs {true.shape}")
+    warn_idx = np.flatnonzero(pred <= warn_threshold)
+    event_idx = np.flatnonzero(true <= event_threshold)
+    if warn_idx.size == 0 or event_idx.size == 0:
+        return float("nan")
+    lead_samples = float(event_idx[0] - warn_idx[0])
+    if dt is not None:
+        if not np.isfinite(dt) or dt <= 0:
+            raise ValueError(f"Invalid dt: {dt}")
+        return lead_samples * float(dt)
+    return lead_samples
+
+
+def prefix_warning_available(
+    n_timesteps: int,
+    calibration_samples: int,
+    warn_index: int | None,
+    min_samples: int = 1,
+) -> int | None:
+    """Earliest sample index at which a prefix prediction is actually available.
+    Review §3.1: a complete-clip scalar prediction is not available at the
+    start of its clip. Causal calibration needs ``calibration_samples`` and a
+    rolling predictor needs ``min_samples`` (its window length); a warning at
+    ``warn_index`` is only actionable once all required samples exist.
+    Returns None when no warning fired (``warn_index`` None/NaN).
+    Raises on impossible windows: non-positive counts, calibration or window
+    longer than the observation, a warning index outside ``[0, n_timesteps)``,
+    or a non-integer warning index (silent truncation would misstate timing).
+    Window validation runs even when no warning fired, so ``None`` never
+    masks a misconfigured observation budget.
+    Note: pass the predictor's true window length as ``min_samples`` — the
+    default 1 covers only calibration delay, not rolling-window availability.
+    """
+    if n_timesteps <= 0 or calibration_samples <= 0 or min_samples <= 0:
+        raise ValueError("n_timesteps, calibration_samples and min_samples must be positive")
+    if calibration_samples > n_timesteps:
+        raise ValueError(f"calibration_samples ({calibration_samples}) exceeds observed n_timesteps ({n_timesteps})")
+    if min_samples > n_timesteps:
+        raise ValueError(f"min_samples ({min_samples}) exceeds observed n_timesteps ({n_timesteps})")
+    if warn_index is None or (isinstance(warn_index, float) and np.isnan(warn_index)):
+        return None
+    if isinstance(warn_index, bool) or not isinstance(warn_index, (int, np.integer)):
+        raise ValueError(f"warn_index must be an integer sample index, got {warn_index!r}")
+    w = int(warn_index)
+    if w < 0 or w >= n_timesteps:
+        raise ValueError(f"warn_index ({warn_index}) outside observed [0, {n_timesteps})")
+    return int(max(w, int(calibration_samples) - 1, int(min_samples) - 1))

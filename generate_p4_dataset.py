@@ -136,11 +136,12 @@ def _worker_process_design(args):
 
         clips = []
         failures = []
+        # Review finding 4: realization-level failures need structured records,
+        # not just log lines — otherwise the ledger undercounts attrition.
+        realization_failures = []
         rng_base = np.random.default_rng(_design_seed(design.design_id))
-
         for r_idx in range(N_REALIZATIONS):
             design_pert = _perturbed_design(design, r_idx, rng_base)
-
             try:
                 with threadpool_limits(limits=1):
                     solver_r = make_solver_from_design(design_pert)
@@ -149,9 +150,10 @@ def _worker_process_design(args):
             except Exception as e:
                 # Never fall back to nominal — skip this realization
                 logger.warning("Realization %d failed for %s: %s", r_idx, design.design_id, e)
+                realization_failures.append({"realization_idx": r_idx, "phase": "realization_flutter_search", "error": str(e)[:300]})
                 continue
-
             if u_crit_r is None:
+                realization_failures.append({"realization_idx": r_idx, "phase": "flutter_search", "error": "no boundary found"})
                 continue
 
             # Compute velocities from perturbed u_crit for this realization
@@ -219,8 +221,20 @@ def _worker_process_design(args):
                         "realization_idx": r_idx,
                         "excitation_idx": exc_idx,
                         "split": split,
+                        # Review §4.1/4.2/4.4 + finding 3 provenance: acquisition,
+                        # saturation, stability, and label-path consistency.
+                        "dt": float(clip.dt) if clip.dt is not None else float("nan"),
+                        "duration": float(clip.duration) if clip.duration is not None else float("nan"),
+                        "u_crit": float(u_crit_r),
+                        "clamp_frac": float(clip.clamp_frac),
+                        "max_log_amp": float(clip.max_log_amp),
+                        "alpha": float(clip.alpha),
+                        "omega_crit": float(clip.omega_crit),
+                        "critical_idx": int(clip.critical_idx),
+                        "label_alpha": float(clip.label_alpha),
+                        "label_omega": float(clip.label_omega),
+                        "label_represented": bool(clip.label_represented),
                     })
-
         elapsed = time.time() - t0
         return clips, {
             "design_id": design.design_id,
@@ -229,6 +243,7 @@ def _worker_process_design(args):
             "split": split,
             "elapsed": elapsed,
             "failures": failures,
+            "realization_failures": realization_failures,
         }
     except Exception as e:
         return None, f"{design.design_id}: {e}\n{traceback.format_exc()}"
@@ -277,20 +292,18 @@ def generate_dataset(
     print(f"Sampling {n_designs} designs...", flush=True)
     designs = sample_designs(n_designs, seed=seed)
     print(f"Sampled {len(designs)} designs.", flush=True)
-
     design_ids = [d.design_id for d in designs]
     train_ids, val_ids, test_ids = _split_designs(design_ids)
     split_map = {did: "train" for did in train_ids}
     split_map.update({did: "val" for did in val_ids})
     split_map.update({did: "test" for did in test_ids})
-
     work = [(d, split_map[d.design_id]) for d in designs]
-
     all_clips = []
     design_meta = []
+    rejections: list = []
     n_skipped = 0
-
     context = mp.get_context("spawn")
+
     worker_count = int(os.environ.get("DESIGN_WORKERS", "4"))
 
     with ProcessPoolExecutor(max_workers=worker_count, mp_context=context) as pool:
@@ -304,22 +317,29 @@ def generate_dataset(
                 n_skipped += 1
                 print(f"  Design {idx+1}/{n_designs}: BROKEN — {exc}", flush=True)
                 results_by_idx[idx] = (None, str(exc)[:80])
+                rejections.append({"design_id": work[idx][0].design_id, "phase": "worker_crash", "reason": str(exc)[:500]})
                 continue
-
             if clips_or_none is None:
                 n_skipped += 1
                 print(f"  Design {idx+1}/{n_designs}: SKIP — {meta[:80]}", flush=True)
                 results_by_idx[idx] = (None, meta)
+                rejections.append({"design_id": work[idx][0].design_id, "phase": "no_clips", "reason": str(meta)[:500]})
                 continue
-
             results_by_idx[idx] = (clips_or_none, meta)
-
         for idx, result in enumerate(results_by_idx):
             if result is None:
                 continue
             clips_or_none, meta = result
             if clips_or_none is None:
                 continue
+            # Review finding 4: a worker returning [] contributed no clips but
+            # bypassed the rejected-design branch — account for it explicitly.
+            if len(clips_or_none) == 0:
+                n_fail = len(meta.get("failures", [])) if isinstance(meta, dict) else 0
+                n_rfail = len(meta.get("realization_failures", [])) if isinstance(meta, dict) else 0
+                rejections.append({"design_id": work[idx][0].design_id, "phase": "no_clips",
+                                  "reason": f"0 clips; {n_fail} clip failures, {n_rfail} realization failures"})
+                n_skipped += 1
             all_clips.extend(clips_or_none)
             design_meta.append(meta)
             n_done = idx + 1
@@ -330,10 +350,22 @@ def generate_dataset(
                     f"{meta['n_clips']} clips ({meta['elapsed']:.1f}s)",
                     flush=True,
                 )
-
     if not all_clips:
-        print("No clips generated!", flush=True)
-        return {"n_clips": 0, "output_dir": str(output_path)}
+        # Caveat 2: every design failed — persist the rejection ledger anyway
+        # so the run stays auditable instead of vanishing silently.
+        import datetime as _dt0
+        fail_meta = {
+            "n_designs": n_designs, "n_clips": 0, "n_train": 0, "n_val": 0, "n_test": 0,
+            "n_skipped_designs": n_skipped, "designs": design_meta,
+            "train_designs": [], "val_designs": [], "test_designs": [],
+            "rejections": rejections, "n_rejections": len(rejections),
+            "manifest": {"generated_utc": _dt0.datetime.now(_dt0.timezone.utc).isoformat(), "seed": seed},
+        }
+        output_path.mkdir(parents=True, exist_ok=True)
+        with open(output_path / "metadata.json", "w") as f:
+            json.dump(fail_meta, f, indent=2)
+        print(f"No clips generated! Ledger with {len(rejections)} rejections saved to {output_path}/", flush=True)
+        return {"n_clips": 0, "output_dir": str(output_path), "n_skipped": n_skipped, "rejections": rejections}
 
     n_clips = len(all_clips)
     T = all_clips[0]["signals"].shape[1]
@@ -343,7 +375,19 @@ def generate_dataset(
     excitation_ids_arr = np.array([c["excitation_idx"] for c in all_clips])
     design_ids_arr = np.array([c["design_id"] for c in all_clips])
     realization_ids_arr = np.array([c["realization_idx"] for c in all_clips])
-
+    # Review §4.1/4.2/4.4 + finding 3: per-clip acquisition + saturation +
+    # stability + label-consistency provenance. .get() defaults keep backward
+    # compatibility with in-memory clip dicts built by older code paths.
+    dts_arr = np.array([float(c.get("dt", "nan")) for c in all_clips], dtype=np.float32)
+    durations_arr = np.array([float(c.get("duration", "nan")) for c in all_clips], dtype=np.float32)
+    u_crits_arr = np.array([float(c.get("u_crit", "nan")) for c in all_clips], dtype=np.float32)
+    clamp_fracs_arr = np.array([float(c.get("clamp_frac", 0.0)) for c in all_clips], dtype=np.float32)
+    max_log_amps_arr = np.array([float(c.get("max_log_amp", 0.0)) for c in all_clips], dtype=np.float32)
+    alphas_arr = np.array([float(c.get("alpha", 0.0)) for c in all_clips], dtype=np.float32)
+    omega_crits_arr = np.array([float(c.get("omega_crit", 0.0)) for c in all_clips], dtype=np.float32)
+    label_alphas_arr = np.array([float(c.get("label_alpha", "nan")) for c in all_clips], dtype=np.float32)
+    label_omegas_arr = np.array([float(c.get("label_omega", "nan")) for c in all_clips], dtype=np.float32)
+    label_rep_arr = np.array([bool(c.get("label_represented", False)) for c in all_clips], dtype=bool)
     # P1-31: Replace assert with ValueError for data validation
     if clips_arr.ndim != 3:
         raise ValueError(f"clips must have 3 dimensions, got {clips_arr.shape}")
@@ -363,13 +407,19 @@ def generate_dataset(
         indices = np.flatnonzero(invalid_constant_channel)[:20]
         raise ValueError(f"Clips with constant channels detected at indices {indices.tolist()}")
 
-    # P1-33: Array alignment checks
     aligned_arrays = {
         "margins": margins_arr,
         "velocities": velocities_arr,
         "design_ids": design_ids_arr,
         "realization_ids": realization_ids_arr,
         "excitation_ids": excitation_ids_arr,
+        "dts": dts_arr,
+        "durations": durations_arr,
+        "u_crits": u_crits_arr,
+        "clamp_fracs": clamp_fracs_arr,
+        "label_alphas": label_alphas_arr,
+        "label_omegas": label_omegas_arr,
+        "label_represented": label_rep_arr,
     }
     for name, array in aligned_arrays.items():
         if len(array) != n_clips:
@@ -396,6 +446,8 @@ def generate_dataset(
     n_val = int(np.sum(splits_of_clips == "val"))
     n_test = int(np.sum(splits_of_clips == "test"))
 
+    import datetime as _dt
+    clamp_pos = float(np.mean(clamp_fracs_arr > 0.0)) if n_clips else 0.0
     metadata = {
         "n_designs": n_designs,
         "n_realizations": N_REALIZATIONS,
@@ -418,12 +470,49 @@ def generate_dataset(
         "train_designs": sorted(train_ids),
         "val_designs": sorted(val_ids),
         "test_designs": sorted(test_ids),
+        # Review §4.3 + finding 4: rejected-design ledger — generalization claims
+        # apply to the accepted subset, not the raw sampled distribution.
+        "rejections": rejections,
+        "n_rejections": len(rejections),
+        # Review §4.2/4.4 + finding 3: dataset-level saturation + acquisition +
+        # label-consistency summary.
+        "clamp_summary": {
+            "frac_clips_with_clamping": clamp_pos,
+            "mean_clamp_frac": float(np.mean(clamp_fracs_arr)) if n_clips else 0.0,
+            "max_clamp_frac": float(np.max(clamp_fracs_arr)) if n_clips else 0.0,
+            "max_log_amp": float(np.max(max_log_amps_arr)) if n_clips else 0.0,
+        },
+        "consistency_summary": {
+            "frac_clips_label_represented": float(np.mean(label_rep_arr)) if n_clips else 0.0,
+            "frac_clips_label_unresolved": float(np.mean(~np.isfinite(label_alphas_arr))) if n_clips else 0.0,
+            "mean_abs_label_minus_retained_alpha": float(np.nanmean(np.abs(label_alphas_arr - alphas_arr))) if n_clips else 0.0,
+            # Caveat 1: spectrum matching is frequency-dominated; stability-sign
+            # agreement is reported separately (1e-6 1/s deadband).
+            "frac_clips_sign_disagree": float(np.mean(
+                np.isfinite(label_alphas_arr)
+                & (np.abs(label_alphas_arr) > 1e-6) & (np.abs(alphas_arr) > 1e-6)
+                & (np.sign(label_alphas_arr) != np.sign(alphas_arr)))) if n_clips else 0.0,
+            "max_abs_alpha_error": float(np.nanmax(np.abs(label_alphas_arr - alphas_arr))) if n_clips else 0.0,
+        },
+        "acquisition_summary": {
+            "dt_min": float(np.nanmin(dts_arr)) if n_clips else 0.0,
+            "dt_max": float(np.nanmax(dts_arr)) if n_clips else 0.0,
+            "duration_min": float(np.nanmin(durations_arr)) if n_clips else 0.0,
+            "duration_max": float(np.nanmax(durations_arr)) if n_clips else 0.0,
+        },
+        # Review §4.5: compact experiment manifest for reproducibility.
+        "manifest": {
+            "generated_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "seed": seed,
+            "solver": {"M": 6, "N": 6, "grid": [32, 32], "k_stiffness": 1e14, "bc": "CFCF"},
+            "timebase": {"rule": "retained_band_90pct_nyquist", "n_timesteps": int(T)},
+            "growth_clamp": {"min_log_amp": -50.0, "max_log_amp": 20.0},
+            "perturbations": {"zeta": ZETA_PERTURB, "face_E": FACE_E_PERTURB, "core_G": CORE_G_PERTURB, "rho": RHO_PERTURB},
+        },
     }
-
     # Atomic write: write to temp dir, then rename
     tmp_path = output_path.with_suffix(".tmp")
     tmp_path.mkdir(parents=True, exist_ok=True)
-
     # P2-1: Use .npy with memmap for clips instead of compressed .npz
     clips_path = tmp_path / "clips.npy"
     clips_memmap = np.lib.format.open_memmap(
@@ -431,8 +520,7 @@ def generate_dataset(
     )
     clips_memmap[:] = clips_arr
     clips_memmap.flush()
-
-    # Keep small metadata in NPZ
+    # Keep small metadata in NPZ (provenance arrays added per review §4.1/4.2/4.4)
     np.savez_compressed(
         tmp_path / "metadata_arrays.npz",
         margins=margins_arr,
@@ -440,6 +528,16 @@ def generate_dataset(
         design_ids=design_ids_arr,
         realization_ids=realization_ids_arr,
         excitation_ids=excitation_ids_arr,
+        dts=dts_arr,
+        durations=durations_arr,
+        u_crits=u_crits_arr,
+        clamp_fracs=clamp_fracs_arr,
+        max_log_amps=max_log_amps_arr,
+        alphas=alphas_arr,
+        omega_crits=omega_crits_arr,
+        label_alphas=label_alphas_arr,
+        label_omegas=label_omegas_arr,
+        label_represented=label_rep_arr,
     )
     with open(tmp_path / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)

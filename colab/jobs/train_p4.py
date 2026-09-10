@@ -16,8 +16,9 @@ BRANCH = sys.argv[1] if len(sys.argv) > 1 else "master"
 subprocess.run(
     f"rm -rf {WORK} && git clone --depth 1 -b {BRANCH} {REPO} {WORK}",
     shell=True, check=True, cwd="/content")
-if importlib.util.find_spec("gdown") is None:
-    subprocess.run("pip install -q gdown", shell=True, check=True, cwd=WORK)
+for pkg in ("gdown", "wandb"):
+    if importlib.util.find_spec(pkg) is None:
+        subprocess.run(f"pip install -q {pkg}", shell=True, check=True, cwd=WORK)
 subprocess.run(
     f"python -c \"import gdown; gdown.download("
     f"'https://drive.google.com/uc?id={DATA_FILE_ID}', "
@@ -25,10 +26,17 @@ subprocess.run(
     shell=True, check=True, cwd=WORK)
 subprocess.run("tar -xzf /content/data.tgz", shell=True, check=True,
                cwd=WORK)
+import os
+env = dict(os.environ, WANDB_MODE="offline", WANDB_PROJECT="p4-margin")
 with open("/content/result.txt", "w") as f:
     r = subprocess.run("PYTHONPATH=/content/mech/src python train_p4_expanded.py",
                        shell=True, cwd=WORK, stdout=f,
-                       stderr=subprocess.STDOUT)
+                       stderr=subprocess.STDOUT, env=env)
     f.write(f"[train exit={r.returncode}]\n")
-print("TRAIN_DONE — download /content/result.txt and any *.pt before stopping",
+artifacts = subprocess.run("ls -la /content/mech/*.pt /content/mech/*.json /content/mech/wandb 2>&1",
+                           shell=True, check=False, cwd=WORK,
+                           capture_output=True, text=True)
+with open("/content/result.txt", "a") as f:
+    f.write("[artifacts]\n" + artifacts.stdout + artifacts.stderr)
+print("TRAIN_DONE — download /content/result.txt, *.pt, *.json and wandb/ before stopping",
       flush=True)

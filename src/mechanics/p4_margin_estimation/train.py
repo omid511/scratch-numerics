@@ -179,12 +179,15 @@ def train(
     train_clips: list | None = None,
     val_clips: list | None = None,
     test_clips: list | None = None,
+    on_epoch=None,
 ) -> tuple[QuantileMarginModel, dict, list, list]:
     """Train margin model on transient clips.
 
     Each clip has .sensor_signals (n_sensors, T) and .margin (float).
     Target margin is broadcast as constant across time.
 
+    ``on_epoch`` optional ``(epoch, model, history)`` callback fired per epoch
+    (logging/checkpoints; default none).
     Returns (model, history, test_clips, test_vels).
     """
     torch.manual_seed(seed)
@@ -257,6 +260,8 @@ def train(
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if on_epoch is not None:
+            on_epoch(epoch, model, history)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -280,9 +285,11 @@ def train_huber(
     train_clips: list | None = None,
     val_clips: list | None = None,
     test_clips: list | None = None,
+    on_epoch=None,
 ) -> tuple[HuberMarginModel, dict, list, list]:
     """Train Huber point-prediction baseline.
 
+    ``on_epoch`` optional ``(epoch, model, history)`` callback fired per epoch.
     Returns (model, history, test_clips, test_vels).
     """
     torch.manual_seed(seed)
@@ -351,6 +358,8 @@ def train_huber(
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if on_epoch is not None:
+            on_epoch(epoch, model, history)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -374,6 +383,7 @@ def train_unweighted_quantile(
     train_clips: list | None = None,
     val_clips: list | None = None,
     test_clips: list | None = None,
+    on_epoch=None,
 ) -> tuple[QuantileMarginModel, dict, list, list]:
     """Train unweighted 3-quantile model (no safety weights).
 
@@ -381,6 +391,7 @@ def train_unweighted_quantile(
     weights. Named for what it is: the interval head is still trained;
     only the median column is used for point metrics. ``train_median``
     remains as a deprecated alias.
+    ``on_epoch`` optional ``(epoch, model, history)`` callback fired per epoch.
     """
     torch.manual_seed(seed)
 
@@ -447,6 +458,8 @@ def train_unweighted_quantile(
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if on_epoch is not None:
+            on_epoch(epoch, model, history)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -471,7 +484,6 @@ def evaluate_coverage(
     """
     model.eval()
     quantiles = model.quantiles
-
     X_list, y_list, valid_vels = [], [], []
     for i, c in enumerate(clips):
         if not np.isfinite(c.margin):
@@ -483,16 +495,16 @@ def evaluate_coverage(
         y_list.append(c.margin)
         if velocities is not None and i < len(velocities):
             valid_vels.append(velocities[i])
-
     if not X_list:
         return {}
-
-    X = torch.stack(X_list).to(device)
+    # Review §6.4: bounded-batch inference instead of one (N, C, T) tensor.
     y_true = torch.tensor(y_list, dtype=torch.float32, device=device)
-
+    preds = []
     with torch.no_grad():
-        pred = model(X)  # (B, n_q) — scalar per quantile
-
+        for s in range(0, len(X_list), 256):
+            Xb = torch.stack(X_list[s:s + 256]).to(device)
+            preds.append(model(Xb).detach().cpu())
+    pred = torch.cat(preds, dim=0).to(device)
     pred_last = pred  # (B, n_q) — already scalar, no timestep dimension
 
     # Coverage: P(y <= q_tau) per quantile

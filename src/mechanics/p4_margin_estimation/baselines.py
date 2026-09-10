@@ -44,10 +44,11 @@ def _physical_signals(signals: np.ndarray) -> np.ndarray:
 
 
 def _clip_dt(clip, default: float | None = None) -> float | None:
-    """Per-clip sampling interval from ``clip.time`` (seconds per sample).
+    """Per-clip sampling interval in seconds per sample.
 
-    Returns ``default`` (per-sample units) when the clip carries no time
-    grid. Threading the true ``dt`` keeps growth slopes (1/s) and spectral
+    Prefers ``clip.time`` grid, falls back to ``clip.dt`` (trainer _Clip
+    objects carry dt without the full grid), else ``default`` (per-sample
+    units). Threading the true ``dt`` keeps growth slopes (1/s) and spectral
     frequencies (Hz) in physical units across the adaptive-dt dataset;
     sample-index units would mix timescales between clips.
     """
@@ -55,6 +56,14 @@ def _clip_dt(clip, default: float | None = None) -> float | None:
     try:
         if t is not None and len(t) >= 2:
             dt = float(t[1] - t[0])
+            if np.isfinite(dt) and dt > 0:
+                return dt
+    except Exception:
+        pass
+    try:
+        dt_attr = getattr(clip, "dt", None)
+        if dt_attr is not None:
+            dt = float(dt_attr)
             if np.isfinite(dt) and dt > 0:
                 return dt
     except Exception:
@@ -244,6 +253,8 @@ class GrowthRateBaseline:
     def __init__(self, growth_threshold=0.0):
         self.growth_threshold = growth_threshold
         self.max_rate_ = None
+        self.coef_ = None
+        self.intercept_ = None
 
     def predict_growth_rate(self, clips) -> np.ndarray:
         """Compute mean amplitude growth rate across sensors for each clip."""
@@ -286,17 +297,32 @@ class GrowthRateBaseline:
         if not slopes:
             return float("nan")
         return float(np.mean(slopes))
-
     def fit(self, clips):
+        # Review §5.2: fit the rate→margin map on training labels instead of
+        # scaling by max|rate|. Least-squares margin = a*rate + b preserves the
+        # sign convention (decay→positive margin) while making MAE comparable.
+        # Physical constraint a <= 0 (growth must map toward negative margin):
+        # when the unconstrained optimum violates it, the constrained optimum
+        # lies on the boundary a = 0 with b = mean(y) — a fitted constant,
+        # strictly fairer than substituting an uncalibrated scale map.
         rates = self.predict_growth_rate(clips)
-        finite = rates[np.isfinite(rates)]
-        if finite.size == 0:
+        margins = np.asarray([float(c.margin) for c in clips], dtype=float)
+        finite = np.isfinite(rates) & np.isfinite(margins)
+        if int(finite.sum()) < 2:
             raise ValueError("No valid clips (all growth rates NaN)")
-        self.max_rate_ = np.max(np.abs(finite)) + 1e-8
-
+        r = rates[finite]
+        y = margins[finite]
+        A = np.column_stack([r, np.ones_like(r)])
+        coef, *_ = np.linalg.lstsq(A, y, rcond=None)
+        if float(coef[0]) < 0.0:
+            self.coef_ = float(coef[0])
+            self.intercept_ = float(coef[1])
+        else:
+            self.coef_ = 0.0
+            self.intercept_ = float(np.mean(y))
+        self.max_rate_ = float(np.max(np.abs(r))) + 1e-8
     def predict_margin(self, clips) -> np.ndarray:
         """Convert growth rate to margin estimate (signed, unclipped).
-
         Negative slope (decaying, stable) maps to positive margin;
         positive slope (growing, unstable) maps to negative margin.
         No [0, 1] clip so supercritical margins stay representable.
@@ -307,6 +333,10 @@ class GrowthRateBaseline:
                 "call fit() first (fitting on test clips leaks test scale)"
             )
         rates = self.predict_growth_rate(clips)
+        # Calibrated map when fit() ran on current code; legacy checkpoints
+        # pickled before coef_ existed fall back to the scale map.
+        if getattr(self, "coef_", None) is not None and getattr(self, "intercept_", None) is not None:
+            return self.coef_ * rates + self.intercept_
         return -rates / self.max_rate_
 
     def predict(self, clips) -> np.ndarray:
@@ -345,10 +375,16 @@ def train_gru(
     device: str = "cpu",
     seed: int = 0,
     velocities: list[float] | None = None,
+    on_epoch=None,
+    val_clips: list | None = None,
 ) -> tuple[GRUMarginModel, dict]:
-    """Train GRU baseline with same protocol as TCN."""
-    torch.manual_seed(seed)
-    rng = np.random.default_rng(seed)
+    """Train GRU baseline with same protocol as TCN.
+    Pass ``val_clips`` (separate validation designs) for head-to-head TCN
+    comparison — review §5.2: the legacy internal ``val_split`` carves a
+    second validation subset out of the training partition, so the GRU saw
+    less train data under different validation conditions. ``on_epoch``
+    optional ``(epoch, model, history)`` callback per epoch.
+    """
 
     # Build tensors
     X_list, y_list = [], []
@@ -367,34 +403,49 @@ def train_gru(
     X = torch.stack(X_list)
     y = torch.tensor(y_list, dtype=torch.float32)
 
-    # Grouped split (same as train.py)
+    # Grouped split (same as train.py) — or explicit validation designs.
     valid_clips = [c for c in clips if np.isfinite(c.margin) and bool(torch.isfinite(torch.tensor(c.sensor_signals, dtype=torch.float32)).all())]
     if not valid_clips:
         raise ValueError("No valid clips (all margins NaN or non-finite signals)")
-    if len({c.design_id for c in valid_clips}) < 2:
-        raise ValueError(
-            "Need at least two design groups for a grouped train/val split"
-        )
-    # Design-grouped validation split (no _grouped_3way_split: it
-    # requires test_split > 0, which a train/val-only baseline does not
-    # have). Groups, not clips, are shuffled so no design leaks across.
-    group_ids = np.asarray([c.design_id for c in valid_clips])
-    unique_groups = np.asarray(sorted(set(group_ids.tolist())))
-    rng.shuffle(unique_groups)
-    n_val_groups = max(1, int(round(unique_groups.size * val_split)))
-    n_val_groups = min(n_val_groups, max(1, unique_groups.size - 1))
-    val_groups = set(unique_groups[:n_val_groups].tolist())
-    train_idx = [i for i, c in enumerate(valid_clips)
-                 if c.design_id not in val_groups]
-    val_idx = [i for i, c in enumerate(valid_clips)
-               if c.design_id in val_groups]
+    if val_clips is not None:
+        valid_val = [c for c in val_clips if np.isfinite(c.margin) and bool(torch.isfinite(torch.tensor(c.sensor_signals, dtype=torch.float32)).all())]
+        if not valid_val:
+            raise ValueError("No valid val clips (all margins NaN or non-finite signals)")
+        train_ids = {c.design_id for c in valid_clips}
+        val_ids = {c.design_id for c in valid_val}
+        if train_ids & val_ids:
+            raise ValueError(f"Train/val design overlap: {sorted(train_ids & val_ids)[:5]}")
+        Xv = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in valid_val])
+        yv = torch.tensor([c.margin for c in valid_val], dtype=torch.float32)
+        train_idx = list(range(len(valid_clips)))
+        X_train, y_train, X_val, y_val = X, y, Xv, yv
+    else:
+        if len({c.design_id for c in valid_clips}) < 2:
+            raise ValueError(
+                "Need at least two design groups for a grouped train/val split"
+            )
+        # Design-grouped validation split (no _grouped_3way_split: it
+        # requires test_split > 0, which a train/val-only baseline does not
+        # have). Groups, not clips, are shuffled so no design leaks across.
+        group_ids = np.asarray([c.design_id for c in valid_clips])
+        unique_groups = np.asarray(sorted(set(group_ids.tolist())))
+        rng.shuffle(unique_groups)
+        n_val_groups = max(1, int(round(unique_groups.size * val_split)))
+        n_val_groups = min(n_val_groups, max(1, unique_groups.size - 1))
+        val_groups = set(unique_groups[:n_val_groups].tolist())
+        train_idx = [i for i, c in enumerate(valid_clips)
+                     if c.design_id not in val_groups]
+        val_idx = [i for i, c in enumerate(valid_clips)
+                   if c.design_id in val_groups]
+        X_train, y_train = X[train_idx], y[train_idx]
+        X_val, y_val = X[val_idx], y[val_idx]
 
     train_dl = DataLoader(
-        TensorDataset(X[train_idx], y[train_idx]),
+        TensorDataset(X_train, y_train),
         batch_size=batch_size, shuffle=True,
     )
     val_dl = DataLoader(
-        TensorDataset(X[val_idx], y[val_idx]),
+        TensorDataset(X_val, y_val),
         batch_size=batch_size,
     )
 
@@ -438,6 +489,8 @@ def train_gru(
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if on_epoch is not None:
+            on_epoch(epoch, model, history)
 
     if best_state is not None:
         model.load_state_dict(best_state)
