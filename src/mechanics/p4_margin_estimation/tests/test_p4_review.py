@@ -355,3 +355,57 @@ class TestSensorSaturation:
         clip = generate_clip_from_eigendecomposition(
             eigs, np.random.default_rng(2), n_timesteps=16, u_crit=1000.0)
         assert clip.sat_frac == pytest.approx(0.0)
+
+
+class TestMonotonicityGrouping:
+    """Review finding 6: groups are (design, realization), excitations averaged."""
+    def test_cross_realization_not_mixed(self):
+        import train_p4_expanded as T
+        # Two realizations, each monotone decreasing in velocity — but offset
+        # so design-pooled ordering would flag reversals.
+        pred = np.array([0.5, 0.4, 0.1, 0.0])
+        vel = np.array([1.0, 2.0, 1.0, 2.0])
+        did = np.array(["D", "D", "D", "D"])
+        real = np.array([0, 0, 1, 1])
+        out = T.monotonicity_violation_rate(pred, vel, did, real)
+        assert out["rate"] == pytest.approx(0.0)
+        assert out["n_groups"] == 2 and out["n_pairs"] == 2
+
+    def test_reversal_magnitude_reported(self):
+        import train_p4_expanded as T
+        out = T.monotonicity_violation_rate(
+            np.array([0.1, 0.3]), np.array([1.0, 2.0]),
+            np.array(["D", "D"]), np.array([0, 0]))
+        assert out["rate"] == pytest.approx(1.0)
+        assert out["mean_reversal"] == pytest.approx(0.2)
+    def test_excitation_repeats_averaged(self):
+        import train_p4_expanded as T
+        out = T.monotonicity_violation_rate(
+            np.array([0.2, 0.2, 0.1, 0.1]), np.array([1.0, 1.0, 2.0, 2.0]),
+            np.array(["D"] * 4), np.array([0] * 4))
+        assert out["rate"] == pytest.approx(0.0) and out["n_pairs"] == 1
+
+
+class TestProvenanceThreading:
+    """ realization_idx and sat_frac survive loading and augmentation."""
+    def test_build_clips_threads_flags(self, tmp_path):
+        import train_p4_expanded as T
+        n, C, Tm = 4, 8, 512
+        rng = np.random.default_rng(2)
+        np.save(tmp_path / "clips.npy", (rng.standard_normal((n, C, Tm)) + 2.0).astype(np.float32))
+        np.savez_compressed(tmp_path / "metadata_arrays.npz",
+                            margins=np.zeros(n, dtype=np.float32),
+                            velocities=np.ones(n, dtype=np.float32) * 800,
+                            design_ids=np.array(["D000000", "D000000", "D000001", "D000001"]),
+                            realization_ids=np.array([0, 1, 0, 1]),
+                            sat_fracs=np.array([0.0, 0.5, 0.0, 0.25], dtype=np.float32))
+        (tmp_path / "metadata.json").write_text(json.dumps(
+            {"train_designs": ["D000000"], "val_designs": ["D000001"], "test_designs": ["D000001"]}))
+        clips_arr, margins, vels, dids, rids, m = T.load_dataset(str(tmp_path))
+        clips, _ = T.build_clips(clips_arr, margins, vels, dids, {"D000000"},
+                                 realization_ids=rids, sat_fracs=m["provenance"]["sat_fracs"])
+        assert [c.realization_idx for c in clips] == [0, 1]
+        assert [c.sat_frac for c in clips] == pytest.approx([0.0, 0.5])
+        lifted = T.with_ones_mask(clips)
+        assert [c.realization_idx for c in lifted] == [0, 1]
+        assert [c.sat_frac for c in lifted] == pytest.approx([0.0, 0.5])

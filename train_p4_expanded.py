@@ -3,8 +3,8 @@
 from __future__ import annotations
 import ctypes
 import gc
+import hashlib
 import json
-import os
 import time
 from collections import defaultdict
 import numpy as np
@@ -46,6 +46,11 @@ def _save_results(results):
     with open(tmp, "w") as f:
         json.dump(results, f, indent=2, default=str)
     Path(tmp).replace(_RESULTS_PATH)
+def _save_ckpt(model, name):
+    """Atomically persist a checkpoint (tmp + rename survives crashes)."""
+    tmp = f"p4_{name}.pt.tmp"
+    torch.save(model.state_dict(), tmp)
+    os.replace(tmp, f"p4_{name}.pt")
 def _wandb_init(meta, n_channels):
     """Start a W&B run; offline-first so unstable VMs never block training."""
     try:
@@ -68,6 +73,31 @@ def _wandb_init(meta, n_channels):
     except Exception as exc:
         P(f"wandb init failed ({exc}) — continuing without run tracking.")
         return None
+TRAIN_PROTOCOL = {"hidden_dim": 32, "n_layers": 9, "epochs": 20, "lr": 1e-3,
+                  "batch_size": 64, "quantiles": [0.05, 0.50, 0.95],
+                  "gru_hidden": 86, "augmentation": "dr-v2-physical-fs"}
+def _dataset_fingerprint(margins, velocities, design_ids, train_ids, val_ids, test_ids, meta):
+    """Content fingerprint identifying data + splits + preprocessing + protocol.
+    Resume reuses a checkpoint only on exact match, so same-sized
+    regenerated data or changed training code can never silently reuse
+    stale checkpoints (review finding 4).
+    """
+    h = hashlib.sha256()
+    h.update(np.ascontiguousarray(margins).tobytes())
+    h.update(np.ascontiguousarray(velocities).tobytes())
+    h.update("\n".join(str(d) for d in np.asarray(design_ids).tolist()).encode())
+    try:
+        import subprocess
+        git_rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                                 capture_output=True, text=True, timeout=10).stdout.strip()
+    except Exception:
+        git_rev = "unknown"
+    return {"sha": h.hexdigest()[:32],
+            "train": sorted(str(d) for d in train_ids),
+            "val": sorted(str(d) for d in val_ids),
+            "test": sorted(str(d) for d in test_ids),
+            "manifest": meta.get("manifest"),
+            "protocol": TRAIN_PROTOCOL, "git_rev": git_rev}
 def _flat_metrics(name, metrics):
     """Flatten one model's metrics dict to scalar wandb entries."""
     flat = {}
@@ -161,37 +191,57 @@ def monotonicity_violation_rate(
     predictions: np.ndarray,
     velocities: np.ndarray,
     design_ids: np.ndarray,
-) -> float:
-    """Fraction of strict-velocity design pairs where ordering is violated (same-velocity ties excluded)."""
-    unique_designs = np.unique(design_ids)
+    realization_ids=None,
+) -> dict:
+    """Margin-vs-velocity monotonicity within (design, realization) groups.
+    Review finding 6: grouping by nominal design mixes perturbed realizations
+    with different flutter boundaries, so even ground truth scores ~0.24.
+    Groups here are (design, realization) with repeated excitations averaged
+    per velocity. Returns rate, mean reversal magnitude, and pair counts.
+    """
+    predictions = np.asarray(predictions, dtype=float)
+    velocities = np.asarray(velocities, dtype=float)
+    design_ids = np.asarray(design_ids)
+    if realization_ids is None:
+        realization_ids = np.zeros_like(design_ids)
+    realization_ids = np.asarray(realization_ids)
+    groups: dict = {}
+    for p, v, d, r in zip(predictions, velocities, design_ids, realization_ids):
+        if not (np.isfinite(p) and np.isfinite(v)):
+            continue
+        groups.setdefault((str(d), str(r)), {}).setdefault(float(v), []).append(float(p))
     violations = 0
     total = 0
-    for did in unique_designs:
-        mask = design_ids == did
-        v = velocities[mask]
-        p = predictions[mask]
-        order = np.argsort(v, kind="stable")
-        v_sorted = v[order]
-        p_sorted = p[order]
-        # Only strict velocity increases count: same-velocity realizations
-        # (ties) have arbitrary argsort order and must not vote.
-        dv = np.diff(v_sorted)
-        dp = np.diff(p_sorted)
-        strict = dv > 0
-        violations += int(np.sum(dp[strict] > 0))
-        total += int(np.sum(strict))
-    return violations / max(total, 1)
+    magnitudes = []
+    for pts in groups.values():
+        vel = sorted(pts)
+        if len(vel) < 2:
+            continue
+        mean_p = [float(np.mean(pts[v])) for v in vel]
+        for (v0, p0), (v1, p1) in zip(zip(vel[:-1], mean_p[:-1]), zip(vel[1:], mean_p[1:])):
+            if v1 <= v0:
+                continue
+            total += 1
+            if p1 > p0:
+                violations += 1
+                magnitudes.append(p1 - p0)
+    return {"rate": violations / max(total, 1), "mean_reversal": float(np.mean(magnitudes)) if magnitudes else 0.0,
+            "n_pairs": total, "n_violations": violations, "n_groups": len(groups)}
 
 
 class _Clip:
-    __slots__ = ("sensor_signals", "margin", "velocity", "design_id", "dt", "time")
-    def __init__(self, signals, margin, velocity, design_id=None, dt=None, time=None):
+    __slots__ = ("sensor_signals", "margin", "velocity", "design_id", "dt", "time",
+                 "realization_idx", "sat_frac")
+    def __init__(self, signals, margin, velocity, design_id=None, dt=None, time=None,
+                 realization_idx=None, sat_frac=0.0):
         self.sensor_signals = signals
         self.margin = margin
         self.velocity = velocity
         self.design_id = design_id
         self.dt = dt
         self.time = time
+        self.realization_idx = realization_idx
+        self.sat_frac = sat_frac
 
 
 def apply_dr_with_mask(clips, seed=0):
@@ -209,15 +259,27 @@ def apply_dr_with_mask(clips, seed=0):
     )
     perturber = SensorPerturber(dr_config)
     augmented = []
+    n_default_fs = 0
     for c in clips:
-        p = perturber.perturb(c.sensor_signals, rng)
-        # Concatenate mask as extra channels: [signals; mask]
-        combined = np.concatenate([p.signals, p.valid_mask], axis=0)
+        # Review finding 5: burst-dropout duration is physical (ms); use the
+        # clip's own sampling rate so corrupted duration matches configuration.
+        # Clips without timing (legacy datasets) keep the 1024 Hz default and
+        # are counted — that is the previous augmentation protocol, preserved
+        # under its old name rather than silently relabelled.
+        dt = getattr(c, "dt", None)
+        if dt is not None and np.isfinite(dt) and dt > 0:
+            fs = 1.0 / float(dt)
+        else:
+            fs = 1024.0
+            n_default_fs += 1
+        p = perturber.perturb(c.sensor_signals, rng, fs=fs)
         aug_clip = _Clip(combined, c.margin, c.velocity, c.design_id,
-                         dt=getattr(c, "dt", None), time=getattr(c, "time", None))
-        augmented.append(aug_clip)
+                         dt=getattr(c, "dt", None), time=getattr(c, "time", None),
+                         realization_idx=getattr(c, "realization_idx", None),
+                         sat_frac=float(getattr(c, "sat_frac", 0.0)))
+    if n_default_fs:
+        P(f"  DR warning: {n_default_fs}/{len(clips)} clips lack dt; burst dropout used 1024 Hz fallback.")
     n_channels = clips[0].sensor_signals.shape[0] * 2  # signals + mask
-    return augmented, n_channels
 
 
 def with_ones_mask(clips):
@@ -229,7 +291,9 @@ def with_ones_mask(clips):
         mask = _np.ones_like(sig)
         combined = _np.concatenate([sig, mask], axis=0)
         lifted.append(_Clip(combined, c.margin, c.velocity, c.design_id,
-                           dt=getattr(c, "dt", None), time=getattr(c, "time", None)))
+                           dt=getattr(c, "dt", None), time=getattr(c, "time", None),
+                           realization_idx=getattr(c, "realization_idx", None),
+                           sat_frac=float(getattr(c, "sat_frac", 0.0))))
     return lifted
 
 
@@ -284,8 +348,8 @@ def load_dataset(dataset_dir: str = "p4_dataset"):
     meta["provenance"] = {k: v for k, v in prov.items()}
     return clips_arr, margins, velocities, design_ids, realization_ids, meta
 
-
-def build_clips(clips_arr, margins, velocities, design_ids_all, split_ids, dts=None):
+def build_clips(clips_arr, margins, velocities, design_ids_all, split_ids, dts=None,
+                realization_ids=None, sat_fracs=None):
     """Build clip objects for a set of design IDs."""
     clips = []
     vel_list = []
@@ -294,11 +358,25 @@ def build_clips(clips_arr, margins, velocities, design_ids_all, split_ids, dts=N
             dt = float(np.asarray(dts)[i]) if dts is not None else None
             if dt is not None and not np.isfinite(dt):
                 dt = None
-            c = _Clip(clips_arr[i], float(margins[i]), float(velocities[i]), design_id=did, dt=dt)
+            rid = None
+            if realization_ids is not None:
+                try:
+                    rid = int(np.asarray(realization_ids)[i])
+                except Exception:
+                    rid = None
+            sat = 0.0
+            if sat_fracs is not None:
+                try:
+                    sat = float(np.asarray(sat_fracs)[i])
+                    if not np.isfinite(sat):
+                        sat = 0.0
+                except Exception:
+                    sat = 0.0
+            c = _Clip(clips_arr[i], float(margins[i]), float(velocities[i]), design_id=did, dt=dt,
+                      realization_idx=rid, sat_frac=sat)
             clips.append(c)
             vel_list.append(float(velocities[i]))
     return clips, vel_list
-
 
 def evaluate_point(model, clips, velocities=None, device="cpu"):
     model.eval()
@@ -402,9 +480,13 @@ if __name__ == "__main__":
         )
     prov = meta.get("provenance", {})
     dts = prov.get("dts") if isinstance(prov, dict) else None
-    train_clips, train_vels = build_clips(clips_arr, margins, velocities, design_ids, train_ids, dts=dts)
-    val_clips, val_vels = build_clips(clips_arr, margins, velocities, design_ids, val_ids, dts=dts)
-    test_clips, test_vels = build_clips(clips_arr, margins, velocities, design_ids, test_ids, dts=dts)
+    sats = prov.get("sat_fracs") if isinstance(prov, dict) else None
+    train_clips, train_vels = build_clips(clips_arr, margins, velocities, design_ids, train_ids, dts=dts,
+                                          realization_ids=realization_ids, sat_fracs=sats)
+    val_clips, val_vels = build_clips(clips_arr, margins, velocities, design_ids, val_ids, dts=dts,
+                                      realization_ids=realization_ids, sat_fracs=sats)
+    test_clips, test_vels = build_clips(clips_arr, margins, velocities, design_ids, test_ids, dts=dts,
+                                        realization_ids=realization_ids, sat_fracs=sats)
     P(f"  Clips: {len(train_clips)} train, {len(val_clips)} val, {len(test_clips)} test")
     P(f"  Velocity range: {velocities.min():.0f} - {velocities.max():.0f} m/s")
     if meta.get("provenance_available"):
@@ -425,15 +507,9 @@ if __name__ == "__main__":
     P(f"  Val split: {len(select_ids)} select / {len(calib_ids)} calibrate designs "
       f"({len(sel_clips)}/{len(cal_clips)} clips)")
     all_clips = train_clips + val_clips + test_clips
-    all_vels = train_vels + val_vels + test_vels
-    # Crash/OOM resume: pick up finished models from a previous partial run.
-    # A model is skipped only when its checkpoint AND metrics exist AND the
-    # dataset fingerprint matches — same data, splits, and protocol, so the
-    # resumed run is identical to an uninterrupted one.
     results = {}
-    _resume_key = {"n_clips": len(margins), "n_train": len(train_clips),
-                   "n_val": len(val_clips), "n_test": len(test_clips),
-                   "provenance": bool(meta.get("provenance_available"))}
+    _resume_key = _dataset_fingerprint(margins, velocities, design_ids,
+                                       train_ids, val_ids, test_ids, meta)
     if os.path.exists(_RESULTS_PATH):
         try:
             _prev = json.load(open(_RESULTS_PATH))
@@ -446,6 +522,7 @@ if __name__ == "__main__":
         except Exception as exc:
             P(f"  Could not read previous results ({exc}) — starting fresh.")
     results["_resume_key"] = _resume_key
+    N_SEEDS = 3
     def _skip_if_done(_name):
         """True when a checkpointed model with metrics can be reused as-is."""
         if _name in results and os.path.exists(f"p4_{_name}.pt"):
@@ -486,11 +563,11 @@ if __name__ == "__main__":
         metrics["mae_dr"] = dr_metrics.get("mae")
         metrics["coverage_dr"] = dr_metrics.get("coverage")
         metrics["mean_interval_width_dr"] = dr_metrics.get("mean_interval_width")
+        _save_ckpt(model, name)
         results[name] = metrics
         _save_results(results)
         _wlog(wrun, _flat_metrics(name, metrics))
         P(f"  MAE={metrics.get('mae', 0):.4f} width={metrics.get('mean_interval_width', 0):.4f}")
-        torch.save(model.state_dict(), f"p4_{name}.pt")
         del model, history
         _release_memory()
     # ── TCN Huber ──
@@ -510,11 +587,11 @@ if __name__ == "__main__":
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         metrics = evaluate_point(model, test_clips_clean, velocities=test_vels)
         metrics["mae_dr"] = evaluate_point(model, test_clips_dr, velocities=test_vels).get("mae")
+        _save_ckpt(model, name)
         results[name] = metrics
         _save_results(results)
         _wlog(wrun, _flat_metrics(name, metrics))
         P(f"  MAE={metrics.get('mae', 0):.4f}")
-        torch.save(model.state_dict(), f"p4_{name}.pt")
         del model, history
         _release_memory()
     # ── TCN Median ──
@@ -534,11 +611,11 @@ if __name__ == "__main__":
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         metrics = evaluate_point(model, test_clips_clean, velocities=test_vels)
         metrics["mae_dr"] = evaluate_point(model, test_clips_dr, velocities=test_vels).get("mae")
+        _save_ckpt(model, name)
         results[name] = metrics
         _save_results(results)
         _wlog(wrun, _flat_metrics(name, metrics))
         P(f"  MAE={metrics.get('mae', 0):.4f}")
-        torch.save(model.state_dict(), f"p4_{name}.pt")
         del model, history
         _release_memory()
 
@@ -573,10 +650,10 @@ if __name__ == "__main__":
         P(f"  final_train_loss={history['train_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         results[name] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_clean, test_vels)
         results[name]["mae_dr"] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_dr, test_vels).get("mae")
+        _save_ckpt(gru_model, name)
         _save_results(results)
         _wlog(wrun, _flat_metrics(name, results[name]))
         P(f"  {name} MAE={results[name].get('mae', 0):.4f}")
-        torch.save(gru_model.state_dict(), f"p4_{name}.pt")
         del gru_model, history
         _release_memory()
     # ── Summary ──
@@ -640,6 +717,7 @@ if __name__ == "__main__":
         false_safe_incidence = false_unsafe_rate = float("nan")
         near_flutter_mae = signed_bias = cqr_coverage = cqr_width = float("nan")
         mono_rate = None
+        mono_detail = {"mean_reversal": float("nan"), "n_pairs": 0, "n_violations": 0, "n_groups": 0}
         bootstrap_ci = None
         if near_flutter_clips:
             def _batched_quantiles(clips_list):
@@ -726,11 +804,18 @@ if __name__ == "__main__":
             test_design_ids_arr = np.array([
                 c.design_id for c in test_clips_clean if not np.isnan(c.margin) and c.design_id is not None
             ])
+            test_real_arr = np.array([
+                getattr(c, "realization_idx", 0) for c in test_clips_clean if not np.isnan(c.margin)
+            ])
             if len(test_design_ids_arr) > 0 and len(all_y_np) == len(test_vels_arr):
-                mono_rate = monotonicity_violation_rate(
-                    all_pred_median.cpu().numpy(), test_vels_arr, test_design_ids_arr,
+                mono = monotonicity_violation_rate(
+                    all_pred_median.cpu().numpy(), test_vels_arr, test_design_ids_arr, test_real_arr,
                 )
-                P(f"    Monotonicity violation rate: {mono_rate:.4f}")
+                mono_rate = mono["rate"]
+                mono_detail = {k: mono[k] for k in ("mean_reversal", "n_pairs", "n_violations", "n_groups")}
+                P(f"    Monotonicity violation rate: {mono_rate:.4f} "
+                  f"(mean reversal {mono['mean_reversal']:.4f}, {mono['n_violations']}/{mono['n_pairs']} pairs, "
+                  f"{mono['n_groups']} groups)")
 
             # Persist the safety block (previously print-only; the expanded-
             # report generator consumes results["safety_summary"]).
@@ -744,8 +829,10 @@ if __name__ == "__main__":
                 "signed_bias_near_flutter": signed_bias,
                 "cqr_coverage_90": cqr_coverage,
                 "cqr_width_90": cqr_width,
-                "mae_design_bootstrap_ci95": bootstrap_ci,
                 "monotonicity_violation_rate": mono_rate,
+                "monotonicity_mean_reversal": mono_detail["mean_reversal"],
+                "monotonicity_n_pairs": mono_detail["n_pairs"],
+                "monotonicity_n_groups": mono_detail["n_groups"],
             }
             _save_results(results)
             _wlog(wrun, {f"safety/{k}": v for k, v in results["safety_summary"].items()
