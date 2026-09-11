@@ -89,6 +89,16 @@ def _wlog(run, payload):
         run.log(payload)
     except Exception as exc:
         P(f"wandb log failed ({exc}) — continuing.")
+def _epoch_logger(run, name):
+    """Per-epoch train/val curves for training-health visibility.
+    Cheap on free tiers (2 scalars × 20 epochs per model). Invoked
+    synchronously, so closing over the loop's ``name`` is safe.
+    """
+    def _cb(epoch, model, history):
+        _wlog(run, {f"{name}/epoch": epoch,
+                    f"{name}/train_loss": history["train_loss"][-1],
+                    f"{name}/val_loss": history["val_loss"][-1]})
+    return _cb
 
 
 def _release_memory():
@@ -416,8 +426,32 @@ if __name__ == "__main__":
       f"({len(sel_clips)}/{len(cal_clips)} clips)")
     all_clips = train_clips + val_clips + test_clips
     all_vels = train_vels + val_vels + test_vels
+    # Crash/OOM resume: pick up finished models from a previous partial run.
+    # A model is skipped only when its checkpoint AND metrics exist AND the
+    # dataset fingerprint matches — same data, splits, and protocol, so the
+    # resumed run is identical to an uninterrupted one.
     results = {}
-    N_SEEDS = 3
+    _resume_key = {"n_clips": len(margins), "n_train": len(train_clips),
+                   "n_val": len(val_clips), "n_test": len(test_clips),
+                   "provenance": bool(meta.get("provenance_available"))}
+    if os.path.exists(_RESULTS_PATH):
+        try:
+            _prev = json.load(open(_RESULTS_PATH))
+            if _prev.get("_resume_key") == _resume_key:
+                results = {k: v for k, v in _prev.items() if not k.startswith("_")}
+                P(f"  Resuming: {len(results)} finished model(s) kept "
+                  f"({sorted(results)[:6]}{'...' if len(results) > 6 else ''})")
+            else:
+                P("  Previous results are from a different dataset — starting fresh.")
+        except Exception as exc:
+            P(f"  Could not read previous results ({exc}) — starting fresh.")
+    results["_resume_key"] = _resume_key
+    def _skip_if_done(_name):
+        """True when a checkpointed model with metrics can be reused as-is."""
+        if _name in results and os.path.exists(f"p4_{_name}.pt"):
+            P(f"  {_name}: checkpoint + metrics present — skipping (identical protocol).")
+            return True
+        return False
     # P1-26: Apply DR to TRAINING clips only; val/test stay clean (ones mask)
     # so primary MAE/coverage/CQR measure clean accuracy. DR val/test are
     # kept as a separate robustness slice.
@@ -435,13 +469,16 @@ if __name__ == "__main__":
     # ── TCN Quantile ──
     for seed in range(N_SEEDS):
         name = f"quantile_s{seed}"
+        if _skip_if_done(name):
+            _wlog(wrun, _flat_metrics(name, results[name]))
+            continue
         P(f"\nTraining {name}...")
         t0 = time.time()
         model, history, _, _ = train(
             None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
             train_clips=train_clips_dr, val_clips=sel_clips_clean, test_clips=test_clips_clean,
-            velocities=all_vels,
+            velocities=all_vels, on_epoch=_epoch_logger(wrun, name),
         )
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         metrics = evaluate_coverage(model, test_clips_clean, velocities=test_vels)
@@ -459,13 +496,16 @@ if __name__ == "__main__":
     # ── TCN Huber ──
     for seed in range(N_SEEDS):
         name = f"huber_s{seed}"
+        if _skip_if_done(name):
+            _wlog(wrun, _flat_metrics(name, results[name]))
+            continue
         P(f"\nTraining {name}...")
         t0 = time.time()
         model, history, _, _ = train_huber(
             None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
             train_clips=train_clips_dr, val_clips=sel_clips_clean, test_clips=test_clips_clean,
-            velocities=all_vels,
+            velocities=all_vels, on_epoch=_epoch_logger(wrun, name),
         )
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         metrics = evaluate_point(model, test_clips_clean, velocities=test_vels)
@@ -480,13 +520,16 @@ if __name__ == "__main__":
     # ── TCN Median ──
     for seed in range(N_SEEDS):
         name = f"median_s{seed}"
+        if _skip_if_done(name):
+            _wlog(wrun, _flat_metrics(name, results[name]))
+            continue
         P(f"\nTraining {name}...")
         t0 = time.time()
         model, history, _, _ = train_unweighted_quantile(
             None, n_channels=N_CHANNELS, hidden_dim=32, n_layers=9,
             epochs=20, lr=1e-3, seed=seed, batch_size=64,
             train_clips=train_clips_dr, val_clips=sel_clips_clean, test_clips=test_clips_clean,
-            velocities=all_vels,
+            velocities=all_vels, on_epoch=_epoch_logger(wrun, name),
         )
         P(f"  train_loss={history['train_loss'][-1]:.4f} val_loss={history['val_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         metrics = evaluate_point(model, test_clips_clean, velocities=test_vels)
@@ -517,11 +560,15 @@ if __name__ == "__main__":
     # ── GRU (deep sequence baseline) ──
     for seed in range(N_SEEDS):
         name = f"gru_s{seed}"
+        if _skip_if_done(name):
+            _wlog(wrun, _flat_metrics(name, results[name]))
+            continue
         P(f"\nTraining {name}...")
         t0 = time.time()
         gru_model, history = train_gru(
             train_clips_dr, n_channels=N_CHANNELS, epochs=20, seed=seed,
             batch_size=64, val_clips=sel_clips_clean, velocities=train_vels,
+            on_epoch=_epoch_logger(wrun, name),
         )
         P(f"  final_train_loss={history['train_loss'][-1]:.4f} ({time.time()-t0:.1f}s)")
         results[name] = evaluate_baseline(_GruPredictAdapter(gru_model), test_clips_clean, test_vels)
@@ -537,6 +584,8 @@ if __name__ == "__main__":
     P(f"{'Model':<25} {'MAE':>8} {'Interval':>10} {'Coverage':>10}")
     P("-" * 55)
     for name, m in results.items():
+        if name.startswith("_"):
+            continue
         mae = m.get("mae", 0)
         iw = m.get("mean_interval_width", 0)
         cov = m.get("coverage", {}).get("interval_0.05_0.95", 0)
