@@ -38,7 +38,7 @@ def main(dataset_dir="p4_dataset", results="p4_train_results.json"):
     # §4.1/4.2/4.4 provenance
     z_path = d / "metadata_arrays.npz"
     prov_keys = ("dts", "durations", "u_crits", "clamp_fracs", "max_log_amps", "alphas", "omega_crits",
-                 "label_alphas", "label_omegas", "label_represented")
+                 "label_alphas", "label_omegas", "label_represented", "sat_fracs")
     if z_path.exists():
         with np.load(z_path, allow_pickle=True) as z:
             have = [k for k in prov_keys if k in z]
@@ -55,6 +55,13 @@ def main(dataset_dir="p4_dataset", results="p4_train_results.json"):
                   f"max: {np.max(cf):.4f}")
             if float(np.mean(cf > 0)) > 0.2:
                 print("  FLAG: >20% clamped clips — network may learn saturation, see §4.2.")
+            if "sat_fracs" in have:
+                with np.load(z_path, allow_pickle=True) as z:
+                    sf = np.asarray(z["sat_fracs"], dtype=float)
+                print(f"  clips saturated (±SAT_LIMIT): {np.mean(sf > 0):.3f}; mean sat_frac: {np.mean(sf):.4f}; "
+                      f"max: {np.max(sf):.4f}")
+                if float(np.mean(sf > 0)) > 0.2:
+                    print("  FLAG: >20% saturated clips — ADC range may be choking informative dynamics.")
         if "label_represented" in have:
             with np.load(z_path, allow_pickle=True) as z:
                 rep = np.asarray(z["label_represented"], dtype=bool)

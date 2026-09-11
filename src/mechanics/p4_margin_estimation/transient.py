@@ -51,6 +51,7 @@ def _eig_match(eigvals: np.ndarray, target: complex, tol: float = 1e-6) -> bool:
 
 
 SIGN_TOL = 1e-6  # 1/s deadband: |alpha| below this is marginally stable either way.
+SAT_LIMIT = 50.0  # Sensor saturation: post-normalization ADC range (±50× calibration RMS, ~34 dB headroom).
 def stability_sign_agrees(label_alpha: float, retained_alpha: float, tol: float = SIGN_TOL) -> bool:
     """Whether label and retained spectra agree on stability sign.
     Review caveat 1: :func:`_eig_match` is spectrum matching whose tolerance
@@ -153,6 +154,7 @@ class TransientClip:
     label_alpha: float = float("nan")
     label_omega: float = float("nan")   # |Im| of the label-path critical mode
     label_represented: bool = False
+    sat_frac: float = 0.0               # fraction of samples hitting ±SAT_LIMIT
 
 
 def default_sensor_xy(ny: int, nx: int, n_sensors: int = 8) -> np.ndarray:
@@ -542,12 +544,20 @@ def generate_clip_from_eigendecomposition(
             proj_vx = eigs.vx_grid[:, ix]
             sensor_signals[s_idx] = np.einsum('i,ijt,j->t', proj_vx, w_3d, proj_vy)
 
-    # Causal normalization using fixed calibration window
-    calibration_samples = max(1, int(n_timesteps * normalize_window_frac))
+    # Causal normalization using fixed calibration window. Minimum two
+    # samples: a single-sample window has zero variance, forcing the eps
+    # floor and amplifying the clip ~1e8× (found via stub tests at
+    # n_timesteps=16; production uses 51).
+    calibration_samples = max(2, int(n_timesteps * normalize_window_frac))
     sensor_signals = causal_calibration_normalize(
         sensor_signals, calibration_samples=calibration_samples,
         normalize_mode=normalize_mode)
-
+    # Sensor saturation: a growing transient normalized by its quiet prefix
+    # can exceed any physical ADC range (e.g. 2e8× calibration RMS). Clamp to
+    # ±SAT_LIMIT and record incidence — same family as growth clamping (§4.2).
+    sat_frac = float(np.mean(np.abs(sensor_signals) > SAT_LIMIT))
+    if sat_frac > 0.0:
+        sensor_signals = np.clip(sensor_signals, -SAT_LIMIT, SAT_LIMIT)
     # Reject non-finite clips
     if not np.isfinite(sensor_signals).all():
         raise RuntimeError("Non-finite sensor signal after propagation")
@@ -588,6 +598,7 @@ def generate_clip_from_eigendecomposition(
         label_alpha=float(getattr(eigs, "label_alpha", float("nan"))),
         label_omega=float(abs(eigs.label_crit.imag)) if getattr(eigs, "label_crit", None) is not None else float("nan"),
         label_represented=bool(getattr(eigs, "label_represented", False)),
+        sat_frac=float(sat_frac),
     )
 
 

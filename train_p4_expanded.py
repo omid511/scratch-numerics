@@ -248,7 +248,8 @@ def load_dataset(dataset_dir: str = "p4_dataset"):
             # datasets, absent in legacy ones — default to NaN/False downstream.
             for key in ("dts", "durations", "u_crits", "clamp_fracs",
                         "max_log_amps", "alphas", "omega_crits",
-                        "label_alphas", "label_omegas", "label_represented"):
+                        "label_alphas", "label_omegas", "label_represented",
+                        "sat_fracs"):
                 if key in z:
                     prov[key] = np.asarray(z[key])
     else:
@@ -375,7 +376,7 @@ def _split_select_calibrate(val_sorted):
 
 
 if __name__ == "__main__":
-    dataset_dir = "p4_dataset"
+    dataset_dir = os.environ.get("P4_DATASET_DIR", "p4_dataset")
     P(f"Loading dataset from {dataset_dir}/...")
     clips_arr, margins, velocities, design_ids, realization_ids, meta = load_dataset(dataset_dir)
     P(f"  {len(margins)} clips ({meta['n_train']}/{meta['n_val']}/{meta['n_test']} by design split)")

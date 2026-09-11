@@ -338,3 +338,20 @@ class TestPrefixEdgeCases:
     def test_bool_index_raises(self):
         with pytest.raises(ValueError):
             prefix_warning_available(8, 1, True)
+
+
+class TestSensorSaturation:
+    """Exploding normalized transients are ADC-clipped, with incidence recorded."""
+    def test_growth_clip_bounded_and_flagged(self):
+        from mechanics.p4_margin_estimation.transient import SAT_LIMIT
+        eigs = _stub_eigs(real=[200.0, 200.0])
+        clip = generate_clip_from_eigendecomposition(
+            eigs, np.random.default_rng(1), n_timesteps=16, u_crit=1000.0)
+        assert float(np.abs(clip.sensor_signals).max()) <= SAT_LIMIT
+        assert clip.sat_frac > 0.0
+
+    def test_stable_clip_untouched(self):
+        eigs = _stub_eigs(real=[-2.0, -3.0], seed=3)
+        clip = generate_clip_from_eigendecomposition(
+            eigs, np.random.default_rng(2), n_timesteps=16, u_crit=1000.0)
+        assert clip.sat_frac == pytest.approx(0.0)

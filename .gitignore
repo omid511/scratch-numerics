@@ -83,3 +83,6 @@ Thumbs.db
 .pytest_cache/
 p4_train_results.json
 docs/figures/
+
+p4_dataset_full/
+p4run_full/

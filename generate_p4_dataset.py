@@ -234,6 +234,7 @@ def _worker_process_design(args):
                         "label_alpha": float(clip.label_alpha),
                         "label_omega": float(clip.label_omega),
                         "label_represented": bool(clip.label_represented),
+                        "sat_frac": float(clip.sat_frac),
                     })
         elapsed = time.time() - t0
         return clips, {
@@ -388,12 +389,17 @@ def generate_dataset(
     label_alphas_arr = np.array([float(c.get("label_alpha", "nan")) for c in all_clips], dtype=np.float32)
     label_omegas_arr = np.array([float(c.get("label_omega", "nan")) for c in all_clips], dtype=np.float32)
     label_rep_arr = np.array([bool(c.get("label_represented", False)) for c in all_clips], dtype=bool)
+    sat_fracs_arr = np.array([float(c.get("sat_frac", 0.0)) for c in all_clips], dtype=np.float32)
     # P1-31: Replace assert with ValueError for data validation
     if clips_arr.ndim != 3:
         raise ValueError(f"clips must have 3 dimensions, got {clips_arr.shape}")
     if not np.all(np.isfinite(clips_arr)):
         bad_count = int((~np.isfinite(clips_arr)).sum())
         raise ValueError(f"Dataset contains {bad_count} non-finite values")
+    # Saturation cap: no sample may exceed the physical ADC range.
+    sat_over = int((np.abs(clips_arr) > 50.0).sum())
+    if sat_over:
+        raise ValueError(f"Dataset contains {sat_over} samples above saturation limit")
 
     # P1-32: Low-energy and constant-channel detection
     channel_std = clips_arr.std(axis=2)
@@ -420,6 +426,7 @@ def generate_dataset(
         "label_alphas": label_alphas_arr,
         "label_omegas": label_omegas_arr,
         "label_represented": label_rep_arr,
+        "sat_fracs": sat_fracs_arr,
     }
     for name, array in aligned_arrays.items():
         if len(array) != n_clips:
@@ -494,6 +501,12 @@ def generate_dataset(
                 & (np.sign(label_alphas_arr) != np.sign(alphas_arr)))) if n_clips else 0.0,
             "max_abs_alpha_error": float(np.nanmax(np.abs(label_alphas_arr - alphas_arr))) if n_clips else 0.0,
         },
+        "saturation_summary": {
+            "sat_limit": 50.0,
+            "frac_clips_saturated": float(np.mean(sat_fracs_arr > 0.0)) if n_clips else 0.0,
+            "mean_sat_frac": float(np.mean(sat_fracs_arr)) if n_clips else 0.0,
+            "max_sat_frac": float(np.max(sat_fracs_arr)) if n_clips else 0.0,
+        },
         "acquisition_summary": {
             "dt_min": float(np.nanmin(dts_arr)) if n_clips else 0.0,
             "dt_max": float(np.nanmax(dts_arr)) if n_clips else 0.0,
@@ -507,7 +520,7 @@ def generate_dataset(
             "solver": {"M": 6, "N": 6, "grid": [32, 32], "k_stiffness": 1e14, "bc": "CFCF"},
             "timebase": {"rule": "retained_band_90pct_nyquist", "n_timesteps": int(T)},
             "growth_clamp": {"min_log_amp": -50.0, "max_log_amp": 20.0},
-            "perturbations": {"zeta": ZETA_PERTURB, "face_E": FACE_E_PERTURB, "core_G": CORE_G_PERTURB, "rho": RHO_PERTURB},
+            "sensor_saturation": {"sat_limit": 50.0},
         },
     }
     # Atomic write: write to temp dir, then rename
@@ -538,6 +551,7 @@ def generate_dataset(
         label_alphas=label_alphas_arr,
         label_omegas=label_omegas_arr,
         label_represented=label_rep_arr,
+        sat_fracs=sat_fracs_arr,
     )
     with open(tmp_path / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
