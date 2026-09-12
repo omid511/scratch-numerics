@@ -174,6 +174,9 @@ def main():
     ap.add_argument("--tcn-ckpt-dir", default=None)
     ap.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2])
     ap.add_argument("--epochs", type=int, default=20)
+    ap.add_argument("--lambda-cons", type=float, default=0.1)
+    ap.add_argument("--out", default=RESULTS_PATH)
+    ap.add_argument("--dataset", default=os.environ.get("P4_DATASET_DIR", "p4_dataset"))
     args = ap.parse_args()
     out_path = args.out
 

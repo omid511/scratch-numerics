@@ -273,13 +273,17 @@ def apply_dr_with_mask(clips, seed=0):
             fs = 1024.0
             n_default_fs += 1
         p = perturber.perturb(c.sensor_signals, rng, fs=fs)
+        # Concatenate mask as extra channels: [signals; mask]
+        combined = np.concatenate([p.signals, p.valid_mask], axis=0)
         aug_clip = _Clip(combined, c.margin, c.velocity, c.design_id,
                          dt=getattr(c, "dt", None), time=getattr(c, "time", None),
                          realization_idx=getattr(c, "realization_idx", None),
                          sat_frac=float(getattr(c, "sat_frac", 0.0)))
+        augmented.append(aug_clip)
     if n_default_fs:
         P(f"  DR warning: {n_default_fs}/{len(clips)} clips lack dt; burst dropout used 1024 Hz fallback.")
     n_channels = clips[0].sensor_signals.shape[0] * 2  # signals + mask
+    return augmented, n_channels
 
 
 def with_ones_mask(clips):
