@@ -86,3 +86,5 @@ docs/figures/
 
 p4_dataset_full/
 p4run_full/
+
+wandb/
