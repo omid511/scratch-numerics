@@ -67,12 +67,15 @@ def main():
     P(f"test composition: unsafe={int((y <= 0).sum())} safe={int((y > 0).sum())} n={len(y)}")
 
     fams = {}
-    # ridge + residual intervals (point + calib band, no median/CQR distinction)
+    # Ridge: two EXPLICIT policies from the same arrays. `median` declares
+    # safe when the point prediction > 0; `band_lb` declares safe only when
+    # the lower band edge (pred - adjustment) > 0. These differ whenever the
+    # band straddles zero, so they must never share one row.
     rh = PhysicsFeatureRidge()
     rh.fit(train_dr)
     ri = ridge_residual_intervals(rh, cal_clean, test_clean, train_clips=train_dr)
     pr = np.asarray(rh.predict(test_clean), dtype=float).ravel()
-    fams["ridge"] = (pr, None, None)
+    fams["ridge"] = (pr, pr - float(ri["adjustment"]), None)
 
     specs = ([(f"qgru_s{s}", QuantileGRUModel(N_CH), f"p4_qgru_s{s}.pt") for s in (0, 1, 2)]
              + [(f"tcn_s{s}", QuantileMarginModel(n_channels=N_CH, hidden_dim=32, n_layers=9),
@@ -131,7 +134,8 @@ def main():
             P(f"{key:10s} {pol:8s} f={row['f']:.3f} a_s={row['a_s']:.3f} a={row['a']:.3f} "
               f"ufsd={row['ufsd']:.3f} us={row['n_unsafe_to_safe']} ss={row['n_safe_to_safe']}")
     c = comps["gruell_vs_ridge"]
-    P("gruell_vs_ridge MAE diff=%+.5f CI=[%+.5f,%+.5f] frac>0=%.3f"
+    P("gruell_vs_ridge MAE diff=%+.5f CI=[%+.5f,%+.5f] bootfrac>0=%.3f (descriptive, not a p-value); "
+      "CI includes zero at displayed precision — no superiority claim"
       % (c["mean_diff"], c["ci_low"], c["ci_high"], c["frac_gt0"]))
     P("WROTE p4_safety_reconciled.json (identity holds on every row)")
 

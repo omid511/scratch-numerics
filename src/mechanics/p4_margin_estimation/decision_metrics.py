@@ -274,8 +274,9 @@ def paired_design_comparison(
 
     Values must be finite (ValueError otherwise); ``n_bootstrap`` must be a
     positive int. Returns ``mean_diff``, the 95% bootstrap CI
-    (``ci_low``/``ci_high``), ``frac_gt0`` (fraction of bootstrap means > 0),
-    plus ``n_designs``/``n_bootstrap``.
+    (``ci_low``/``ci_high``), ``frac_gt0`` (fraction of bootstrap resample
+    means > 0 — a descriptive resampling frequency, NOT a hypothesis-test
+    p-value), plus ``n_designs``/``n_bootstrap``.
     """
     n_bootstrap = int(n_bootstrap)
     if n_bootstrap < 1:
