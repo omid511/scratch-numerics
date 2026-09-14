@@ -20,6 +20,7 @@ __all__ = [
     "ridge_residual_intervals",
     "interval_score",
     "safety_availability",
+    "policy_table",
     "paired_design_comparison",
     "near_flutter_mask",
     "regime_metrics",
@@ -200,6 +201,62 @@ def safety_availability(
     }
 
 
+def policy_table(
+    y_true: np.ndarray,
+    med_or_point: np.ndarray,
+    lower_raw: np.ndarray | None,
+    lower_cqr: np.ndarray | None,
+    design_ids,
+) -> dict:
+    """One decision array per policy; every column from the same booleans.
+    Review correction: earlier tables mixed median-based false-safe rates
+    with lower-bound availability, so rows violated
+    ``a = (1-pi_u) a_s + pi_u f``. Each policy row here derives all of
+    ``f`` (false-safe rate), ``a_s`` (safe-case availability), ``a``
+    (overall availability), ``ufsd`` (unsafe among declared), and exact
+    unsafe→safe / safe→safe counts from its own ``declared = score > 0``
+    array, where score is the median (``median`` policy), the raw lower
+    bound (``raw_lb``), or the CQR lower bound (``cqr_lb``). NaN only when
+    a row's own denominator is empty.
+    """
+    y = np.asarray(y_true, dtype=float).ravel()
+    med = np.asarray(med_or_point, dtype=float).ravel()
+    designs = list(design_ids)
+    if len(designs) != y.size or med.shape != y.shape:
+        raise ValueError("y_true/med_or_point/design_ids length mismatch")
+    cands = {"median": med}
+    if lower_raw is not None:
+        cands["raw_lb"] = np.asarray(lower_raw, dtype=float).ravel()
+    if lower_cqr is not None:
+        cands["cqr_lb"] = np.asarray(lower_cqr, dtype=float).ravel()
+    for k, v in cands.items():
+        if v.shape != y.shape:
+            raise ValueError(f"{k} length mismatch")
+        if y.size and not np.all(np.isfinite(v)):
+            raise ValueError(f"{k} must be finite")
+    unsafe = y <= 0
+    safe = ~unsafe
+    n_unsafe, n_safe = int(unsafe.sum()), int(safe.sum())
+    darr = np.asarray(designs, dtype=object)
+    rows = {}
+    for name, score in cands.items():
+        declared = score > 0
+        n_us = int((unsafe & declared).sum())
+        n_ss = int((safe & declared).sum())
+        n_dec = int(declared.sum())
+        rows[name] = {
+            "f": (n_us / n_unsafe) if n_unsafe else float("nan"),
+            "a_s": (n_ss / n_safe) if n_safe else float("nan"),
+            "a": float(declared.mean()) if y.size else float("nan"),
+            "ufsd": (n_us / n_dec) if n_dec else float("nan"),
+            "n_unsafe_to_safe": n_us,
+            "n_safe_to_safe": n_ss,
+            "n_declared": n_dec,
+            "n_designs_with_false_safe": int(
+                len(set(darr[unsafe & declared].tolist())) if n_us else 0),
+        }
+    return {"rows": rows, "n_unsafe": n_unsafe, "n_safe": n_safe,
+            "n_total": int(y.size)}
 def paired_design_comparison(
     records_a,
     records_b,

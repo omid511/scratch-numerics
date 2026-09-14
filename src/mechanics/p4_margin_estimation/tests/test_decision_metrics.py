@@ -11,6 +11,7 @@ from mechanics.p4_margin_estimation.decision_metrics import (
     interval_score,
     near_flutter_mask,
     paired_design_comparison,
+    policy_table,
     regime_metrics,
     ridge_residual_intervals,
     safety_availability,
@@ -209,3 +210,33 @@ class TestRegimeMetrics:
         with pytest.raises(ValueError):
             regime_metrics(np.array([0.1]), np.array([0.1, 0.2]), None, None,
                            np.array([False, False]), ["a", "b"])
+
+class TestPolicyTable:
+    def test_hand_counts_and_identity(self):
+        y = np.array([0.2, -0.1, 0.3, -0.2, 0.1, -0.05])
+        med = np.array([0.25, 0.05, -0.1, -0.3, 0.2, 0.1])
+        lo = np.array([0.15, -0.05, -0.2, -0.4, 0.1, -0.1])
+        cqr = lo - 0.05
+        dids = ["a", "b", "a", "b", "c", "c"]
+        out = policy_table(y, med, lo, cqr, dids)
+        assert out["n_unsafe"] == 3 and out["n_safe"] == 3
+        m = out["rows"]["median"]
+        assert (m["n_unsafe_to_safe"], m["n_safe_to_safe"]) == (2, 2)
+        assert m["f"] == pytest.approx(2 / 3) and m["a_s"] == pytest.approx(2 / 3)
+        assert m["a"] == pytest.approx(4 / 6) and m["ufsd"] == pytest.approx(2 / 4)
+        r = out["rows"]["raw_lb"]
+        assert (r["n_unsafe_to_safe"], r["n_safe_to_safe"]) == (0, 2)
+        assert r["f"] == pytest.approx(0.0)
+        # identity a = (1-pi_u) a_s + pi_u f holds per row
+        for row in out["rows"].values():
+            pi = out["n_unsafe"] / out["n_total"]
+            assert row["a"] == pytest.approx((1 - pi) * row["a_s"] + pi * row["f"])
+
+    def test_single_policy_only(self):
+        y = np.array([0.2, -0.1])
+        out = policy_table(y, np.array([0.1, 0.2]), None, None, ["a", "b"])
+        assert sorted(out["rows"]) == ["median"]
+
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError):
+            policy_table(np.array([0.1]), np.array([0.1, 0.2]), None, None, ["a", "b"])
