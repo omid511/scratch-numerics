@@ -1,0 +1,52 @@
+{
+  "conditions": [
+    "control",
+    "gain_bias",
+    "common_noise",
+    "dt_minus2pct",
+    "dt_plus2pct"
+  ],
+  "control": "Independent noise seed929 at1% original-eight aggregate calibration RMS; same as earlier independent evaluation",
+  "gain_bias": "Fixed balanced per-channel gains0.9/1.1, seed930 permutation, after causal normalization before clipping; models residual calibration scale error, not pre-calibration hardware gain",
+  "gains": [
+    1.1,
+    1.1,
+    0.9,
+    1.1,
+    1.1,
+    0.9,
+    1.1,
+    1.1,
+    0.9,
+    0.9,
+    0.9,
+    0.9,
+    0.9,
+    0.9,
+    1.1,
+    1.1
+  ],
+  "common_noise": "sqrt(0.2)*seed929 independent noise + sqrt(0.8)*seed931 shared Gaussian noise; sigma unchanged per channel; rho0.8 across channels; before normalization",
+  "dt_error": "Measured samples unchanged; reported dt scaled0.98 or1.02; true target unchanged",
+  "training": "Original equal clean/1%/5% independent Gaussian mixture only; all model selection uses unperturbed training partitions. MLP32->16 alpha1 seed42; ridge separately nested-tuned on same 41/42 features. Frozen outer models applied to all perturbations",
+  "limits": "Sensitivity settings not hardware-derived; fixed gain pattern, one correlated-noise draw and MLP seed; no dynamics mismatch or final held-out scoring",
+  "selected_sensor_indices": [
+    5,
+    6,
+    7,
+    8,
+    10,
+    11,
+    12,
+    13,
+    15,
+    16,
+    17,
+    18,
+    20,
+    21,
+    22,
+    23
+  ],
+  "feature_change": "Symmetric spacing as established; final column mean pairwise channel correlation"
+}

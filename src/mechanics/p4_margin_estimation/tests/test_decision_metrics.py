@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from mechanics.p4_margin_estimation.decision_metrics import (
+    error_exceedance,
     interval_score,
     near_flutter_mask,
     paired_design_comparison,
@@ -240,3 +241,38 @@ class TestPolicyTable:
     def test_length_mismatch_raises(self):
         with pytest.raises(ValueError):
             policy_table(np.array([0.1]), np.array([0.1, 0.2]), None, None, ["a", "b"])
+
+
+def test_exceedance_strict_thresholds_and_seed_rates_not_ensemble():
+    y = np.zeros(4)
+    p = np.array([[.25, .5, -.25, -.5], [-.25, .25, .5, .25]])
+    result = error_exceedance(y, p, ["a", "a", "a", "b"], [0., .25, .5])
+    assert [r["rate"] for r in result["curve"]] == [.625, .25, 0.]
+    assert result["curve"][0]["per_seed_counts"] == [2, 3]
+    under = error_exceedance(y, p, ["a", "a", "a", "b"], [.25], direction="under")
+    assert under["curve"][0]["rate"] == .125
+
+
+def test_exceedance_cluster_intervals_preserve_repeated_clips():
+    y = np.zeros(4)
+    p = np.array([.5, .5, .5, 0.])
+    ids = np.array(["a", "a", "a", "b"])
+    result = error_exceedance(y, p, ids, [.25])
+    repeated = error_exceedance(np.repeat(y, 3), np.repeat(p, 3),
+                                np.repeat(ids, 3), [.25])
+    assert result["curve"][0]["rate"] == .75  # Clip-, not design-weighted rate.
+    assert result["curve"][0]["ci_low"] == 0.
+    assert result["curve"][0]["ci_high"] == 1.
+    for key in ("rate", "ci_low", "ci_high"):
+        assert repeated["curve"][0][key] == result["curve"][0][key]
+
+
+@pytest.mark.parametrize("y,p,ids,thresholds", [
+    ([], [], [], [.01]),
+    ([0.], [float("nan")], ["a"], [.01]),
+    ([0.], [0., 1.], ["a"], [.01]),
+    ([0.], [0.], ["a"], [.02, .01]),
+])
+def test_exceedance_rejects_undefined_or_misaligned_rates(y, p, ids, thresholds):
+    with pytest.raises(ValueError):
+        error_exceedance(y, p, ids, thresholds)

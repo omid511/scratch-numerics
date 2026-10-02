@@ -61,7 +61,7 @@ class TCNBackbone(nn.Module):
     Input:  (batch, n_channels, seq_len)
     Output: (batch, hidden_dim, seq_len)
 
-    Receptive field: 511 timesteps with default config (8 layers, kernel=3, dilations 1..128).
+    Receptive field: 1021 timesteps with the default 8 two-convolution blocks.
     Each TCNBlock has 2 causal convolutions with residual connection.
     """
 
@@ -105,11 +105,25 @@ class TemporalSummary(nn.Module):
         super().__init__()
         self.window = window
 
-    def forward(self, feat: torch.Tensor) -> torch.Tensor:
-        """feat: (B, C, T) → (B, 3*C)"""
+    def forward(self, feat: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        """Summarize only valid prefix samples when lengths are supplied."""
         T = feat.shape[-1]
-        window = min(self.window, max(1, T // 4))
-        early = feat[:, :, :window].mean(dim=2)
-        late = feat[:, :, -window:].mean(dim=2)
-        last = feat[:, :, -1]
+        if lengths is None:
+            window = min(self.window, max(1, T // 4))
+            early = feat[:, :, :window].mean(dim=2)
+            late = feat[:, :, -window:].mean(dim=2)
+            last = feat[:, :, -1]
+        else:
+            lengths = lengths.to(feat.device)
+            if lengths.shape != (len(feat),) or lengths.dtype != torch.long:
+                raise ValueError("lengths must be one int64 value per signal")
+            if torch.any((lengths < 1) | (lengths > T)):
+                raise ValueError("prefix lengths must be within the sequence")
+            windows = torch.clamp(lengths // 4, min=1, max=self.window)
+            cumulative = torch.nn.functional.pad(feat.cumsum(dim=2), (1, 0))
+            def at(values, index):
+                return values.gather(2, index[:, None, None].expand(-1, feat.shape[1], 1)).squeeze(2)
+            early = at(cumulative, windows) / windows[:, None]
+            late = (at(cumulative, lengths) - at(cumulative, lengths - windows)) / windows[:, None]
+            last = at(feat, lengths - 1)
         return torch.cat([early, late, last], dim=1)

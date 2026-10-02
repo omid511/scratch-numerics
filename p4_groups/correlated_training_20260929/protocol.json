@@ -1,0 +1,9 @@
+{
+  "base": "MLP32->16 alpha1 seed42; training-only scaling; same5 outer design folds seed42; no reserved splits",
+  "augmentation_control": "train3 plus independent_extra (1% seed929), four equally weighted views",
+  "augmentation": "train3 plus correlated_extra (1% shared-noise rho0.8 from original audit), four equally weighted views",
+  "consistency": "Same augmented4 views, squared prediction difference between view1 (iid1 seed928) and view3 (correlated), lambda1 fixed; matched custom lambda0 control required",
+  "loss": "0.5 mean supervised squared error + alpha/(2*n_rows) weight norm + lambda/2 mean paired squared prediction differences; no bias regularization",
+  "fresh_evaluation": "Independent Gaussian seed932 and shared seed933; same marginal1% RMS, rho0.8 correlated; no retuning",
+  "limitations": "Sensitivity parameters not physical calibration; one model seed; fourth view changes effective regularization relative to original3, controlled by four-view iid comparator; correlated_train_draw on held-out designs not training rows"
+}

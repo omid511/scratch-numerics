@@ -97,6 +97,41 @@ PYTHONPATH=src uv run python generate_p4_dataset.py --n-designs 160 --output-dir
 PYTHONPATH=src uv run python train_p4_expanded.py
 PYTHONPATH=src uv run python run_p4.py
 ```
+The optional sensor-cap sensitivity runner consumes a dataset with the preserved `pre_saturation.npy` signals. It defaults to CPU; on a CUDA runtime, add `--device cuda` (the GRU training and prediction run there, while the ridge baseline remains CPU-side):
+
+```bash
+PYTHONPATH=src uv run python experiment_p4_saturation.py \
+  --dataset p4_dataset_full --output-dir p4_saturation_run --device cuda
+```
+
+The runner defaults to caps 50/100/200, seeds 0/1/2, 20 epochs, and batch size 64. Omit `--device` or pass `--device cpu` for the backward-compatible CPU path.
+
+### Online W&B artifacts for saturation runs
+
+Full runs default to a private W&B project and online publishing, as required for Colab or any run that needs durable online artifacts. Install the optional SDK and run, for example:
+
+```bash
+uv sync --extra wandb
+PYTHONPATH=src uv run python experiment_p4_saturation.py \
+  --dataset p4_dataset_full --output-dir p4_saturation_full \
+  --device cuda --wandb-project <project>
+```
+
+`--wandb-project` requires a configured W&B login and online run, resolves the account's default entity, and requires the content-fingerprinted dataset/source artifact to commit before training. The runner commits each completed checkpoint, prediction, and record incrementally, followed by a results artifact. Authentication, transfer, or commit failures stop an online-required run; it never silently falls back to local-only publishing.
+
+For an explicitly user-approved local-only run, invoke `experiment_p4_saturation.py` directly and omit `--wandb-project`. The runner does not initialize W&B or wait for dataset/source/model uploads; do not route this branch through an online-required wrapper or preflight. Checkpoints, predictions, and `results.json` remain in the local output directory; checkpoint and result saves use atomic replacement. Preserve the output directory and logs on durable local storage. This explicit mode is not an automatic fallback for a run requiring online durability.
+
+The local `results.json` stores immutable qualified artifact references and experiment, dataset, and record fingerprints. To restore a committed artifact, use its recorded `entity/project/name:vN` reference:
+
+```python
+import wandb
+
+artifact = wandb.Api().artifact("entity/project/name:v0")
+artifact.download(root="recovery")
+```
+
+If the local results file is unavailable, locate artifacts in the project by their `experiment_fingerprint`, `dataset_fingerprint`, or `record_fingerprint` metadata. Prefer the immutable versioned reference over the mutable `latest` alias.
+
 
 Dataset generation is expensive: process count defaults to 4 and can be changed with `DESIGN_WORKERS`, for example `DESIGN_WORKERS=2 PYTHONPATH=src uv run python generate_p4_dataset.py -n 8 -o /tmp/p4-smoke`.
 

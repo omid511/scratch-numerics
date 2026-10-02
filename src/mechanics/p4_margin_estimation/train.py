@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from .tcn import TCNBackbone
+from .optimization import fit_epochs
 from .quantile_head import (
     QuantileMarginModel,
     pinball_loss,
@@ -32,33 +33,31 @@ class HuberMarginModel(nn.Module):
         return self.head(feat)       # (B, 1)
 
 
+def _clip_signal(c):
+    if not np.isfinite(c.margin):
+        return None
+    try:
+        signal = np.asarray(c.sensor_signals, dtype=np.float32)
+    except (TypeError, ValueError):
+        return None
+    return signal if signal.ndim == 2 and np.isfinite(signal).all() else None
+
+
 def _build_tensors(clips):
-    """Build (X, y) tensors from clips, filtering non-finite."""
-    X_list, y_list = [], []
-    for c in clips:
-        if not np.isfinite(c.margin):
-            continue
-        sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-        if not bool(torch.isfinite(sig).all()):
-            continue
-        X_list.append(sig)
-        y_list.append(c.margin)
-    if not X_list:
-        raise ValueError("No valid clips (all margins NaN)")
-    X = torch.stack(X_list)
-    y = torch.tensor(y_list, dtype=torch.float32)
-    return X, y
+    """Stack once in NumPy; share the resulting storage with Torch."""
+    signals, targets = [], []
+    for clip in clips:
+        signal = _clip_signal(clip)
+        if signal is not None:
+            signals.append(signal)
+            targets.append(clip.margin)
+    if not signals:
+        raise ValueError("No valid clips (all margins NaN or non-finite signals)")
+    return torch.from_numpy(np.stack(signals)), torch.tensor(targets, dtype=torch.float32)
 
 
 def _is_valid_clip(c) -> bool:
-    """Shared non-finite filter matching _build_tensors."""
-    if not np.isfinite(c.margin):
-        return False
-    try:
-        sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-    except Exception:
-        return False
-    return bool(torch.isfinite(sig).all().item())
+    return _clip_signal(c) is not None
 
 
 def _velocity_bin_index(valid_vels, n_bins: int = 12, max_exact: int = 15) -> dict:
@@ -149,6 +148,16 @@ def _use_explicit_split(train_clips, val_clips, test_clips) -> bool:
     return all(given)
 
 
+def _checked_explicit_test(train_clips, val_clips, test_clips):
+    groups = [{c.design_id for c in clips} for clips in (train_clips, val_clips, test_clips)]
+    if any(groups[a] & groups[b] for a, b in ((0, 1), (0, 2), (1, 2))):
+        raise ValueError("Train/val/test design overlap")
+    valid = [c for c in test_clips if _is_valid_clip(c)]
+    if not valid:
+        raise ValueError("No valid test clips")
+    return valid
+
+
 def _aligned_test_vels(clips, velocities, valid_clips, test_idx):
     """Map test indices to velocities aligned with ``valid_clips``."""
     if not velocities:
@@ -196,7 +205,7 @@ def train(
     if use_explicit:
         X_train, y_train = _build_tensors(train_clips)
         X_val, y_val = _build_tensors(val_clips)
-        X_test, y_test = _build_tensors(test_clips)
+        test_clips = _checked_explicit_test(train_clips, val_clips, test_clips)
         train_ds = TensorDataset(X_train, y_train)
         val_ds = TensorDataset(X_val, y_val)
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -209,62 +218,16 @@ def train(
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
-        X_test = X[test_idx]
         test_clips = [valid_clips[i] for i in test_idx]
         test_vels = _aligned_test_vels(clips, velocities, valid_clips, test_idx)
 
     seq_len = X_train.shape[-1] if use_explicit else X.shape[-1]
     model = QuantileMarginModel(n_channels, hidden_dim, n_layers, sequence_length=seq_len).to(device)
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
-
-    quantiles = model.quantiles
-
-    SAFETY_WEIGHTS = (2.0, 1.0, 1.0)
-
-    history = {"train_loss": [], "val_loss": []}
-    best_val_loss = float("inf")
-    best_state = None
-
-    for epoch in range(epochs):
-        model.train()
-        epoch_loss = 0.0
-        n_batches = 0
-        for xb, yb in train_dl:
-            xb, yb = xb.to(device), yb.to(device)
-            pred = model(xb)  # (B, n_q) — scalar per quantile
-            target = yb       # (B,)
-            loss = pinball_loss(pred, target, quantiles, weights=SAFETY_WEIGHTS)
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-            epoch_loss += loss.item()
-            n_batches += 1
-        scheduler.step()
-        history["train_loss"].append(epoch_loss / max(n_batches, 1))
-
-        # Validation
-        model.eval()
-        val_loss = 0.0
-        n_val = 0
-        with torch.no_grad():
-            for xb, yb in val_dl:
-                xb, yb = xb.to(device), yb.to(device)
-                pred = model(xb)
-                target = yb
-                val_loss += pinball_loss(pred, target, quantiles, weights=SAFETY_WEIGHTS).item()
-                n_val += 1
-        avg_val_loss = val_loss / max(n_val, 1)
-        history["val_loss"].append(avg_val_loss)
-
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        if on_epoch is not None:
-            on_epoch(epoch, model, history)
-
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    def loss_for_batch(model, batch):
+        x, y = batch
+        return pinball_loss(model(x), y, model.quantiles, weights=(2.0, 1.0, 1.0))
+    history = fit_epochs(model, train_dl, val_dl, loss_for_batch,
+                         epochs=epochs, lr=lr, on_epoch=on_epoch)
 
     return model, history, test_clips, test_vels
 
@@ -298,7 +261,7 @@ def train_huber(
     if use_explicit:
         X_train, y_train = _build_tensors(train_clips)
         X_val, y_val = _build_tensors(val_clips)
-        X_test, y_test = _build_tensors(test_clips)
+        test_clips = _checked_explicit_test(train_clips, val_clips, test_clips)
         train_ds = TensorDataset(X_train, y_train)
         val_ds = TensorDataset(X_val, y_val)
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -311,58 +274,17 @@ def train_huber(
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
-        X_test = X[test_idx]
         test_clips = [valid_clips[i] for i in test_idx]
         test_vels = _aligned_test_vels(clips, velocities, valid_clips, test_idx)
 
     seq_len = X_train.shape[-1] if use_explicit else X.shape[-1]
     model = HuberMarginModel(n_channels, hidden_dim, n_layers,
                              sequence_length=seq_len).to(device)
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
-    # Safety-aware Huber: plain Huber + false-safe penalty on unsafe clips.
-    # (Canonical implementation lives in quantile_head.)
-
-    history = {"train_loss": [], "val_loss": []}
-    best_val_loss = float("inf")
-    best_state = None
-
-    for epoch in range(epochs):
-        model.train()
-        epoch_loss = 0.0
-        n_batches = 0
-        for xb, yb in train_dl:
-            xb, yb = xb.to(device), yb.to(device)
-            pred = model(xb).squeeze(-1)  # (B,)
-            loss = safety_aware_huber_loss(pred, yb, delta=0.1)
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-            epoch_loss += loss.item()
-            n_batches += 1
-        scheduler.step()
-        history["train_loss"].append(epoch_loss / max(n_batches, 1))
-
-        model.eval()
-        val_loss = 0.0
-        n_val = 0
-        with torch.no_grad():
-            for xb, yb in val_dl:
-                xb, yb = xb.to(device), yb.to(device)
-                pred = model(xb).squeeze(-1)
-                val_loss += safety_aware_huber_loss(pred, yb, delta=0.1).item()
-                n_val += 1
-        avg_val_loss = val_loss / max(n_val, 1)
-        history["val_loss"].append(avg_val_loss)
-
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        if on_epoch is not None:
-            on_epoch(epoch, model, history)
-
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    def loss_for_batch(model, batch):
+        x, y = batch
+        return safety_aware_huber_loss(model(x).squeeze(-1), y, delta=0.1)
+    history = fit_epochs(model, train_dl, val_dl, loss_for_batch,
+                         epochs=epochs, lr=lr, on_epoch=on_epoch)
 
     return model, history, test_clips, test_vels
 
@@ -399,7 +321,7 @@ def train_unweighted_quantile(
     if use_explicit:
         X_train, y_train = _build_tensors(train_clips)
         X_val, y_val = _build_tensors(val_clips)
-        X_test, y_test = _build_tensors(test_clips)
+        test_clips = _checked_explicit_test(train_clips, val_clips, test_clips)
         train_ds = TensorDataset(X_train, y_train)
         val_ds = TensorDataset(X_val, y_val)
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -412,57 +334,16 @@ def train_unweighted_quantile(
         val_ds = TensorDataset(X[val_idx], y[val_idx])
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=batch_size)
-        X_test = X[test_idx]
         test_clips = [valid_clips[i] for i in test_idx]
         test_vels = _aligned_test_vels(clips, velocities, valid_clips, test_idx)
 
     seq_len = X_train.shape[-1] if use_explicit else X.shape[-1]
     model = QuantileMarginModel(n_channels, hidden_dim, n_layers, sequence_length=seq_len).to(device)
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
-
-    history = {"train_loss": [], "val_loss": []}
-    best_val_loss = float("inf")
-    best_state = None
-
-    for epoch in range(epochs):
-        model.train()
-        epoch_loss = 0.0
-        n_batches = 0
-        for xb, yb in train_dl:
-            xb, yb = xb.to(device), yb.to(device)
-            pred = model(xb)  # (B, 3)
-            target = yb       # (B,)
-            loss = pinball_loss(pred, target, model.quantiles)
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-            epoch_loss += loss.item()
-            n_batches += 1
-        scheduler.step()
-        history["train_loss"].append(epoch_loss / max(n_batches, 1))
-
-        model.eval()
-        val_loss = 0.0
-        n_val = 0
-        with torch.no_grad():
-            for xb, yb in val_dl:
-                xb, yb = xb.to(device), yb.to(device)
-                pred = model(xb)
-                target = yb
-                val_loss += pinball_loss(pred, target, model.quantiles).item()
-                n_val += 1
-        avg_val_loss = val_loss / max(n_val, 1)
-        history["val_loss"].append(avg_val_loss)
-
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        if on_epoch is not None:
-            on_epoch(epoch, model, history)
-
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    def loss_for_batch(model, batch):
+        x, y = batch
+        return pinball_loss(model(x), y, model.quantiles)
+    history = fit_epochs(model, train_dl, val_dl, loss_for_batch,
+                         epochs=epochs, lr=lr, on_epoch=on_epoch)
 
     return model, history, test_clips, test_vels
 

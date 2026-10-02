@@ -152,6 +152,44 @@ class GRUEllQuantile(nn.Module):
         return torch.cat([median - F.softplus(out[:, 1:2]), median,
                           median + F.softplus(out[:, 2:3])], dim=1)
 
+class GRUEllQuantileSidecar(nn.Module):
+    """G1+ variant: GRU backbone + early/late/last summary + sidecar scalars.
+
+    Additive only: identical backbone/summary/head shapes to GRUEllQuantile
+    plus one small sidecar MLP (n_side -> 16 -> 16) whose output concatenates
+    with the 3H temporal features before the SAME head layout (3H+16 -> 3).
+    forward(x) without side input behaves exactly like GRUEllQuantile with
+    a zero sidecar embedding (backward compatible for eval-only callers).
+    """
+
+    def __init__(self, n_channels=16, hidden_dim=86, n_side=1):
+        super().__init__()
+        self.quantiles = SUPPORTED_QUANTILES
+        self.n_side = int(n_side)
+        base = GRUMarginModel(n_channels, hidden_dim)
+        self.gru = base.gru
+        self.summary = TemporalSummary(window=64)
+        self.side = nn.Sequential(nn.Linear(self.n_side, 16), nn.ReLU(),
+                                  nn.Linear(16, 16), nn.ReLU())
+        self.head = nn.Linear(3 * hidden_dim + 16, 3)
+
+    def forward(self, x, side=None):
+        x = x.transpose(1, 2)
+        out, _ = self.gru(x)  # (B, T, H)
+        feat = self.summary(out.transpose(1, 2))  # (B, 3H)
+        if side is None:
+            side_emb = torch.zeros(feat.shape[0], 16, device=feat.device, dtype=feat.dtype)
+        else:
+            s = torch.as_tensor(side, device=feat.device, dtype=feat.dtype)
+            if s.dim() == 1:
+                s = s.unsqueeze(0).expand(feat.shape[0], -1)
+            side_emb = self.side(s)
+        feat = torch.cat([feat, side_emb], dim=1)
+        out = self.head(feat)
+        median = out[:, 0:1]
+        return torch.cat([median - F.softplus(out[:, 1:2]), median,
+                          median + F.softplus(out[:, 2:3])], dim=1)
+
 
 class TCNFinalQuantile(nn.Module):
     """TCN backbone + final-timestep + ordered quantile head."""
@@ -184,11 +222,121 @@ def _stack_valid(clips, n_channels):
         raise ValueError("no valid clips")
     return torch.stack(Xl), torch.tensor(yl, dtype=torch.float32)
 
+def _stack_valid_with_clips(clips, n_channels):
+    """G1+ variant: stacked tensors plus the valid clips in row order."""
+    Xl, yl, kept = [], [], []
+    for c in clips:
+        if not np.isfinite(c.margin):
+            continue
+        s = torch.tensor(np.asarray(c.sensor_signals), dtype=torch.float32)
+        if not bool(torch.isfinite(s).all()):
+            continue
+        Xl.append(s)
+        yl.append(c.margin)
+        kept.append(c)
+    if not Xl:
+        raise ValueError("no valid clips")
+    return torch.stack(Xl), torch.tensor(yl, dtype=torch.float32), kept
+
+
+def _predict_sidecar(model, clips, side, batch=256, device="cpu"):
+    """G1+ variant: predict with per-clip sidecar rows aligned to clips."""
+    device = torch.device(device)
+    model.to(device)
+    model.eval()
+    outs = []
+    side = np.asarray(side, dtype=np.float32)
+    with torch.inference_mode():
+        for s in range(0, len(clips), batch):
+            Xb = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32)
+                              for c in clips[s:s + batch]]).to(device)
+            Sb = torch.tensor(side[s:s + batch], dtype=torch.float32).to(device)
+            outs.append(model(Xb, Sb).detach().cpu().numpy())
+    return np.concatenate(outs, axis=0) if outs else np.zeros((0, 3))
+
+
+def _capture_rng_state() -> dict[str, object]:
+    """Snapshot process RNG state so an interrupted epoch loop can resume exactly."""
+    state: dict[str, object] = {"python": __import__("random").getstate()}
+    try:
+        state["numpy"] = np.random.get_state()
+    except Exception:
+        state["numpy"] = None
+    try:
+        state["torch_cpu"] = torch.get_rng_state()
+    except Exception:
+        state["torch_cpu"] = None
+    cuda_state = None
+    try:
+        state["torch_cuda"] = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    except Exception:
+        state["torch_cuda"] = None
+    return state
+
+
+def _restore_rng_state(state: dict[str, object] | None) -> None:
+    """Restore a snapshot from _capture_rng_state; fail closed on mismatch."""
+    if not isinstance(state, dict):
+        raise ValueError("RNG state must be a mapping")
+    python_state = state.get("python")
+    numpy_state = state.get("numpy")
+    torch_cpu = state.get("torch_cpu")
+    torch_cuda = state.get("torch_cuda")
+    if python_state is None or numpy_state is None or torch_cpu is None:
+        raise ValueError("incomplete RNG state")
+    __import__("random").setstate(python_state)
+    np.random.set_state(numpy_state)
+    torch.set_rng_state(torch_cpu)
+    if torch_cuda is not None:
+        if not torch.cuda.is_available():
+            raise ValueError("saved CUDA RNG state but CUDA is unavailable")
+        torch.cuda.set_rng_state_all(torch_cuda)
+
+
+def _validate_training_state(value: object, *, expected_epochs: int) -> dict[str, object]:
+    """Validate a completed-epoch training sidecar before resuming from it."""
+    if not isinstance(value, dict):
+        raise ValueError("training state must be a mapping")
+    for field in ("schema_version", "epoch", "model", "optimizer", "scheduler", "best", "best_model", "history", "rng", "shuffle"):
+        if field not in value:
+            raise ValueError(f"training state is missing {field!r}")
+    if int(value.get("schema_version", 0)) != 1:
+        raise ValueError("unsupported training-state schema version")
+    epoch = int(value["epoch"])
+    if epoch < 0 or epoch >= int(expected_epochs):
+        raise ValueError(f"training state epoch {epoch!r} outside [0, {int(expected_epochs)})")
+    history = value.get("history")
+    if not isinstance(history, dict):
+        raise ValueError("training-state history must be a mapping")
+    if not isinstance(history.get("train_loss"), list) or not isinstance(history.get("val_loss"), list):
+        raise ValueError("training-state history must hold train/val loss lists")
+    if len(history["train_loss"]) != epoch + 1 or len(history["val_loss"]) != epoch + 1:
+        raise ValueError("training-state history is not aligned with its completed epoch")
+    if not isinstance(value.get("model"), dict) or not isinstance(value.get("optimizer"), dict):
+        raise ValueError("training state must carry model and optimizer states")
+    if value.get("scheduler") is not None and not isinstance(value.get("scheduler"), dict):
+        raise ValueError("training-state scheduler must be a mapping or null")
+    if not isinstance(value.get("shuffle"), dict):
+        raise ValueError("training state must carry shuffle-generator state")
+    return value  # type: ignore[return-value]
+
 
 def train_quantile_generic(make_model, clips, *, val_clips, epochs, lr, batch_size,
-                           seed, n_channels, on_epoch=None):
-    """Minimal matched quantile trainer: pinball + Adam + cosine + best-val restore."""
-    torch.manual_seed(seed)
+                           seed, n_channels, on_epoch=None, device="cpu",
+                           resume_state: dict[str, object] | None = None,
+                           checkpoint_callback=None):
+    """Matched quantile trainer: pinball + Adam + cosine + best-val restore.
+
+    A validated completed-epoch resume_state continues optimizer, scheduler,
+    best-model, history, and global RNG state exactly. Callers persist each
+    completed epoch atomically before external callbacks, so callback or
+    evaluation failure cannot discard completed training.
+    """
+    device = torch.device(device)
+    resume = (_validate_training_state(resume_state, expected_epochs=int(epochs))
+              if resume_state is not None else None)
+    if resume is None:
+        torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     X, y = _stack_valid(clips, n_channels)
     Xv, yv = _stack_valid(val_clips, n_channels)
@@ -196,17 +344,45 @@ def train_quantile_generic(make_model, clips, *, val_clips, epochs, lr, batch_si
     vids = {c.design_id for c in val_clips if np.isfinite(c.margin)}
     if tids & vids:
         raise ValueError(f"train/val design overlap: {sorted(tids & vids)[:5]}")
-    train_dl = DataLoader(TensorDataset(X, y), batch_size=batch_size, shuffle=True)
+    # Dedicated shuffle generator: the loader draws permutations from this
+    # generator only, so global torch RNG snapshots stay exact for resume and
+    # DataLoader construction/iteration consumes no global torch draws.
+    shuffle_gen = torch.Generator()
+    shuffle_gen.manual_seed(int(seed))
+    train_dl = DataLoader(TensorDataset(X, y), batch_size=batch_size, shuffle=True,
+                          generator=shuffle_gen)
     val_dl = DataLoader(TensorDataset(Xv, yv), batch_size=batch_size)
-    model = make_model()
+    model = make_model().to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
     hist = {"train_loss": [], "val_loss": []}
     best, best_state = float("inf"), None
-    for epoch in range(epochs):
+    start_epoch = 0
+    if resume is not None:
+        model.load_state_dict(resume["model"])
+        optim.load_state_dict(resume["optimizer"])
+        scheduler_state = resume.get("scheduler")
+        if scheduler_state is not None:
+            sched.load_state_dict(scheduler_state)
+        model.to(device)
+        best = float(resume["best"])
+        saved_best = resume.get("best_model")
+        best_state = ({k: v.cpu().clone() for k, v in saved_best.items()}
+                      if isinstance(saved_best, dict) else None)
+        hist = {"train_loss": [float(v) for v in resume["history"]["train_loss"]],
+                "val_loss": [float(v) for v in resume["history"]["val_loss"]]}
+        _restore_rng_state(resume.get("rng"))  # type: ignore[arg-type]
+        shuffle_state = resume.get("shuffle")
+        if not isinstance(shuffle_state, dict) or "state" not in shuffle_state:
+            raise ValueError("training state has invalid shuffle-generator state")
+        shuffle_gen.set_state(torch.ByteTensor(shuffle_state["state"]))
+        start_epoch = int(resume["epoch"]) + 1
+        del resume
+    for epoch in range(start_epoch, epochs):
         model.train()
         tot, nb = 0.0, 0
         for xb, yb in train_dl:
+            xb, yb = xb.to(device), yb.to(device)
             loss = pinball_loss(model(xb), yb, SUPPORTED_QUANTILES, weights=QW)
             optim.zero_grad()
             loss.backward()
@@ -219,12 +395,28 @@ def train_quantile_generic(make_model, clips, *, val_clips, epochs, lr, batch_si
         vt, nv = 0.0, 0
         with torch.no_grad():
             for xb, yb in val_dl:
+                xb, yb = xb.to(device), yb.to(device)
                 vt += pinball_loss(model(xb), yb, SUPPORTED_QUANTILES, weights=QW).item()
                 nv += 1
         avg = vt / max(nv, 1)
         hist["val_loss"].append(avg)
         if avg < best:
             best, best_state = avg, {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if checkpoint_callback is not None:
+            checkpoint_callback({
+                "schema_version": 1,
+                "epoch": int(epoch),
+                "model": {k: v.cpu().clone() for k, v in model.state_dict().items()},
+                "optimizer": optim.state_dict(),
+                "scheduler": sched.state_dict(),
+                "best": float(best),
+                "best_model": ({k: v.cpu().clone() for k, v in best_state.items()}
+                               if best_state is not None else None),
+                "history": {"train_loss": list(hist["train_loss"]),
+                            "val_loss": list(hist["val_loss"])},
+                "rng": _capture_rng_state(),
+                "shuffle": {"state": shuffle_gen.get_state().tolist()},
+            })
         if on_epoch is not None:
             on_epoch(epoch, model, hist)
         _ = rng  # deterministic DataLoader order documented via torch seed
@@ -232,16 +424,257 @@ def train_quantile_generic(make_model, clips, *, val_clips, epochs, lr, batch_si
         model.load_state_dict(best_state)
     return model, hist
 
+def train_quantile_sidecar(make_model, clips, side, *, val_clips, val_side,
+                           epochs, lr, batch_size, seed, n_channels,
+                           on_epoch=None, device="cpu", resume_state=None,
+                           checkpoint_callback=None):
+    """G1+ variant: matched quantile trainer with per-clip sidecar inputs.
 
-def _predict(model, clips, batch=256):
+    Additive only: mirrors train_quantile_generic exactly (Adam + cosine +
+    best-val restore + shuffle/resume protocol) but threads standardized
+    sidecar rows through model(x, side). train/val row order comes from
+    _stack_valid_with_clips so side rows align to tensor rows.
+    """
+    device = torch.device(device)
+    resume = (_validate_training_state(resume_state, expected_epochs=int(epochs))
+              if resume_state is not None else None)
+    if resume is None:
+        torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+    X, y, kept = _stack_valid_with_clips(clips, n_channels)
+    Xv, yv, kept_v = _stack_valid_with_clips(val_clips, n_channels)
+    S = torch.tensor(np.asarray(side, dtype=np.float32), dtype=torch.float32)
+    Sv = torch.tensor(np.asarray(val_side, dtype=np.float32), dtype=torch.float32)
+    if len(S) != len(kept) or len(Sv) != len(kept_v):
+        raise ValueError("sidecar rows do not align to valid clips")
+    tids = {c.design_id for c in clips if np.isfinite(c.margin)}
+    vids = {c.design_id for c in val_clips if np.isfinite(c.margin)}
+    if tids & vids:
+        raise ValueError(f"train/val design overlap: {sorted(tids & vids)[:5]}")
+    shuffle_gen = torch.Generator()
+    shuffle_gen.manual_seed(int(seed))
+    train_dl = DataLoader(TensorDataset(X, S, y), batch_size=batch_size, shuffle=True,
+                          generator=shuffle_gen)
+    val_dl = DataLoader(TensorDataset(Xv, Sv, yv), batch_size=batch_size)
+    model = make_model().to(device)
+    optim = torch.optim.Adam(model.parameters(), lr=lr)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
+    hist = {"train_loss": [], "val_loss": []}
+    best, best_state = float("inf"), None
+    start_epoch = 0
+    if resume is not None:
+        model.load_state_dict(resume["model"])
+        optim.load_state_dict(resume["optimizer"])
+        scheduler_state = resume.get("scheduler")
+        if scheduler_state is not None:
+            sched.load_state_dict(scheduler_state)
+        model.to(device)
+        best = float(resume["best"])
+        saved_best = resume.get("best_model")
+        best_state = ({k: v.cpu().clone() for k, v in saved_best.items()}
+                      if isinstance(saved_best, dict) else None)
+        hist = {"train_loss": [float(v) for v in resume["history"]["train_loss"]],
+                "val_loss": [float(v) for v in resume["history"]["val_loss"]]}
+        _restore_rng_state(resume.get("rng"))  # type: ignore[arg-type]
+        shuffle_state = resume.get("shuffle")
+        if not isinstance(shuffle_state, dict) or "state" not in shuffle_state:
+            raise ValueError("training state has invalid shuffle-generator state")
+        shuffle_gen.set_state(torch.ByteTensor(shuffle_state["state"]))
+        start_epoch = int(resume["epoch"]) + 1
+        del resume
+    for epoch in range(start_epoch, epochs):
+        model.train()
+        tot, nb = 0.0, 0
+        for xb, sb, yb in train_dl:
+            xb, sb, yb = xb.to(device), sb.to(device), yb.to(device)
+            loss = pinball_loss(model(xb, sb), yb, SUPPORTED_QUANTILES, weights=QW)
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
+            tot += loss.item()
+            nb += 1
+        sched.step()
+        hist["train_loss"].append(tot / max(nb, 1))
+        model.eval()
+        vt, nv = 0.0, 0
+        with torch.no_grad():
+            for xb, sb, yb in val_dl:
+                xb, sb, yb = xb.to(device), sb.to(device), yb.to(device)
+                vt += pinball_loss(model(xb, sb), yb, SUPPORTED_QUANTILES, weights=QW).item()
+                nv += 1
+        avg = vt / max(nv, 1)
+        hist["val_loss"].append(avg)
+        if avg < best:
+            best, best_state = avg, {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if checkpoint_callback is not None:
+            checkpoint_callback({
+                "schema_version": 1,
+                "epoch": int(epoch),
+                "model": {k: v.cpu().clone() for k, v in model.state_dict().items()},
+                "optimizer": optim.state_dict(),
+                "scheduler": sched.state_dict(),
+                "best": float(best),
+                "best_model": ({k: v.cpu().clone() for k, v in best_state.items()}
+                               if best_state is not None else None),
+                "history": {"train_loss": list(hist["train_loss"]),
+                            "val_loss": list(hist["val_loss"])},
+                "rng": _capture_rng_state(),
+                "shuffle": {"state": shuffle_gen.get_state().tolist()},
+            })
+        if on_epoch is not None:
+            on_epoch(epoch, model, hist)
+        _ = rng
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model, hist
+
+def train_quantile_weighted_sidecar(make_model, clips, side, weights, *, val_clips, val_side,
+                                    epochs, lr, batch_size, seed, n_channels,
+                                    mono_lambda=0.0, on_epoch=None, device="cpu",
+                                    resume_state=None, checkpoint_callback=None):
+    """G5 variant: sidecar trainer plus per-sample weights and monotonicity.
+
+    Additive only: mirrors train_quantile_sidecar exactly, plus:
+    - weights: per-clip pinball multipliers (mean-1 normalized by caller);
+      threaded through TensorDataset so shuffle keeps (x, s, w, y) aligned.
+    - mono_lambda: weight of the same-design V-monotonicity penalty on the
+      median channel: mean over in-batch pairs (same design, V_i < V_j) of
+      relu(med_i - med_j). Needs clips with .design_id/.velocity in row
+      order; pass 0.0 to disable (pure weighted run).
+    """
+    device = torch.device(device)
+    resume = (_validate_training_state(resume_state, expected_epochs=int(epochs))
+              if resume_state is not None else None)
+    if resume is None:
+        torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+    X, y, kept = _stack_valid_with_clips(clips, n_channels)
+    Xv, yv, kept_v = _stack_valid_with_clips(val_clips, n_channels)
+    S = torch.tensor(np.asarray(side, dtype=np.float32), dtype=torch.float32)
+    Sv = torch.tensor(np.asarray(val_side, dtype=np.float32), dtype=torch.float32)
+    W = torch.tensor(np.asarray(weights, dtype=np.float32).ravel(), dtype=torch.float32)
+    if len(S) != len(kept) or len(Sv) != len(kept_v) or len(W) != len(kept):
+        raise ValueError("sidecar/weight rows do not align to valid clips")
+    tids = {c.design_id for c in clips if np.isfinite(c.margin)}
+    vids = {c.design_id for c in val_clips if np.isfinite(c.margin)}
+    if tids & vids:
+        raise ValueError(f"train/val design overlap: {sorted(tids & vids)[:5]}")
+    keep_dids = [str(c.design_id) for c in kept]
+    keep_vels = torch.tensor([float(getattr(c, "velocity", float("nan"))) for c in kept],
+                             dtype=torch.float32)
+    _uniq_ids = sorted(set(keep_dids))
+    _code_of = {d: i for i, d in enumerate(_uniq_ids)}
+    did_codes = torch.tensor([_code_of[d] for d in keep_dids], dtype=torch.long)
+    shuffle_gen = torch.Generator()
+    shuffle_gen.manual_seed(int(seed))
+    train_dl = DataLoader(
+        TensorDataset(X, S, W, y, did_codes, keep_vels.clone()),
+        batch_size=batch_size, shuffle=True, generator=shuffle_gen)
+    val_dl = DataLoader(TensorDataset(Xv, Sv, yv), batch_size=batch_size)
+    model = make_model().to(device)
+    optim = torch.optim.Adam(model.parameters(), lr=lr)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
+    hist = {"train_loss": [], "val_loss": []}
+    best, best_state = float("inf"), None
+    start_epoch = 0
+    if resume is not None:
+        model.load_state_dict(resume["model"])
+        optim.load_state_dict(resume["optimizer"])
+        scheduler_state = resume.get("scheduler")
+        if scheduler_state is not None:
+            sched.load_state_dict(scheduler_state)
+        model.to(device)
+        best = float(resume["best"])
+        saved_best = resume.get("best_model")
+        best_state = ({k: v.cpu().clone() for k, v in saved_best.items()}
+                      if isinstance(saved_best, dict) else None)
+        hist = {"train_loss": [float(v) for v in resume["history"]["train_loss"]],
+                "val_loss": [float(v) for v in resume["history"]["val_loss"]]}
+        _restore_rng_state(resume.get("rng"))  # type: ignore[arg-type]
+        shuffle_state = resume.get("shuffle")
+        if not isinstance(shuffle_state, dict) or "state" not in shuffle_state:
+            raise ValueError("training state has invalid shuffle-generator state")
+        shuffle_gen.set_state(torch.ByteTensor(shuffle_state["state"]))
+        start_epoch = int(resume["epoch"]) + 1
+        del resume
+    _QW = torch.tensor(QW, dtype=torch.float32)
+    for epoch in range(start_epoch, epochs):
+        model.train()
+        tot, nb = 0.0, 0
+        for xb, sb, wb, yb, db, vb in train_dl:
+            xb, sb, wb, yb, db, vb = (t.to(device) for t in (xb, sb, wb, yb, db, vb))
+            pred = model(xb, sb)
+            err = yb.reshape(-1, 1) - pred
+            q = pred.new_tensor(SUPPORTED_QUANTILES).reshape(1, -1)
+            pb = torch.maximum(q * err, (q - 1.0) * err) * _QW.to(pred.device).reshape(1, -1)
+            loss = (pb.mean(dim=1) * wb).mean()
+            if mono_lambda > 0:
+                med = pred[:, 1]
+                ii, jj = torch.triu_indices(med.numel(), med.numel(), offset=1, device=med.device)
+                same = db[ii] == db[jj]
+                if bool(same.any()):
+                    dv = vb[jj] - vb[ii]
+                    finite = torch.isfinite(dv)
+                    use = same & finite & (dv.abs() > 0)
+                    if bool(use.any()):
+                        dm = med[ii] - med[jj]
+                        pair = torch.relu(dm * torch.sign(dv)) * use.float()
+                        loss = loss + float(mono_lambda) * pair.sum() / use.float().sum()
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
+            tot += loss.item()
+            nb += 1
+        sched.step()
+        hist["train_loss"].append(tot / max(nb, 1))
+        model.eval()
+        vt, nv = 0.0, 0
+        with torch.no_grad():
+            for xb, sb, yb in val_dl:
+                xb, sb, yb = xb.to(device), sb.to(device), yb.to(device)
+                vt += pinball_loss(model(xb, sb), yb, SUPPORTED_QUANTILES, weights=QW).item()
+                nv += 1
+        avg = vt / max(nv, 1)
+        hist["val_loss"].append(avg)
+        if avg < best:
+            best, best_state = avg, {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        if checkpoint_callback is not None:
+            checkpoint_callback({
+                "schema_version": 1,
+                "epoch": int(epoch),
+                "model": {k: v.cpu().clone() for k, v in model.state_dict().items()},
+                "optimizer": optim.state_dict(),
+                "scheduler": sched.state_dict(),
+                "best": float(best),
+                "best_model": ({k: v.cpu().clone() for k, v in best_state.items()}
+                               if best_state is not None else None),
+                "history": {"train_loss": list(hist["train_loss"]),
+                            "val_loss": list(hist["val_loss"])},
+                "rng": _capture_rng_state(),
+                "shuffle": {"state": shuffle_gen.get_state().tolist()},
+            })
+        if on_epoch is not None:
+            on_epoch(epoch, model, hist)
+        _ = rng
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    return model, hist
+
+
+def _predict(model, clips, batch=256, device="cpu"):
+    device = torch.device(device)
+    model.to(device)
     model.eval()
     outs = []
     with torch.inference_mode():
         for s in range(0, len(clips), batch):
             Xb = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32)
-                              for c in clips[s:s + batch]])
+                              for c in clips[s:s + batch]]).to(device)
             outs.append(model(Xb).detach().cpu().numpy())
     return np.concatenate(outs, axis=0) if outs else np.zeros((0, 3))
+
+
+
 
 
 def _arrays(clips, pred):

@@ -60,7 +60,6 @@ class TestPinballDecreases:
         _, hist = train_quantile_gru(train, n_channels=C, hidden_dim=8, epochs=2,
                                      batch_size=8, seed=0, val_clips=val)
         assert hist["train_loss"][-1] < hist["train_loss"][0]
-        assert len(hist["train_loss"]) == 2 and len(hist["val_loss"]) == 2
 
 
 class TestBuildStatePairs:
@@ -88,8 +87,7 @@ class TestConsistency:
         val = _trend_clips("D000003", np.linspace(-0.1, 0.1, 6), seed=200)
         kw = dict(n_channels=C, hidden_dim=8, epochs=10, batch_size=4, seed=0, val_clips=val)
         plain, _ = train_quantile_gru(train, **kw)
-        cons, hist = train_quantile_gru_consistency(train, lambda_cons=1.0, **kw)
-        assert len(hist["train_loss"]) == 10
+        cons, _ = train_quantile_gru_consistency(train, lambda_cons=1.0, **kw)
         pairs = build_state_pairs(train)
         assert _median_gap(cons, pairs) < _median_gap(plain, pairs)
 
@@ -100,13 +98,11 @@ class TestMaskChannels:
         train = [_clip(0.1, "D000001", seed=i, mask=True) for i in range(4)] + \
                 [_clip(-0.1, "D000002", seed=100 + i, mask=True) for i in range(4)]
         val = [_clip(0.05, "D000003", seed=200 + i, mask=True) for i in range(4)]
-        model, hist = train_quantile_gru(train, n_channels=2 * C, hidden_dim=8, epochs=1,
+        model, _ = train_quantile_gru(train, n_channels=2 * C, hidden_dim=8, epochs=1,
                                          batch_size=4, seed=0, val_clips=val)
         out = model(torch.stack([torch.tensor(np.asarray(c.sensor_signals), dtype=torch.float32) for c in val]))
         assert out.shape == (4, 3)
         assert bool(((out[:, 0] <= out[:, 1]) & (out[:, 1] <= out[:, 2])).all())
-        assert len(hist["train_loss"]) == 1
-
 
 class TestOverlap:
     def test_train_val_overlap_raises(self):

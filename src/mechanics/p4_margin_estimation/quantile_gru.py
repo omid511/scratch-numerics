@@ -12,7 +12,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
-from .baselines import GRUMarginModel
+from .optimization import fit_epochs
+from .train import _build_tensors, _is_valid_clip
 from .quantile_head import SUPPORTED_QUANTILES, pinball_loss
 
 QUANTILES = SUPPORTED_QUANTILES
@@ -32,8 +33,7 @@ class QuantileGRUModel(nn.Module):
         self.n_channels = n_channels
         self.hidden_dim = hidden_dim
         self.quantiles = SUPPORTED_QUANTILES
-        # Reuse the shared GRU backbone (not its point-prediction head).
-        self.gru = GRUMarginModel(n_channels, hidden_dim).gru
+        self.gru = nn.GRU(n_channels, hidden_dim, batch_first=True)
         self.head = nn.Linear(hidden_dim, 3)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -51,22 +51,13 @@ def _valid_clips(clips):
     return [c for c in clips if _is_valid_clip(c)]
 
 
-def _is_valid_clip(c) -> bool:
-    if not np.isfinite(c.margin):
-        return False
-    try:
-        sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-    except Exception:
-        return False
-    return bool(torch.isfinite(sig).all().item())
 
 
 def _stack(clips, n_channels: int):
-    X_list = [torch.tensor(np.asarray(c.sensor_signals), dtype=torch.float32) for c in clips]
-    X = torch.stack(X_list)
+    X, y = _build_tensors(clips)
     if X.shape[1] != n_channels:
         raise ValueError(f"Expected {n_channels} channels, got {X.shape[1]}")
-    return X, torch.tensor([c.margin for c in clips], dtype=torch.float32)
+    return X, y
 
 
 def _checked_splits(clips, val_clips):
@@ -86,43 +77,10 @@ def _checked_splits(clips, val_clips):
 
 
 def _run_epochs(model, train_dl, val_dl, epochs, lr, quantile_weights, on_epoch, extra_loss=None):
-    """Shared Adam + cosine + best-val-restore loop; extra_loss adds terms."""
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
-    history = {"train_loss": [], "val_loss": []}
-    best_val_loss = float("inf")
-    best_state = None
-    device = next(model.parameters()).device
-    for epoch in range(epochs):
-        model.train()
-        epoch_loss, n_batches = 0.0, 0
-        for batch in train_dl:
-            batch = [t.to(device) for t in batch]
-            loss = extra_loss(model, batch) if extra_loss is not None else _pinball_batch(model, batch, quantile_weights)
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-            epoch_loss += loss.item()
-            n_batches += 1
-        scheduler.step()
-        history["train_loss"].append(epoch_loss / max(n_batches, 1))
-        model.eval()
-        val_loss, n_val = 0.0, 0
-        with torch.no_grad():
-            for xb, yb in val_dl:
-                xb, yb = xb.to(device), yb.to(device)
-                val_loss += pinball_loss(model(xb), yb, QUANTILES, weights=quantile_weights).item()
-                n_val += 1
-        avg_val = val_loss / max(n_val, 1)
-        history["val_loss"].append(avg_val)
-        if avg_val < best_val_loss:
-            best_val_loss = avg_val
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        if on_epoch is not None:
-            on_epoch(epoch, model, history)
-    if best_state is not None:
-        model.load_state_dict(best_state)
-    return history
+    def validation_loss(model, batch):
+        return _pinball_batch(model, batch, quantile_weights)
+    return fit_epochs(model, train_dl, val_dl, extra_loss or validation_loss,
+                      validation_loss=validation_loss, epochs=epochs, lr=lr, on_epoch=on_epoch)
 
 
 def _pinball_batch(model, batch, quantile_weights):

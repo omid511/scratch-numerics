@@ -116,8 +116,10 @@ def fit_cqr_adjustment(
 ) -> float:
     """Fit CQR adjustment on calibration set.
 
-    Returns the nonconformity quantile that widens intervals to achieve
-    nominal coverage (1 - alpha).
+    Returns the finite-sample nonconformity quantile at nominal level
+    (1 - alpha). Scores are pooled clips; with design-clustered data
+    (few calibration designs) this carries no finite-sample design-level
+    coverage guarantee -- report empirical held-out coverage instead.
     """
     scores = np.maximum(lower - target, target - upper)
     n = scores.size

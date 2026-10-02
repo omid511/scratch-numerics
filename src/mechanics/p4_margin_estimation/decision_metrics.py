@@ -8,10 +8,12 @@ Works against the shared clip/predictor protocols (no new dependencies):
   (matches ``baselines.MarginPredictor``).
 
 Calibration discipline: calibration clips must come from designs disjoint
-from train AND test (caller-enforced). Where a function receives both train
-and calibration lists it raises on train/calib design overlap.
+from train AND test (caller-enforced). Scores are pooled clips; with few
+calibration designs (here 7) there is no nontrivial finite-sample
+design-level coverage guarantee (with n=7 units, max-score calibration
+covers a new exchangeable unit with probability 7/8=87.5%, below a 90%
+target). Report nominal clip-level CQR plus empirical held-out coverage.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -24,6 +26,7 @@ __all__ = [
     "paired_design_comparison",
     "near_flutter_mask",
     "regime_metrics",
+    "error_exceedance",
 ]
 
 _DEFAULT_ALPHA = 0.10
@@ -371,3 +374,59 @@ def regime_metrics(y_true, median_pred, lower_pred, upper_pred, sat_flag, design
         div.update(sa)
         out[name] = div
     return out
+
+
+def error_exceedance(y_true, predictions, design_ids, thresholds, *,
+                     direction="over", n_bootstrap=2000, seed=42):
+    """Strict error exceedance on a caller-selected, nonempty margin slice.
+
+    Predictions have shape (seeds, clips), or (clips,) for one seed.
+    Rates are clip-weighted then averaged across seeds, not ensemble rates.
+    Percentile intervals resample represented designs, retaining their clips
+    and all seeds together. They exclude refit/seed uncertainty; a zero-event
+    bootstrap interval is not evidence that the population risk is zero.
+    """
+    y = np.asarray(y_true, dtype=float)
+    p = np.asarray(predictions, dtype=float)
+    ids = np.asarray(design_ids)
+    thresholds = np.asarray(thresholds, dtype=float)
+    if p.ndim == 1:
+        p = p[None, :]
+    if (y.ndim != 1 or not len(y) or p.ndim != 2 or not len(p)
+            or p.shape[1] != len(y) or ids.shape != y.shape):
+        raise ValueError("require nonempty aligned targets, predictions and design IDs")
+    if (thresholds.ndim != 1 or not len(thresholds)
+            or not np.isfinite(thresholds).all() or np.any(thresholds < 0)
+            or np.any(np.diff(thresholds) <= 0)):
+        raise ValueError("thresholds must be finite, nonnegative and strictly increasing")
+    if not np.isfinite(y).all() or not np.isfinite(p).all():
+        raise ValueError("targets and predictions must be finite")
+    if direction not in ("over", "under") or n_bootstrap < 1:
+        raise ValueError("direction must be over/under and n_bootstrap positive")
+    error = p - y
+    directed = error if direction == "over" else -error
+    designs, inverse, counts = np.unique(ids, return_inverse=True, return_counts=True)
+    weights = np.random.default_rng(seed).multinomial(
+        len(designs), np.full(len(designs), 1 / len(designs)), size=n_bootstrap)
+    denominators = weights @ counts
+    curve = []
+    for threshold in thresholds:
+        events = directed > threshold
+        successes = np.bincount(inverse, weights=events.mean(axis=0), minlength=len(designs))
+        bootstrap = (weights @ successes) / denominators
+        curve.append({
+            "threshold": float(threshold), "rate": float(events.mean()),
+            "per_seed_rates": events.mean(axis=1).tolist(),
+            "per_seed_counts": events.sum(axis=1).tolist(),
+            "ci_low": float(np.quantile(bootstrap, .025)),
+            "ci_high": float(np.quantile(bootstrap, .975)),
+        })
+    return {
+        "n_clips": len(y), "n_designs": len(designs), "n_seeds": len(p),
+        "direction": direction, "n_bootstrap": n_bootstrap,
+        "mean_signed_error": float(error.mean()),
+        "mean_seed_median_error": float(np.median(error, axis=1).mean()),
+        "design_mae": float(np.mean([
+            np.abs(error[:, inverse == i]).mean() for i in range(len(designs))])),
+        "curve": curve,
+    }

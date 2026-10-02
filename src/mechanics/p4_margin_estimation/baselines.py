@@ -119,16 +119,32 @@ class VelocityLinearBaseline:
         return self.coef_ * v + self.intercept_
 
 
+def fit_ridge_scaling(x):
+    """Train-only scaling; numerical constants cannot identify a coefficient.
+
+    Keep the existing 1e-8 scale tolerance, but do not learn slopes from
+    variation below it. The relative term also handles almost-constant
+    nonzero columns. Retained features keep the previous scaling convention.
+    """
+    mean = x.mean(axis=0)
+    std = x.std(axis=0)
+    active = std > 1e-8 * np.maximum(1.0, np.abs(mean))
+    scale = np.where(active, std + 1e-8, 1.0)
+    return mean, scale, active
+
+
 class PhysicsFeatureRidge:
     """Ridge regression on physics-inspired envelope features."""
 
-    def __init__(self, alpha=1.0):
+    def __init__(self, alpha=1.0, use_velocity: bool = False):
         self.alpha = alpha
+        # G2 parity flag: append clip velocity as an extra feature.
+        # Default False preserves every existing caller exactly.
+        self.use_velocity = bool(use_velocity)
         self.mean_ = None
         self.std_ = None
         self.coef_ = None
         self.intercept_ = None
-
     def _extract_features(self, signals, dt=None):
         """Extract envelope features from (n_sensors, n_t) signals.
 
@@ -208,7 +224,7 @@ class PhysicsFeatureRidge:
         weighted_freq = np.sum(freqs * fft_power) / total_power
         bandwidth = np.sqrt(np.sum((freqs - weighted_freq) ** 2 * fft_power) / total_power)
 
-        return np.array([
+        base = np.array([
             slope_lin,
             slope_quad,
             ratio_early_late,
@@ -217,24 +233,39 @@ class PhysicsFeatureRidge:
             dom_freq,
             bandwidth,
         ])
+        return base
+
+    @staticmethod
+    def _clip_velocity(clip) -> float:
+        try:
+            v = float(getattr(clip, "velocity", float("nan")))
+        except (TypeError, ValueError):
+            return float("nan")
+        return v
+
+    def _row(self, clip) -> np.ndarray:
+        x = self._extract_features(clip.sensor_signals, dt=_clip_dt(clip))
+        if not self.use_velocity:
+            return x
+        return np.concatenate([x, np.asarray([self._clip_velocity(clip)], dtype=float)])
 
     def fit(self, clips):
-        pairs = [(self._extract_features(c.sensor_signals, dt=_clip_dt(c)), c.margin) for c in clips
+        pairs = [(self._row(c), c.margin) for c in clips
                  if np.isfinite(c.margin)]
         pairs = [(x, y) for x, y in pairs if np.all(np.isfinite(x)) and np.isfinite(y)]
         if not pairs:
             raise ValueError("No valid clips (all margins NaN)")
         X = np.array([x for x, _ in pairs])
         y = np.array([y for _, y in pairs])
-        self.mean_ = X.mean(axis=0)
-        self.std_ = X.std(axis=0) + 1e-8
+        self.mean_, self.std_, active = fit_ridge_scaling(X)
         X_norm = (X - self.mean_) / self.std_
+        X_norm[:, ~active] = 0.0
         A = X_norm.T @ X_norm + self.alpha * np.eye(X_norm.shape[1])
         self.coef_ = np.linalg.solve(A, X_norm.T @ y)
         self.intercept_ = np.mean(y)
 
     def predict(self, clips):
-        X = np.array([self._extract_features(c.sensor_signals, dt=_clip_dt(c)) for c in clips])
+        X = np.array([self._row(c) for c in clips])
         X_norm = (X - self.mean_) / self.std_
         return X_norm @ self.coef_ + self.intercept_
 
@@ -386,40 +417,28 @@ def train_gru(
     optional ``(epoch, model, history)`` callback per epoch.
     """
 
-    # Build tensors
-    X_list, y_list = [], []
-    for i, c in enumerate(clips):
-        if not np.isfinite(c.margin):
-            continue
-        sig = torch.tensor(c.sensor_signals, dtype=torch.float32)
-        if not bool(torch.isfinite(sig).all()):
-            continue
-        X_list.append(sig)
-        y_list.append(c.margin)
-
-    if not X_list:
-        raise ValueError("No valid clips (all margins NaN)")
-
-    X = torch.stack(X_list)
-    y = torch.tensor(y_list, dtype=torch.float32)
-
-    # Grouped split (same as train.py) — or explicit validation designs.
-    valid_clips = [c for c in clips if np.isfinite(c.margin) and bool(torch.isfinite(torch.tensor(c.sensor_signals, dtype=torch.float32)).all())]
-    if not valid_clips:
-        raise ValueError("No valid clips (all margins NaN or non-finite signals)")
+    from .train import _build_tensors, _is_valid_clip
+    from .optimization import fit_epochs
+    torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+    valid_clips = [c for c in clips if _is_valid_clip(c)]
+    X, y = _build_tensors(valid_clips)
+    if X.shape[1] != n_channels:
+        raise ValueError(f"Expected {n_channels} channels, got {X.shape[1]}")
     if val_clips is not None:
-        valid_val = [c for c in val_clips if np.isfinite(c.margin) and bool(torch.isfinite(torch.tensor(c.sensor_signals, dtype=torch.float32)).all())]
-        if not valid_val:
-            raise ValueError("No valid val clips (all margins NaN or non-finite signals)")
+        valid_val = [c for c in val_clips if _is_valid_clip(c)]
+        Xv, yv = _build_tensors(valid_val)
+        if Xv.shape[1:] != X.shape[1:]:
+            raise ValueError("Train/val signal shapes differ")
         train_ids = {c.design_id for c in valid_clips}
         val_ids = {c.design_id for c in valid_val}
         if train_ids & val_ids:
             raise ValueError(f"Train/val design overlap: {sorted(train_ids & val_ids)[:5]}")
-        Xv = torch.stack([torch.tensor(c.sensor_signals, dtype=torch.float32) for c in valid_val])
-        yv = torch.tensor([c.margin for c in valid_val], dtype=torch.float32)
         train_idx = list(range(len(valid_clips)))
         X_train, y_train, X_val, y_val = X, y, Xv, yv
     else:
+        if not 0.0 < val_split < 1.0:
+            raise ValueError("val_split must be within (0,1)")
         if len({c.design_id for c in valid_clips}) < 2:
             raise ValueError(
                 "Need at least two design groups for a grouped train/val split"
@@ -450,49 +469,11 @@ def train_gru(
     )
 
     model = GRUMarginModel(n_channels, hidden_dim).to(device)
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, epochs)
     criterion = nn.HuberLoss(delta=0.1)
-
-    history = {"train_loss": [], "val_loss": []}
-    best_val_loss = float("inf")
-    best_state = None
-
-    for epoch in range(epochs):
-        model.train()
-        epoch_loss = 0.0
-        n_batches = 0
-        for xb, yb in train_dl:
-            xb, yb = xb.to(device), yb.to(device)
-            pred = model(xb).squeeze(-1)
-            loss = criterion(pred, yb)
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-            epoch_loss += loss.item()
-            n_batches += 1
-        scheduler.step()
-        history["train_loss"].append(epoch_loss / max(n_batches, 1))
-
-        model.eval()
-        val_loss = 0.0
-        n_val_batches = 0
-        with torch.no_grad():
-            for xb, yb in val_dl:
-                xb, yb = xb.to(device), yb.to(device)
-                pred = model(xb).squeeze(-1)
-                val_loss += criterion(pred, yb).item()
-                n_val_batches += 1
-        avg_val_loss = val_loss / max(n_val_batches, 1)
-        history["val_loss"].append(avg_val_loss)
-
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        if on_epoch is not None:
-            on_epoch(epoch, model, history)
-
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    def loss_for_batch(model, batch):
+        x, y = batch
+        return criterion(model(x).squeeze(-1), y)
+    history = fit_epochs(model, train_dl, val_dl, loss_for_batch,
+                         epochs=epochs, lr=lr, on_epoch=on_epoch)
 
     return model, history

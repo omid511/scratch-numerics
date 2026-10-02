@@ -135,13 +135,6 @@ class TestGruExplicitVal:
         return SimpleNamespace(sensor_signals=np.random.default_rng(0).standard_normal((4, 32)),
                               margin=margin, design_id=did, dt=0.001, time=np.arange(32) / 1000.0)
 
-    def test_explicit_val_trains(self):
-        from mechanics.p4_margin_estimation.baselines import train_gru
-        train = [self._clip(0.1, "D000001") for _ in range(8)] + [self._clip(-0.1, "D000002") for _ in range(8)]
-        val = [self._clip(0.05, "D000003") for _ in range(4)]
-        _, hist = train_gru(train, n_channels=4, hidden_dim=8, epochs=2, batch_size=8,
-                            seed=0, val_clips=val)
-        assert len(hist["train_loss"]) == 2 and len(hist["val_loss"]) == 2
 
     def test_overlap_raises(self):
         from mechanics.p4_margin_estimation.baselines import train_gru

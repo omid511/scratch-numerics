@@ -1,0 +1,15 @@
+{
+  "candidate": "Selected16, 42 symmetric physics+xcorr features, MLP32->16, alpha1, four equally weighted independent-noise views, seeds42/43/44. Existing five outer design folds seed42.",
+  "scope": "Training-design diagnosis only: 77 designs /4454 physical clips. No reserved selection/calibration/test scoring, new model family, loss tuning or production default change.",
+  "comparison": "Refit the existing candidate solely to obtain unavailable in-sample predictions. Each physical clip has four in-sample outer-model exposures per seed and one saved design-held-out prediction. Average errors/rates, never predictions. Evaluate clean and fresh iid1 seed932; fresh noise is not a training view.",
+  "slices": "Strict stable 0<m<.01/.02/.05 and unstable -.01/-.02/-.05<m<0; guardrail m>=.15; whole dataset. Error=prediction-truth. Exceedance thresholds0/.005/.01/.02/.03/.05. Both over- and underestimation saved.",
+  "uncertainty": "2000 whole-design paired resamples on fixed prediction summaries; repeated fit exposures and seeds do not add physical cases. No refit uncertainty, multiplicity correction or confirmatory causal claim.",
+  "severe_failure": "Within0<m<.05, overestimation>.03 in at least two of three saved seed predictions. Defined separately for clean/fresh1; report all other stable<.05 cases as descriptive comparator. No reliability gate fitted.",
+  "neighborhoods": "For each outer-held-out clip, k=10 nearest physical clips from outer training designs, same acquisition condition. Euclidean RMS distance on training-four-view standardized supported columns. No noise-copy duplication; no label or design-geometry inputs to distance. Report k3/k10 target spread, query-target offsets and number of neighbor designs. Also repeat excluding explicit modal quality columns. Descriptive diagnostic, not a new predictor or proof of identifiability.",
+  "modal_diagnostics": "Report waveform-derived mode count, reconstruction error, usable fraction, availability, maximum visible growth, damping, symmetric spacing and correlation. Solver critical-mode metadata may be inspected after predictions for diagnostics only, never fitting or neighbor selection.",
+  "hypotheses": [
+    "Persistent same-direction conditional bias in in-sample predictions supports a fitting/representation limitation rather than exclusively held-out-design failure.",
+    "A large additional held-out-design gap supports a design-generalization contribution, not proof that more designs will fix it.",
+    "Small feature distances with broad/different neighbor targets or degraded modal quality support feature/identification ambiguity; finite distances cannot prove missing information."
+  ]
+}

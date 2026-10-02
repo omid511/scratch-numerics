@@ -155,6 +155,9 @@ class TransientClip:
     label_omega: float = float("nan")   # |Im| of the label-path critical mode
     label_represented: bool = False
     sat_frac: float = 0.0               # fraction of samples hitting ±SAT_LIMIT
+    # Optional normalized response captured before sensor saturation. This is
+    # post-modal-growth-clamp and pre-ADC-cap; omitted unless requested.
+    pre_saturation: np.ndarray | None = None
 
 
 def default_sensor_xy(ny: int, nx: int, n_sensors: int = 8) -> np.ndarray:
@@ -468,6 +471,7 @@ def generate_clip_from_eigendecomposition(
     u_crit: float | None = None,
     design_id: str | None = None,
     normalize_mode: str = "per_channel",
+    preserve_pre_saturation: bool = False,
 ) -> TransientClip:
     """Generate one clip from cached eigendecomposition with random ICs.
 
@@ -482,6 +486,10 @@ def generate_clip_from_eigendecomposition(
     ``design_id=None`` (default) falls back to the legacy ``v<velocity>``
     label for single-solver scripts. Multi-design callers must pass the
     nominal design ID so grouped splits group by design, not velocity.
+
+    ``preserve_pre_saturation=True`` retains the normalized sensor response
+    after modal-growth safety clamping but before the ±SAT_LIMIT sensor cap;
+    the default keeps no extra response copy.
     """
     if t_span is None:
         t_span = getattr(eigs, "t_span", None) or (0.0, 0.5)
@@ -552,9 +560,13 @@ def generate_clip_from_eigendecomposition(
     sensor_signals = causal_calibration_normalize(
         sensor_signals, calibration_samples=calibration_samples,
         normalize_mode=normalize_mode)
+    if not np.isfinite(sensor_signals).all():
+        raise RuntimeError("Non-finite sensor signal after normalization")
+    pre_saturation = sensor_signals.copy() if preserve_pre_saturation else None
     # Sensor saturation: a growing transient normalized by its quiet prefix
     # can exceed any physical ADC range (e.g. 2e8× calibration RMS). Clamp to
     # ±SAT_LIMIT and record incidence — same family as growth clamping (§4.2).
+
     sat_frac = float(np.mean(np.abs(sensor_signals) > SAT_LIMIT))
     if sat_frac > 0.0:
         sensor_signals = np.clip(sensor_signals, -SAT_LIMIT, SAT_LIMIT)
@@ -599,6 +611,7 @@ def generate_clip_from_eigendecomposition(
         label_omega=float(abs(eigs.label_crit.imag)) if getattr(eigs, "label_crit", None) is not None else float("nan"),
         label_represented=bool(getattr(eigs, "label_represented", False)),
         sat_frac=float(sat_frac),
+        pre_saturation=pre_saturation,
     )
 
 

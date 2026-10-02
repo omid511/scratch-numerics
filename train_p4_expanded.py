@@ -285,6 +285,42 @@ def apply_dr_with_mask(clips, seed=0):
     n_channels = clips[0].sensor_signals.shape[0] * 2  # signals + mask
     return augmented, n_channels
 
+def apply_dr_shared_gain(clips, seed=0):
+    """DR ablation: shared (common) gain, no timing skew.
+
+    Same skeleton as apply_dr_with_mask (mask channels, dropout, noise)
+    but gain/bias/drift apply identically to all sensors and timing skew
+    is off, preserving cross-sensor amplitude ratios, phase, and coherence
+    that per-channel perturbations destroy. Preprocessing-ablation arm only;
+    the default protocol path is unchanged.
+    """
+    rng = np.random.default_rng(seed)
+    dr_config = SensorPerturbationConfig(
+        snr_db=30.0, per_channel_gain=False, per_channel_bias=False,
+        gain_drift=False, colored_noise_prob=0.25,
+        channel_dropout_distribution=((0, 0.60), (1, 0.25), (2, 0.15)),
+        burst_dropout_prob=0.25, timing_skew=False, common_mode_fraction=0.3,
+    )
+    perturber = SensorPerturber(dr_config)
+    augmented = []
+    for c in clips:
+        dt = getattr(c, "dt", None)
+        fs = 1.0 / float(dt) if dt is not None and np.isfinite(dt) and dt > 0 else 1024.0
+        p = perturber.perturb(c.sensor_signals, rng, fs=fs)
+        g = float(rng.uniform(0.9, 1.1))
+        b = float(rng.uniform(-0.02, 0.02)) * float(np.sqrt(np.mean(np.asarray(c.sensor_signals) ** 2)) or 1.0)
+        d = float(rng.uniform(-0.02, 0.02))
+        n_t = np.asarray(c.sensor_signals).shape[1]
+        ramp = 1.0 + d * np.linspace(0.0, 1.0, n_t).reshape(1, -1)
+        sig = (np.asarray(p.signals) * g + b) * ramp
+        combined = np.concatenate([sig, np.asarray(p.valid_mask)], axis=0)
+        augmented.append(_Clip(combined, c.margin, c.velocity, c.design_id,
+                         dt=getattr(c, "dt", None), time=getattr(c, "time", None),
+                         realization_idx=getattr(c, "realization_idx", None),
+                         sat_frac=float(getattr(c, "sat_frac", 0.0))))
+    n_channels = clips[0].sensor_signals.shape[0] * 2
+    return augmented, n_channels
+
 
 def with_ones_mask(clips):
     """Lift clean clips to mask-model channels with an all-valid mask."""

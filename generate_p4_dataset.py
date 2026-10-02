@@ -3,7 +3,8 @@
 
 Saves to disk as:
   metadata.json  — design parameters, velocity levels, split assignments
-  clips.npz      — all sensor signals stacked (N_clips, N_sensors, T)
+  clips.npy      — all sensor signals stacked (N_clips, N_sensors, T), capped at ±50
+  pre_saturation.npy — optional normalized responses before the sensor cap
   margins.npy    — all margins (N_clips,)
   velocities.npy — all velocities (N_clips,)
   design_ids.npy — design ID per clip (N_clips,)
@@ -122,7 +123,11 @@ def _perturbed_design(design: DesignSample, realization_idx: int, rng: np.random
 
 def _worker_process_design(args):
     """Process one design. Module-scope for spawn pickling."""
-    design, split = args
+    design, split = args[:2]
+    save_pre_saturation = bool(args[2]) if len(args) > 2 else False
+    normalize_mode = str(args[3]) if len(args) > 3 else "per_channel"
+    if normalize_mode not in ("per_channel", "global"):
+        raise ValueError(f"Unknown normalize_mode: {normalize_mode!r}")
     t0 = time.time()
 
     try:
@@ -196,12 +201,13 @@ def _worker_process_design(args):
                         int(round(vel * 1000)),
                         exc_idx,
                     ])
-                    rng = np.random.default_rng(ss.generate_state(1)[0])
-
                     try:
+                        rng = np.random.default_rng(ss.generate_state(1)[0])
                         clip = generate_clip_from_eigendecomposition(
                             eigs, rng, u_crit=u_crit_r,
                             design_id=design.design_id,
+                            normalize_mode=normalize_mode,
+                            preserve_pre_saturation=save_pre_saturation,
                         )
                     except Exception as e:
                         failures.append({
@@ -235,6 +241,7 @@ def _worker_process_design(args):
                         "label_omega": float(clip.label_omega),
                         "label_represented": bool(clip.label_represented),
                         "sat_frac": float(clip.sat_frac),
+                        "pre_saturation": clip.pre_saturation,
                     })
         elapsed = time.time() - t0
         return clips, {
@@ -286,7 +293,12 @@ def generate_dataset(
     n_designs: int,
     output_dir: str,
     seed: int,
+    *,
+    save_pre_saturation: bool = False,
+    normalize_mode: str = "per_channel",
 ):
+    if normalize_mode not in ("per_channel", "global"):
+        raise ValueError(f"Unknown normalize_mode: {normalize_mode!r}")
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -298,7 +310,7 @@ def generate_dataset(
     split_map = {did: "train" for did in train_ids}
     split_map.update({did: "val" for did in val_ids})
     split_map.update({did: "test" for did in test_ids})
-    work = [(d, split_map[d.design_id]) for d in designs]
+    work = [(d, split_map[d.design_id], save_pre_saturation, normalize_mode) for d in designs]
     all_clips = []
     design_meta = []
     rejections: list = []
@@ -371,6 +383,32 @@ def generate_dataset(
     n_clips = len(all_clips)
     T = all_clips[0]["signals"].shape[1]
     clips_arr = np.stack([c["signals"] for c in all_clips]).astype(np.float32)
+    pre_saturation_arr = None
+    if save_pre_saturation:
+        expected_shape = tuple(clips_arr.shape[1:])
+        pre_values = []
+        for idx, clip_record in enumerate(all_clips):
+            pre_value = clip_record.get("pre_saturation")
+            if pre_value is None:
+                raise ValueError(f"Missing pre-saturation response for clip {idx}")
+            pre_value = np.asarray(pre_value)
+            if pre_value.shape != expected_shape:
+                raise ValueError(
+                    f"pre_saturation shape {pre_value.shape} at clip {idx}, "
+                    f"expected {expected_shape}"
+                )
+            pre_values.append(pre_value)
+        pre_saturation_arr = np.stack(pre_values).astype(np.float32, copy=False)
+        if not np.isfinite(pre_saturation_arr).all():
+            raise ValueError("Pre-saturation responses contain non-finite values")
+        if pre_saturation_arr.shape != clips_arr.shape:
+            raise ValueError(
+                f"pre_saturation shape {pre_saturation_arr.shape}, "
+                f"expected {clips_arr.shape}"
+            )
+        replayed_clips = np.clip(pre_saturation_arr, -50.0, 50.0)
+        if not np.array_equal(replayed_clips, clips_arr):
+            raise ValueError("Sensor-cap replay does not reproduce clips")
     margins_arr = np.array([c["margin"] for c in all_clips], dtype=np.float32)
     velocities_arr = np.array([c["velocity"] for c in all_clips], dtype=np.float32)
     excitation_ids_arr = np.array([c["excitation_idx"] for c in all_clips])
@@ -521,12 +559,29 @@ def generate_dataset(
             "timebase": {"rule": "retained_band_90pct_nyquist", "n_timesteps": int(T)},
             "growth_clamp": {"min_log_amp": -50.0, "max_log_amp": 20.0},
             "sensor_saturation": {"sat_limit": 50.0},
+            "normalization": {"mode": normalize_mode, "calibration": "leading_10pct_causal",
+                              "offsets": "per_channel",
+                              "scale": "per_channel" if normalize_mode == "per_channel" else "single_global"},
+            "pre_saturation": {
+                "available": bool(save_pre_saturation),
+                "file": "pre_saturation.npy" if save_pre_saturation else None,
+                "stage": "post_normalization_pre_sensor_cap",
+                "modal_growth_clamp_retained": True,
+            },
         },
     }
     # Atomic write: write to temp dir, then rename
     tmp_path = output_path.with_suffix(".tmp")
     tmp_path.mkdir(parents=True, exist_ok=True)
     # P2-1: Use .npy with memmap for clips instead of compressed .npz
+    if pre_saturation_arr is not None:
+        pre_saturation_path = tmp_path / "pre_saturation.npy"
+        pre_saturation_memmap = np.lib.format.open_memmap(
+            pre_saturation_path, mode="w+", dtype=np.float32,
+            shape=pre_saturation_arr.shape,
+        )
+        pre_saturation_memmap[:] = pre_saturation_arr
+        pre_saturation_memmap.flush()
     clips_path = tmp_path / "clips.npy"
     clips_memmap = np.lib.format.open_memmap(
         clips_path, mode="w+", dtype=np.float32, shape=clips_arr.shape,
@@ -588,8 +643,20 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n-designs", type=int, default=N_DESIGNS)
     parser.add_argument("-o", "--output-dir", type=str, default="p4_dataset")
     parser.add_argument("-s", "--seed", type=int, default=42)
+    parser.add_argument(
+        "--save-pre-saturation", action="store_true",
+        help="save normalized responses before the ±50 sensor cap",
+    )
+    parser.add_argument(
+        "--normalize-mode", choices=("per_channel", "global"), default="per_channel",
+        help="causal calibration normalization: per-channel (legacy) or single global scale",
+    )
     args = parser.parse_args()
     print(f"Generating P4 dataset: {args.n_designs} designs, output={args.output_dir}", flush=True)
     t0 = time.time()
-    result = generate_dataset(args.n_designs, args.output_dir, args.seed)
+    result = generate_dataset(
+        args.n_designs, args.output_dir, args.seed,
+        save_pre_saturation=args.save_pre_saturation,
+        normalize_mode=args.normalize_mode,
+    )
     print(f"Done in {time.time()-t0:.0f}s", flush=True)
