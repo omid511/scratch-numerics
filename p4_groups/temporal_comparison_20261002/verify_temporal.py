@@ -79,11 +79,11 @@ def verify(smoke=False):
                 mean, scale, active = scaling
                 side = (d['side'][ci, k:k+1] - mean) / scale
                 side[:, ~active] = 0
-                x = torch.from_numpy(signal[None, :, :max(1, usable)])
-                length = torch.tensor([max(1, usable)])
+                x = torch.from_numpy(signal[None, :, :max(1, usable)]).to(d['device'])
+                length = torch.tensor([max(1, usable)], dtype=torch.long, device=d['device'])
                 with torch.inference_mode():
                     begin = time.perf_counter()
-                    actual = model(x, length, torch.from_numpy(side)).numpy()
+                    actual = model(x, length, torch.from_numpy(side).to(d['device'])).cpu().numpy()
                     elapsed = time.perf_counter() - begin
                 np.testing.assert_allclose(actual[0], native[ki, 0, ci, local], atol=1e-5, rtol=1e-5)
                 points[kind] = actual[:, 1]

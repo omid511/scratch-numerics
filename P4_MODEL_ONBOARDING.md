@@ -106,6 +106,29 @@ PYTHONPATH=src uv run python experiment_p4_saturation.py \
 
 The runner defaults to caps 50/100/200, seeds 0/1/2, 20 epochs, and batch size 64. Omit `--device` or pass `--device cpu` for the backward-compatible CPU path.
 
+### Controlled GRU/TCN GPU comparison
+
+The measured-prefix comparison lives in `p4_groups/temporal_comparison_20261002`.
+Install its dependencies without replacing CUDA Torch with this project's CPU index:
+
+```bash
+uv pip install --python .venv/bin/python --no-config --torch-backend cu130 \
+  --default-index https://pypi.tuna.tsinghua.edu.cn/simple \
+  --editable ".[p4-tabular]" "torch==2.12.1+cu130" \
+  numpy==2.4.4 scipy==1.17.1 scikit-learn==1.9.1 cloudpickle==3.1.2
+P4_DEVICE=cuda .venv/bin/python p4_groups/temporal_comparison_20261002/supervise.py \
+  --pipeline --workers 1
+```
+
+Use the environment's Python directly; an automatic `uv run` sync can select CPU Torch.
+CUDA runs use one process, avoiding CUDA forks. The pipeline prepares measured signals,
+runs and scores the smoke comparison, verifies real-waveform replay, then trains,
+scores and verifies the complete comparison. Any failed stage stops subsequent stages.
+`pipeline_status.json` records stage/PIDs/exit status; `pipeline_run.log` preserves output.
+Required private frozen feature/model/raw artifacts must already be present.
+Do not start another supervisor while this pipeline is running.
+
+
 ### Online W&B artifacts for saturation runs
 
 Full runs default to a private W&B project and online publishing, as required for Colab or any run that needs durable online artifacts. Install the optional SDK and run, for example:

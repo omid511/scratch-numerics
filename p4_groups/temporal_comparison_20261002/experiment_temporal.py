@@ -34,6 +34,14 @@ DATA = None
 
 def setup():
     global DATA
+    device = torch.device(os.environ.get('P4_DEVICE', 'cpu'))
+    if device.type not in ('cpu', 'cuda'):
+        raise ValueError('P4_DEVICE must select CPU or CUDA')
+    if device.type == 'cuda':
+        if not torch.cuda.is_available():
+            raise RuntimeError('P4_DEVICE requests CUDA but CUDA is unavailable')
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     train, evaluation, y, ids, rows, names, folds, layout, pairs, dt = C.load_data()
     train_names = C.helpers.base.TRAIN_NAMES
     train_conditions = np.array([names.index(n) for n in train_names])
@@ -50,14 +58,15 @@ def setup():
         raw_hashes = json.loads(str(z['raw_hashes']))
     fingerprint = {'sources': {str(p.relative_to(ROOT)): C.sha256(p) for p in sources},
                    'references': {str(p.relative_to(ROOT)): C.sha256(p) for p in reference_paths},
-                   'raw': raw_hashes, 'versions': {'torch': torch.__version__, 'numpy': np.__version__}}
+                   'raw': raw_hashes, 'versions': {'torch': torch.__version__, 'numpy': np.__version__},
+                   'device': str(device)}
     side = np.concatenate((evaluation, np.broadcast_to(np.log(dt)[None, :, None], (len(names), len(rows), 1))), axis=2)
     for ci, name in enumerate(names):
         if name.startswith('dt_'):
             side[ci, :, -1] += np.log(.98 if name == 'dt_minus2pct' else 1.02)
     DATA = dict(train=train, evaluation=evaluation, y=y, ids=ids, rows=rows, names=names, folds=folds,
                 layout=layout, dt=dt, train_conditions=train_conditions, fingerprint=fingerprint,
-                side=side.astype(np.float32), settings=protocol['optimization'])
+                side=side.astype(np.float32), settings=protocol['optimization'], device=device)
     return DATA
 
 
@@ -157,7 +166,7 @@ def fit(kind, seed, fold, part, fit_rows, *, smoke=False):
         assert not set(d['ids'][train_rows]) & set(d['ids'][select_rows])
         initial_scaling = scaling(train_rows)
         torch.manual_seed(seed)
-        model = TemporalMarginModel(kind)
+        model = TemporalMarginModel(kind).to(d['device'])
         begin = time.perf_counter()
         maximum = 2 if smoke else d['settings']['epochs_max']
         select_history = fit_epochs(model, Batches(train_rows, d['train_conditions'], *initial_scaling, seed=seed),
@@ -166,7 +175,7 @@ def fit(kind, seed, fold, part, fit_rows, *, smoke=False):
         chosen = int(np.argmin(select_history['val_loss'])) + 1
         final_scaling = scaling(fit_rows)
         torch.manual_seed(seed)
-        model = TemporalMarginModel(kind)
+        model = TemporalMarginModel(kind).to(d['device'])
         history = fit_epochs(model, Batches(fit_rows, d['train_conditions'], *final_scaling, seed=seed),
             None, loss_for_batch, epochs=chosen, lr=.001, weight_decay=.0001, schedule_epochs=80)
         saved = dict(state=model.state_dict(), scaling=final_scaling, fingerprint=d['fingerprint'],
@@ -177,7 +186,7 @@ def fit(kind, seed, fold, part, fit_rows, *, smoke=False):
         torch.save(saved, temporary)
         temporary.replace(path)
         print('TEMPORAL_FIT', kind, seed, fold, part, chosen, round(saved['seconds'], 2), flush=True)
-    model = TemporalMarginModel(kind)
+    model = TemporalMarginModel(kind).to(d['device'])
     model.load_state_dict(saved['state'])
     model.eval()
     record = {key: saved[key] for key in ('selected_epochs', 'seconds', 'parameters', 'selection_history', 'refit_history')}
@@ -191,7 +200,8 @@ def predict(model, rows, conditions, normalization):
     out = []
     with torch.inference_mode():
         for x, lengths, side, _ in Batches(rows, conditions, *normalization):
-            out.append(model(x, lengths, side).numpy())
+            out.append(model(x.to(DATA['device']), lengths.to(DATA['device']),
+                             side.to(DATA['device'])).cpu().numpy())
     result = np.concatenate(out).reshape(len(conditions), len(rows), 3)
     assert np.isfinite(result).all() and np.all(result[:, :, 0] <= result[:, :, 1]) and np.all(result[:, :, 1] <= result[:, :, 2])
     return result
@@ -297,11 +307,17 @@ def run(smoke=False, workers=2):
     assert C.sha256(OUT / 'signals.npy') == record['signals_hash']
     assert C.sha256(OUT / 'lengths.npy') == record['lengths_hash']
     jobs = [(42, 0)] if smoke else [(s, f) for s in C.SEEDS for f in range(5)]
-    import multiprocessing
-    with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context('fork')) as pool:
-        futures = {pool.submit(fold_job, s, f, smoke): (s, f) for s, f in jobs}
-        for future in as_completed(futures):
-            future.result()
+    if d['device'].type == 'cuda':
+        if workers != 1:
+            raise ValueError('CUDA comparison requires --workers 1; do not fork CUDA workers')
+        for seed, fold in jobs:
+            fold_job(seed, fold, smoke)
+    else:
+        import multiprocessing
+        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context('fork')) as pool:
+            futures = {pool.submit(fold_job, s, f, smoke): (s, f) for s, f in jobs}
+            for future in as_completed(futures):
+                future.result()
     seeds = [42] if smoke else C.SEEDS
     selected = np.flatnonzero(d['folds'] == 0) if smoke else np.arange(len(d['y']))
     p = np.full((len(ARMS), len(seeds), len(d['names']), len(selected), 6), np.nan)
