@@ -1,0 +1,63 @@
+{
+  "verified_at_utc": "2026-10-06T17:06:12.440417+00:00",
+  "study_root_relative_to_plate_main": "p1_improvement_20261005",
+  "original_study_root": "D:\\p1_improvement_20261005",
+  "old_root_contains_only_untouched_optional_ZIPs": true,
+  "moved_unpacked_files": 1640,
+  "moved_unpacked_bytes": 3845860646,
+  "each_copy_independently_SHA256_verified": true,
+  "captured_improvement_members_authenticated": 1617,
+  "baseline_members_available_unpacked_and_SHA256_verified": 11211,
+  "baseline_source_snapshot_files": 39,
+  "packaged_source_snapshot_files": 9,
+  "ZIP_files_inside_local_study": 0,
+  "MPH_files_in_moved_study": 0,
+  "ZIP_required_to_replay": false,
+  "replay": {
+    "exit_code": 0,
+    "rows": 800,
+    "models": {
+      "cokriging_matern32": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "current_pca48_rbf": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "direct_hf_matern32": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "neural_inr_lr0.0003": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "output_pca_matern32": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "region_selected": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      }
+    },
+    "without_HF_inputs": true,
+    "original_batch_layout": true
+  },
+  "COMSOL_solve_or_scientific_refit_performed": false,
+  "bulk_local_study_tracked_in_Git": false,
+  "complete_public_data_model_availability": false
+}

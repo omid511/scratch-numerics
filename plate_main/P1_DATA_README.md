@@ -25,8 +25,9 @@ IID field/frequency medians are0.00559255/1.012241% over298 accepted rows.
 
 **Publication restriction:** code, meaningful tests, Markdown and reviewed text
 results only. No MPH files, ZIP archives, raw bulk arrays, binary fitted weights
-or P1 GitHub Release uploads. The original complete archives remain local and
-unchanged; a public checkout alone cannot replay unavailable inputs/weights.
+or P1 GitHub Release uploads. The complete local study now uses unpacked
+`p1_improvement_20261005/` folders under `plate_main`; no ZIP is needed for replay.
+A public checkout still lacks the ignored raw inputs/weights.
 
 [P1_RESULTS_REVIEW.md](P1_RESULTS_REVIEW.md) retains the historical
 10,000-LF/80-HF audit and separates it from the current prospective conclusions.
@@ -616,7 +617,9 @@ target or calibration is silently removed or changed.
 
 ## P1 improvement study and prospective release
 
-The separately preserved study root is `D:\p1_improvement_20261005`.
+The separately preserved study root is now `plate_main\p1_improvement_20261005`,
+moved unpacked from `D:\p1_improvement_20261005`. See
+[local layout and verified no-ZIP replay](P1_REPRODUCIBILITY.md#local-unpacked-study--no-zip-required).
 The original `p1_data_five` campaign, targets and nominal model predictions
 are not overwritten. The study includes mass-weighted shell-state reference
 diagnosis, train-only error decomposition and promotion gates, matched
@@ -687,19 +690,21 @@ The frequency task screens stable reference label1 against the frozen
 961.333328052-Hz benchmark, not an externally certified service constraint
 or a guaranteed complete-spectrum fundamental frequency.
 
-The local release consists of two actual archives and `package_manifest.json`:
-`audited_baseline.zip` contains the original sources/raw data/models/native
-references; `p1_improvement_artifacts.zip` contains the full new study plus
-updated workflow source/docs/tests. Extract the baseline into a new
-`plate_main`, extract the improvement part separately, overlay its
-`source/plate_main`, set `P1_ORIGINAL_ROOT` to that restored directory, and
-use the restored `study/` as `--output`. Do not edit the captured
-`execution_sources/freeze-models` files or frozen hashes. `replay` exercises
-actual serialized predictions without HF inputs; `verify` streams both
-archive SHA-256 checks and every improvement-member hash. Python package
-versions, RNG/resource settings and the native-license requirement are
-recorded in `runtime_environment.json`. The original local archives predate
-the source/text GitHub handoff; no archive, MPH file or COMSOL license is uploaded.
+The current local handoff is unpacked: original raw data/native references
+remain in `p1_data_five/`, and the new study's models, labels, blinded predictions,
+calibration, execution snapshots and logs are in `p1_improvement_20261005/`.
+Original source revisions are preserved there in `baseline_sources/` and
+`package_sources/`. All original baseline members and copied study files
+passed exact-byte checks; the six-model 800-row replay passed from the new
+location after the D-drive working folders were removed.
+
+Run `python p1_delivery.py replay --output .\p1_improvement_20261005` from
+`plate_main` with `P1_ORIGINAL_ROOT` set there. No ZIP extraction, solve or
+scientific refit is needed. The two original ZIPs were left untouched in D
+as optional backups; they are no longer a dependency of this working layout.
+Recorded runtime settings and licensed-native requirements are unchanged.
+See [relocation verification](p1_published_results/unpacked_relocation_verification.json).
+No archive, MPH file, raw binary array, fitted weight or COMSOL license is uploaded.
 
 Prospective acquisition completed all **80/80** native references without a
 failed run: 32 calibration and 48 evaluation/challenge. Accepted calibration

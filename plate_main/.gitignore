@@ -9,3 +9,7 @@
 *.pt
 *.pth
 *.ckpt
+
+# Unpacked local P1 study: raw arrays, fitted models and execution snapshots.
+# Reviewed source/text evidence is published separately in p1_published_results/.
+/p1_improvement_20261005/

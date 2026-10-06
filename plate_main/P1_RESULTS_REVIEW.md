@@ -564,10 +564,10 @@ or restricted bulk-data availability have become successes.
 ## 12. Separately frozen P1 improvement study
 
 The historical claims above describe the audited 10,000-LF/80-HF campaign.
-The new study is isolated at `D:\p1_improvement_20261005`; it does not
-retroactively replace those models, labels, nominal predictions or claims.
-The [data README](P1_DATA_README.md#p1-improvement-study-and-prospective-release)
-documents the executable stage order and two-part source/data/model release.
+The new study is isolated in unpacked `plate_main\p1_improvement_20261005`
+folders, relocated from D without replacing historical models, labels,
+nominal predictions or claims. The [data README](P1_DATA_README.md#p1-improvement-study-and-prospective-release)
+documents the executable stage order and current unpacked layout.
 The final study-root `P1_IMPROVEMENT_REPORT.md` / `improvement_report.json`
 derive their claim dispositions from actual prospective results.
 
@@ -683,4 +683,12 @@ blinded predictions, independent calibration, decisions, runtime settings,
 figures, negative results and streaming checksums. The current GitHub handoff
 publishes reviewed P1 source and text evidence only; the ZIP/MPH files and fitted
 binary inputs remain local, and no P1 bulk release upload is authorized.
+
+The unpacked relocation independently verified 1,640 moved files, all 11,211
+original baseline members and the retained original source revisions.
+After the D-drive working folders were removed, the six-model 800-row replay
+again produced zero differences without ZIP extraction, new solves or refits.
+See [relocation verification](p1_published_results/unpacked_relocation_verification.json)
+and [local reproduction](P1_REPRODUCIBILITY.md#local-unpacked-study--no-zip-required).
+The two unchanged ZIPs left in D are optional backups, not runtime dependencies.
 

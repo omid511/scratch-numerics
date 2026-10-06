@@ -10,8 +10,8 @@ The [historical audit](P1_RESULTS_REVIEW.md) retains earlier results and negativ
 **GitHub publishes source, tests, Markdown and JSON/CSV evidence only.**
 No `.mph` simulation file, ZIP archive, raw NPZ/NPY dataset, fitted binary weight,
 COMSOL binary/license or unrelated P2 change is uploaded. There are no P1 bulk
-GitHub Release assets. The full immutable archives remain local by explicit
-publication restriction; do not describe this as a complete public data/model release.
+GitHub Release assets. The complete local study now uses unpacked folders under
+`plate_main`; its ignored bulk inputs/weights are not a public data/model release.
 
 Published evidence is indexed by
 [text_artifact_manifest.json](p1_published_results/text_artifact_manifest.json).
@@ -91,54 +91,82 @@ field/frequency mean/scale array. No COMSOL solve or scientific model refit ran.
 This proves the source handoff with authorized local inputs, not public bulk-data
 availability.
 
-## What requires the retained local archives
+## Local unpacked study — no ZIP required
 
-The original audited source/raw data/native references are in local
-`audited_baseline.zip` (23,527,900,518 bytes):
-
-```text
-25cdcb1b746643c86a6ad1d140c34e0d8c868fc7cb390e854c5e90a81c3ccd28
-```
-
-The final improvement study/source revisions/fitted weights/blinded predictions
-are in local `p1_improvement_artifacts.zip` (3,846,098,878 bytes):
+The working study was moved from `D:\p1_improvement_20261005` to
+`plate_main\p1_improvement_20261005`. It is a normal directory, not an archive.
+The original audited data stay in `plate_main\p1_data_five`; they were not
+overwritten or duplicated. The local layout is:
 
 ```text
-bb1cd1cf53da7cfe73b491063a92501c33d738f97b39339354a7fb5305255a50
+plate_main/
+  p1_data_five/                    original audited data and native references
+  p1_improvement_20261005/
+    baseline_sources/             original audited source/document revisions
+    package_sources/              source revisions captured in the improvement package
+    execution_sources/            immutable stage-specific methods
+    source_versions/              retained method revisions
+    frozen_models/                six fitted models
+    prospective/                  LF/HF arrays, blinded predictions and calibration
+    reference_native/             extracted shell-state arrays
+    unpacked_local_inventory.json local file/dependency hashes
+  p1_published_results/            reviewed public text evidence
 ```
 
-They are not committed or uploaded. A source-only clone therefore cannot replay
-frozen field predictions, independently rebuild targets from raw modal arrays,
-or rerun saved-MPH extraction without separately available local inputs.
+The study directory is deliberately Git-ignored. All current implementation
+and behavioral tests are already published at the `plate_main` source root;
+historical source snapshots, raw arrays and weights are retained locally.
+Existing absolute paths in archived records remain original execution
+provenance; they are not rewritten to falsify the historical run.
 
-For an authorized local copy:
+[unpacked_relocation_verification.json](p1_published_results/unpacked_relocation_verification.json)
+records 1,640 moved files independently SHA-256-verified, 1,617 captured
+improvement-study members authenticated, and all 11,211 original baseline
+members available unpacked with matching hashes. Original baseline/package
+source snapshots contain 39/9 files. No ZIP or MPH file was moved into the
+new study directory.
 
-1. Extract the baseline to a fresh `plate_main` directory.
-2. Extract the improvement archive separately; its `study/` is the study root.
-3. Overlay its `source/plate_main` or the matching published P1 source.
-4. Set `P1_ORIGINAL_ROOT` to the restored `plate_main` before executing captured
-   methods. Never edit frozen execution snapshots or recorded hashes.
-5. Use the recorded original inference batch layout:
+From `plate_main`, replay directly:
 
 ```powershell
 $env:P1_ORIGINAL_ROOT = (Get-Location).Path
-python p1_delivery.py replay --output '<restored-release>\study'
+python p1_delivery.py replay --output .\p1_improvement_20261005
 ```
 
-`replay` loads the six fitted models and real LF-only inputs. It does not solve
-COMSOL, fit a model or read HF labels into predictors. Local portable restoration
-reproduced all 800 blinded rows with zero differences for field means/scales and
-frequencies/scales. Float32 neural inference on a smaller 40-row batch differed
-by up to 1.05e-8; the failed subset attempt is retained and replay tolerances were
-not relaxed. Replay updates only its derived verification JSON, not frozen data.
+This command passed after the old D-drive working folders were removed:
+800 original-batch rows, all six fitted models, zero differences in every
+field/frequency mean/scale array. It uses LF-only inputs, not HF labels,
+and performs no COMSOL solve, scientific refit or ZIP extraction.
+Replay changes only its derived verification JSON. Never edit frozen
+execution snapshots or recorded hashes. The retained 40-row neural attempt
+differed by up to 1.05e-8; its failure and unchanged tolerances remain recorded.
 
-`p1_delivery.py verify` checks actual archive hashes when both archives and their
-package manifest are colocated. The historical fresh-science commands in
+**The ZIPs are no longer required to preserve or replay this local P1 study.**
+The old D-drive directory now contains only the two original ZIP backups,
+which were left untouched rather than deleted during relocation. They may
+be removed if no additional archive backup is desired; keep a verified
+backup of the unpacked folders if deleting them.
+
+### Optional original archive evidence
+
+The original [package manifest](p1_published_results/package_manifest.json)
+and [package verification](p1_published_results/package_verification.json)
+remain historical evidence. Their original archive hashes are:
+
+| Optional backup | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `audited_baseline.zip` | 23,527,900,518 | `25cdcb1b746643c86a6ad1d140c34e0d8c868fc7cb390e854c5e90a81c3ccd28` |
+| `p1_improvement_artifacts.zip` | 3,846,098,878 | `bb1cd1cf53da7cfe73b491063a92501c33d738f97b39339354a7fb5305255a50` |
+
+The archive-only `p1_delivery.py verify` subcommand requires those ZIPs
+and their package manifest colocated; it is not the verifier for the
+unpacked working directory. A public clone still cannot reproduce frozen
+predictions without the separately retained, ignored inputs/weights.
+The historical fresh-science commands in
 [P1_DATA_README.md](P1_DATA_README.md#p1-improvement-study-and-prospective-release)
-require the local data/native references and a **new output root**. They are not
-steps run for this source/text publication. All successful scientific stages,
-reference failures, quarantines, calibration roles and negative promotion
-outcomes remain frozen.
+require local data/native references and a **new output root**. They were
+not run during relocation. All scientific results and failed promotion
+gates remain frozen.
 
 ## Scientific limits
 

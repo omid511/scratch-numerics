@@ -10,28 +10,28 @@
     },
     {
       "repository_path": "plate_main/.gitignore",
-      "bytes": 221,
-      "sha256": "03a924efda4ac24f16615fb54d228c4595b1e4516d82e2175e794c763f1f13b9"
+      "bytes": 408,
+      "sha256": "87d167010dc1826c451045bdb3e2d10c76fb01bb94f20af4def6d8be0711ee8f"
     },
     {
       "repository_path": "plate_main/P1_DATA_README.md",
-      "bytes": 31598,
-      "sha256": "957fa9ac86709418244904f540427aafbe0a65d9eb2323045b1e9480f2543884"
+      "bytes": 31940,
+      "sha256": "f51d83aad87074e48e5034b9034e7063ff5c6a213f9274c5c6ad4cfef864e769"
     },
     {
       "repository_path": "plate_main/P1_IMPROVEMENT_REPORT.md",
-      "bytes": 12597,
-      "sha256": "acf75df3dc87f3590ef629ce32cbc5c52b8463e39ab7bbb1919abeb33313743b"
+      "bytes": 12907,
+      "sha256": "2d6fc3299d421021e92261be15802653fc7d9b5c695f9ce6b76d1dc680a38834"
     },
     {
       "repository_path": "plate_main/P1_REPRODUCIBILITY.md",
-      "bytes": 8382,
-      "sha256": "e50757edf3b4a3e90add973b2b3d8566fd1b8fa19d128633246f003036bc0f29"
+      "bytes": 10115,
+      "sha256": "a212d438a20fe158390cd71ca566b97c59e18e80cbf916206c8bdd29123d6fb4"
     },
     {
       "repository_path": "plate_main/P1_RESULTS_REVIEW.md",
-      "bytes": 63466,
-      "sha256": "c072a48ad2f55850e031708e3eb3c0c96524272a0dff36a9ebed10ac6495ce5c"
+      "bytes": 64047,
+      "sha256": "fb2c11602160bb846d3eaa8c332b3b27f99805c40ee5b7a2450a2ceb73dc219c"
     },
     {
       "repository_path": "plate_main/compute_corrections.py",
@@ -684,6 +684,11 @@
       "sha256": "3002071bdc139a9d03e3d4cf04984bf5d95cae4ddb07f7e317a7f60df9f2c632"
     },
     {
+      "repository_path": "plate_main/p1_published_results/unpacked_relocation_verification.json",
+      "bytes": 1871,
+      "sha256": "e4985f45c52f0ca5b4bde2fa7c2dba4d246f14bb5f2d1c19503aab8d75b265e3"
+    },
+    {
       "repository_path": "plate_main/p1_published_results/workflow_regression_verification.json",
       "bytes": 898,
       "sha256": "1087e2d0f1c8c4da6a438a14111eb3318d829b9c787d0594cf1f5109ce41a159"
@@ -760,8 +765,8 @@
     },
     {
       "repository_path": "plate_main/proposals_updated(2).md",
-      "bytes": 29298,
-      "sha256": "03eedafae81c316b50ce8a33e7580666f74d4b54be9e5ce82e10fbf6cb6cae58"
+      "bytes": 29367,
+      "sha256": "a389c0d76d590a5a51d913effd06b086fd47e62f071532f0377df8504b05326a"
     },
     {
       "repository_path": "plate_main/requirements_p1.txt",
@@ -833,5 +838,18 @@
   "original_local_archives": [
     "audited_baseline.zip",
     "p1_improvement_artifacts.zip"
-  ]
+  ],
+  "local_unpacked_study": {
+    "root_relative_to_plate_main": "p1_improvement_20261005",
+    "Git_ignored": true,
+    "ZIP_required": false,
+    "original_data_relative_to_plate_main": "p1_data_five",
+    "source_snapshots": [
+      "p1_improvement_20261005/baseline_sources",
+      "p1_improvement_20261005/package_sources"
+    ],
+    "local_inventory": "p1_improvement_20261005/unpacked_local_inventory.json",
+    "published_verification": "p1_published_results/unpacked_relocation_verification.json",
+    "original_ZIPs": "Optional unchanged backups left in the old D-drive directory; not committed/uploaded"
+  }
 }
