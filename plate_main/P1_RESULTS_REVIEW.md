@@ -692,3 +692,12 @@ See [relocation verification](p1_published_results/unpacked_relocation_verificat
 and [local reproduction](P1_REPRODUCIBILITY.md#local-unpacked-study--no-zip-required).
 The two unchanged ZIPs left in D are optional backups, not runtime dependencies.
 
+Subsequent authorized cleanup removed 144 files: caches/bookkeeping, duplicate
+exports, generated figures and seven native MPH files. Numerical arrays,
+fitted models, calibration, source snapshots and negative results were retained.
+Read-only post-cleanup replay again matched all six models and 800 rows exactly.
+Saved-MPH native re-extraction requires restoring the deleted files or new
+native solves. The pre-cleanup archive/relocation inventories remain historical;
+the [cleanup manifest](p1_published_results/cleanup_manifest.json) records missing
+members explicitly rather than changing frozen scientific hashes.
+

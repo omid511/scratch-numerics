@@ -15,23 +15,23 @@
     },
     {
       "repository_path": "plate_main/P1_DATA_README.md",
-      "bytes": 31940,
-      "sha256": "f51d83aad87074e48e5034b9034e7063ff5c6a213f9274c5c6ad4cfef864e769"
+      "bytes": 32369,
+      "sha256": "d1e4b507fd76f235e33aada2342e4fed039b14cbfd358d5958a663834e60f848"
     },
     {
       "repository_path": "plate_main/P1_IMPROVEMENT_REPORT.md",
-      "bytes": 12907,
-      "sha256": "2d6fc3299d421021e92261be15802653fc7d9b5c695f9ce6b76d1dc680a38834"
+      "bytes": 13009,
+      "sha256": "aaf973ec704acae9c40f501c29bde5fcf80af27007a7c8fd59e224fa7632baa3"
     },
     {
       "repository_path": "plate_main/P1_REPRODUCIBILITY.md",
-      "bytes": 10115,
-      "sha256": "a212d438a20fe158390cd71ca566b97c59e18e80cbf916206c8bdd29123d6fb4"
+      "bytes": 11361,
+      "sha256": "012eff0f8d841f4bf4745f06db69f2e1582317d52862fe2a0199797af450aa7c"
     },
     {
       "repository_path": "plate_main/P1_RESULTS_REVIEW.md",
-      "bytes": 64047,
-      "sha256": "fb2c11602160bb846d3eaa8c332b3b27f99805c40ee5b7a2450a2ceb73dc219c"
+      "bytes": 64667,
+      "sha256": "25193a3a79eead2e250ff8b3a80bfb31a3557a935cac1471260235bd59d4ce46"
     },
     {
       "repository_path": "plate_main/compute_corrections.py",
@@ -474,6 +474,11 @@
       "sha256": "f24b0c669b826efa913e8a56378e0c0fb6bbe99e0ba8bb1c93f13ec55bd33839"
     },
     {
+      "repository_path": "plate_main/p1_published_results/cleanup_manifest.json",
+      "bytes": 49712,
+      "sha256": "1ba40f3e949da50dbcac8dd08018c041480a812c85297e8f9862309c5012e8c9"
+    },
+    {
       "repository_path": "plate_main/p1_published_results/decomposition/train_mode_rows.csv",
       "bytes": 59404,
       "sha256": "32e5f98d23549ef92ed77a45c5649e07d33ee5c3e411981aa65936ddf652b44f"
@@ -670,8 +675,8 @@
     },
     {
       "repository_path": "plate_main/p1_published_results/source_manifest.json",
-      "bytes": 7040,
-      "sha256": "eaef5d018b611c7d9b9056cbed63c5fbe14b347831a1685d8fb4e48574bf9a1b"
+      "bytes": 7195,
+      "sha256": "fd88383981f62731595aaff685a20c69ae062d93ecc2967eb337b4d33f412366"
     },
     {
       "repository_path": "plate_main/p1_published_results/text_artifact_manifest.json",
@@ -765,8 +770,8 @@
     },
     {
       "repository_path": "plate_main/proposals_updated(2).md",
-      "bytes": 29367,
-      "sha256": "a389c0d76d590a5a51d913effd06b086fd47e62f071532f0377df8504b05326a"
+      "bytes": 29349,
+      "sha256": "485586093c8ebd173890d8168e8fabc60f912964b5afc63cf4dd6d662a713bf8"
     },
     {
       "repository_path": "plate_main/requirements_p1.txt",
@@ -817,6 +822,11 @@
       "repository_path": "plate_main/test_regressions.py",
       "bytes": 10383,
       "sha256": "16cdf6762b39f3a5c22d809ae25ca7222a7e55059ff60e5493ae6a05f25b597c"
+    },
+    {
+      "repository_path": "plate_main/train_p1_surrogate.py",
+      "bytes": 181,
+      "sha256": "d3cb4499268271c7704f75640f65285f8036ec4dc4a3ef0e6e663bf1779aeb97"
     }
   ],
   "frozen_scientific_methods_modified_for_publication": false,
@@ -850,6 +860,10 @@
     ],
     "local_inventory": "p1_improvement_20261005/unpacked_local_inventory.json",
     "published_verification": "p1_published_results/unpacked_relocation_verification.json",
-    "original_ZIPs": "Optional unchanged backups left in the old D-drive directory; not committed/uploaded"
+    "original_ZIPs": "Historical optional backups outside plate_main; not managed or used by this cleanup",
+    "native_MPH_files_present": false,
+    "exact_pre_cleanup_archival_copy": false,
+    "cleanup_manifest": "p1_published_results/cleanup_manifest.json",
+    "retained_numerical_inputs_and_fitted_weights": true
   }
 }

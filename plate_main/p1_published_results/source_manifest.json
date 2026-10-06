@@ -215,6 +215,11 @@
       "path": "test_regressions.py",
       "bytes": 10383,
       "sha256": "16cdf6762b39f3a5c22d809ae25ca7222a7e55059ff60e5493ae6a05f25b597c"
+    },
+    {
+      "path": "train_p1_surrogate.py",
+      "bytes": 181,
+      "sha256": "d3cb4499268271c7704f75640f65285f8036ec4dc4a3ef0e6e663bf1779aeb97"
     }
   ],
   "scope": "All original baseline P1/shared Python files plus completed improvement implementation and behavioral tests",

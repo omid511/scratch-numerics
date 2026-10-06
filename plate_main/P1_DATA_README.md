@@ -25,9 +25,10 @@ IID field/frequency medians are0.00559255/1.012241% over298 accepted rows.
 
 **Publication restriction:** code, meaningful tests, Markdown and reviewed text
 results only. No MPH files, ZIP archives, raw bulk arrays, binary fitted weights
-or P1 GitHub Release uploads. The complete local study now uses unpacked
-`p1_improvement_20261005/` folders under `plate_main`; no ZIP is needed for replay.
-A public checkout still lacks the ignored raw inputs/weights.
+or P1 GitHub Release uploads. Retained numerical data and fitted models use
+unpacked `p1_improvement_20261005/` folders under `plate_main`; no ZIP is needed
+for replay. Authorized cleanup removed native MPH files and derived outputs;
+a public checkout still lacks the ignored raw inputs/weights.
 
 [P1_RESULTS_REVIEW.md](P1_RESULTS_REVIEW.md) retains the historical
 10,000-LF/80-HF audit and separates it from the current prospective conclusions.
@@ -690,19 +691,23 @@ The frequency task screens stable reference label1 against the frozen
 961.333328052-Hz benchmark, not an externally certified service constraint
 or a guaranteed complete-spectrum fundamental frequency.
 
-The current local handoff is unpacked: original raw data/native references
-remain in `p1_data_five/`, and the new study's models, labels, blinded predictions,
-calibration, execution snapshots and logs are in `p1_improvement_20261005/`.
-Original source revisions are preserved there in `baseline_sources/` and
-`package_sources/`. All original baseline members and copied study files
-passed exact-byte checks; the six-model 800-row replay passed from the new
-location after the D-drive working folders were removed.
+The current local handoff is unpacked: original numerical arrays remain in
+`p1_data_five/`, and the new study's models, labels, blinded predictions,
+calibration and execution snapshots are in `p1_improvement_20261005/`.
+Original source revisions remain in `baseline_sources/` and `package_sources/`.
+The earlier relocation authenticated every original baseline/captured member.
+Subsequent authorized cleanup removed seven native MPH files, caches, generated
+figures, duplicate exports and publication bookkeeping; it did not change
+scientific inputs/weights. See [cleanup manifest](p1_published_results/cleanup_manifest.json).
 
 Run `python p1_delivery.py replay --output .\p1_improvement_20261005` from
 `plate_main` with `P1_ORIGINAL_ROOT` set there. No ZIP extraction, solve or
-scientific refit is needed. The two original ZIPs were left untouched in D
-as optional backups; they are no longer a dependency of this working layout.
-Recorded runtime settings and licensed-native requirements are unchanged.
+scientific refit is needed. Post-cleanup six-model/800-row replay again matched
+every prediction array exactly. Saved-MPH native re-extraction now requires
+restoring those files from a separately retained backup or running new solves.
+The fresh native workflow above must not be treated as runnable from a complete
+saved-MPH archive in this cleaned folder. Recorded numerical outcomes and
+negative results remain unchanged; the original inventories are historical.
 See [relocation verification](p1_published_results/unpacked_relocation_verification.json).
 No archive, MPH file, raw binary array, fitted weight or COMSOL license is uploaded.
 

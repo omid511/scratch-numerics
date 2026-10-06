@@ -1,0 +1,1134 @@
+{
+  "schema_version": 1,
+  "requested_at_utc": "2026-10-06T17:46:00.863418+00:00",
+  "status": "verified",
+  "scope": "User-authorized sections 1, 2 and 3 only",
+  "removed_files": [
+    {
+      "path": "__pycache__/compute_corrections.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 34552
+    },
+    {
+      "path": "__pycache__/fsdt_mode_shapes.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 21153
+    },
+    {
+      "path": "__pycache__/hc_HighFidelity_LHS.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 38001
+    },
+    {
+      "path": "__pycache__/honeycomb.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 3483
+    },
+    {
+      "path": "__pycache__/lhs_sampling.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 7339
+    },
+    {
+      "path": "__pycache__/p1_claim_report.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 13522
+    },
+    {
+      "path": "__pycache__/p1_decoder_upgrade.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 20307
+    },
+    {
+      "path": "__pycache__/p1_design.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 17456
+    },
+    {
+      "path": "__pycache__/p1_geometry.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 8400
+    },
+    {
+      "path": "__pycache__/p1_holdout.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 25728
+    },
+    {
+      "path": "__pycache__/p1_improve.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 44346
+    },
+    {
+      "path": "__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51213
+    },
+    {
+      "path": "__pycache__/p1_improvement_study.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 63346
+    },
+    {
+      "path": "__pycache__/p1_pairing.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 17196
+    },
+    {
+      "path": "__pycache__/p1_preflight.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 21891
+    },
+    {
+      "path": "__pycache__/p1_prospective.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 74750
+    },
+    {
+      "path": "__pycache__/p1_recheck.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 41195
+    },
+    {
+      "path": "__pycache__/p1_reference_diagnosis.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 38403
+    },
+    {
+      "path": "__pycache__/p1_sensitivity.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 23065
+    },
+    {
+      "path": "__pycache__/p1_surrogate.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 119624
+    },
+    {
+      "path": "__pycache__/plot_p1_results.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 39778
+    },
+    {
+      "path": "__pycache__/run_hf_batches.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 16959
+    },
+    {
+      "path": "__pycache__/run_p1_hf_plan.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 9385
+    },
+    {
+      "path": "__pycache__/test_hf_smoke.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 3149
+    },
+    {
+      "path": "__pycache__/test_p1_full_workflow.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 26057
+    },
+    {
+      "path": "__pycache__/test_p1_improvement.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 15381
+    },
+    {
+      "path": "__pycache__/test_p1_pairing.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 12263
+    },
+    {
+      "path": "__pycache__/test_p1_surrogate.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 10481
+    },
+    {
+      "path": "__pycache__/test_regressions.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 18413
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/freeze-models/__pycache__/p1_improve.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 44351,
+      "historical_inventory_sha256": "d28885345577f0e5361bb7eb5ff8a33a6eea1aa5f7273e193565cebaaef9fb4e",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/freeze-models/__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51218,
+      "historical_inventory_sha256": "0acc81a1f843f9397b45ae8462ffc0afc78e757848379435bd638c3508c00e6e",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/freeze-models/__pycache__/p1_improvement_study.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 63351,
+      "historical_inventory_sha256": "2a96e4a4156b40cc75c26d490654c5849b78b5225d0c77d01d646c8f2ac6c67f",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/freeze-models/__pycache__/p1_prospective.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 74755,
+      "historical_inventory_sha256": "6a5d0d79c68e4377a2eac08657a3a3ba16d8a649b21de353b5e3a9e9cc034704",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/learning-curves/__pycache__/p1_improve.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 44353,
+      "historical_inventory_sha256": "590a99bba0a313efaa31401e5dd141469902a4fa5114b25e875b837a86d203dd",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/learning-curves/__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51220,
+      "historical_inventory_sha256": "c18ed2800a2e8035dc44aa93a5f49f41e9baa9d390a45c2dea1daecf2e393808",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/native-method-control/__pycache__/p1_improve.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 44359,
+      "historical_inventory_sha256": "3c96ad625fb27c2e42b915a0e4b8b32e1426d2ceb6fdefbf667366982de3fb11",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/select/__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51211,
+      "historical_inventory_sha256": "a9a1a50cafe8b96566773977278156420d6393f2fb23b635677aca97304e4ce4",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/select-region/__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51218,
+      "historical_inventory_sha256": "4b13a093be67587e0b97752eda49a1d859cca9732cf25b7615e0dd66dbf81f6e",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/uncertainty/__pycache__/p1_improve.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 44349,
+      "historical_inventory_sha256": "2d9e02f0b957e858d4ccb06ce3a09ae2f7d205e95a43493be4d1d66e21fccfc9",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/uncertainty/__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51216,
+      "historical_inventory_sha256": "b9a15ffc825112bdb66f9f54fa507f045cee94c6b9865d8742cf7c91c4dd416d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/uncertainty-region/__pycache__/p1_improve.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 44356,
+      "historical_inventory_sha256": "b4b6851b77e14df054d8d7a409a908164d0b752b4928f7a44ab327f7e1a8209d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/execution_sources/uncertainty-region/__pycache__/p1_improved_models.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 51223,
+      "historical_inventory_sha256": "037b8b4178fbd828abaa4a79077f4480fb2f97db49ce5b38b6e6ed431d564c3a",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/freeze_models_supervisor.log",
+      "section": "section_1",
+      "kind": "empty_supervisor_log",
+      "bytes": 0,
+      "historical_inventory_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/clean_checkout.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 8522,
+      "historical_inventory_sha256": "9edda01d1db0fc7207bca4090fa42f810ce89d8c63d0f3be415b6de9d3e5d0b0",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/clean_checkout_runtime.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 3118,
+      "historical_inventory_sha256": "c8d794c6b348f19b1fbc5e74bf33e78b35c7b72b08b20052621c273185f2db01",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/publication_plan.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 1079,
+      "historical_inventory_sha256": "e49c85564e54b0397ff7da70f77d4387d82b5b3a55bed9d9c39fd5e5d086ffd5",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/push_receipt.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 396,
+      "historical_inventory_sha256": "fc40290eb01ce884d9e6a6c8a28a19ec84bbb2b74591e24c9068949d4137c5b3",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/relocation_publication_review.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 643
+    },
+    {
+      "path": "p1_improvement_20261005/publication/relocation_push_receipt.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 474
+    },
+    {
+      "path": "p1_improvement_20261005/publication/relocation_remote_verification.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 878
+    },
+    {
+      "path": "p1_improvement_20261005/publication/remote_verification.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 807,
+      "historical_inventory_sha256": "41fd159a8b751dbf47b23c7e877f1156e6fc71e0b91e1441a74856077b435784",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/source_text_review.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 8550,
+      "historical_inventory_sha256": "542e859b8ba4a95f6e5d82989cdbbb3349a2ba85013dab5d72d14f675ccebcca",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/publication/staged_p1_paths.json",
+      "section": "section_1",
+      "kind": "publication_bookkeeping",
+      "bytes": 9913,
+      "historical_inventory_sha256": "b852d3a20eb1f088621ae3e88e779f10f9d5ca9102490edc5ccc19bfed9936f4",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/reference_full_supervisor.log",
+      "section": "section_1",
+      "kind": "empty_supervisor_log",
+      "bytes": 0,
+      "historical_inventory_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "plate/__pycache__/__init__.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 293
+    },
+    {
+      "path": "plate/__pycache__/laminate.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 20169
+    },
+    {
+      "path": "plate/__pycache__/misc.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 1345
+    },
+    {
+      "path": "plate/__pycache__/plate.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 48969
+    },
+    {
+      "path": "plate/__pycache__/quadrature.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 4255
+    },
+    {
+      "path": "plate/__pycache__/solver.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 21065
+    },
+    {
+      "path": "plate/__pycache__/trail_function.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 18581
+    },
+    {
+      "path": "plate/__pycache__/viewer.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 3812
+    },
+    {
+      "path": "simulations/scripts/__pycache__/hc_mesh_convergence.cpython-314.pyc",
+      "section": "section_1",
+      "kind": "python_cache",
+      "bytes": 20367
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mode7_pair_refinement.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 291186,
+      "historical_inventory_sha256": "4861508bc545413a6a153371625892fcce6a264ed1ee20291d2ee3e8c053d3c2",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mode7_pair_refinement.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 204987,
+      "historical_inventory_sha256": "529558e250ab61f8b9b1cc73dc47902a51510d6d46535671b2349e2133396fa3",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/holdout/figures/heldout_worst_field.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 64085,
+      "historical_inventory_sha256": "bcf3515f69eb44f9757c220960c3190eabe29911bb740133daa197b687f05a2a",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/holdout/figures/heldout_worst_field.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 219628,
+      "historical_inventory_sha256": "7e57e16c5d49e4a3daf59ddc20572143f157d0d208aa5439544cf9bd25967c33",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/holdout_corrected/figures/heldout_worst_field.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 64358,
+      "historical_inventory_sha256": "6ff73830dad812172468aaf25375203202143849ec592a2e7246fcd3d4631957",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/holdout_corrected/figures/heldout_worst_field.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 277249,
+      "historical_inventory_sha256": "826194734718f5f1b16bcfdf4445d14b68935377bea0ca400562a8b638e76f15",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/correction_rms_by_mode.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 16605,
+      "historical_inventory_sha256": "4902e984d7da0e385b580a3f39364a12474ab22d34c3175cf7a4e131f65d0c31",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/correction_rms_by_mode.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 83036,
+      "historical_inventory_sha256": "c301493446011cbd76aea95e1c66178ccaff5d6ebd40f78889af4e34b72927a7",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/cv_model_comparison.csv",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 537,
+      "historical_inventory_sha256": "e46213783e3c8c2318fffbca74c2889c83c35d1b17e275a15e5a712b3b634460",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/cv_model_comparison.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 17185,
+      "historical_inventory_sha256": "618e8f6fda8fec708fe488759f7ce20df8451f60b1f47be4c7479200dc384ab7",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/cv_model_comparison.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 77681,
+      "historical_inventory_sha256": "2e8a92b7ac6bf50b3b27a0de5fddab53628038e3e23af3f14bcc27a4299bd494",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/design_pairwise.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 1546165,
+      "historical_inventory_sha256": "f9c9b6a0e45a21c023be3157aab7b8bf8dcd9d368f231a52f39abb7eee549c87",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/design_pairwise.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 1539705,
+      "historical_inventory_sha256": "1cb001ae8793a8048c8e52e059f044089f389b747d726e8864887f87c02e4d5d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/design_space.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 1929000,
+      "historical_inventory_sha256": "40cbe98a6844814428cdb84d9fa7dc0baf1625db21a3fe0a7ca6a09c629580f0",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/design_space.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 1967170,
+      "historical_inventory_sha256": "91575c6b3d812b554b0efe040ab9845d72f80e8be3696066326689ae299d16bd",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/example_run0011_mode01.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 61068,
+      "historical_inventory_sha256": "735237942507041baf0f2553cf97b1845a5ac9b1d743667fdbe127116a3b7f93",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/example_run0011_mode01.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 222265,
+      "historical_inventory_sha256": "6da4f52f9a650f3185ff79655820d438760fb1f7041db71ba58c2bb7b71ad083",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/frequency_error_by_mode.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 16174,
+      "historical_inventory_sha256": "4ca26f7d1d7c820f043f0a9b00a6bd935321a6df9ea61594364515f1271c8ba0",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/frequency_error_by_mode.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 75784,
+      "historical_inventory_sha256": "770c194bf4df988582328136130ec6103915c76d019604c67aa0cad44d6cce86",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/frequency_parity.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 33409,
+      "historical_inventory_sha256": "53998fcece820680d109cfb16336c24cedb9752788d7013ed5067c6032f66feb",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/frequency_parity.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 394984,
+      "historical_inventory_sha256": "b099bd3667ded1ea9c38a9de23a5e824cdb4d7a9b6235dc16452f436150dfd4f",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/matching_quality.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 19358,
+      "historical_inventory_sha256": "78744e8e450864baff47760e0be031e5217cc296d0fa07d19399a0f4c3da36f8",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/matching_quality.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 115215,
+      "historical_inventory_sha256": "9300c195fc8ed782e44d38dfd0b79bc263bf70ef74dc9f7d2510330e883133c9",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/quarantine_reasons.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 17893,
+      "historical_inventory_sha256": "439343d5c5ac08152bacc512197871254a808b8074cf9471074fb6e157d23bf8",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/quarantine_reasons.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 94950,
+      "historical_inventory_sha256": "ef487d50d7f03dfff8b7ae8067bc35d065875da98653a2ece68e2339da459507",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/results_summary.json",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 3560,
+      "historical_inventory_sha256": "06844e0cb29839bdc9508f47a7db9431dfce4eb8d084125fdb8f7805db76ae79",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_by_mode.csv",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 2847,
+      "historical_inventory_sha256": "0e4a1d40ca10079d763220f83f74646c998f9732ed2c1ac78d05240301ee13d7",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_error_by_mode.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 31009,
+      "historical_inventory_sha256": "e5bcc8218466ad18df19b50b6f57f39fc1d89cae4c5df0369cec0887b9bdd136",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_error_by_mode.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 162315,
+      "historical_inventory_sha256": "c8d11117d0561341ff7c120a331adc3c27c082074df77f600c9af1442f97c6d8",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_frequency_parity.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 19998,
+      "historical_inventory_sha256": "5aa9763cccef2421e051c6426cf1412cb50b47ec1f6134b043ace89298c7ba12",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_frequency_parity.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 315443,
+      "historical_inventory_sha256": "5a6644818c0e75bfabd364bbd8f5eda378df3a9d899483dcf9c4f9ce961fb926",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_metrics.csv",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 48416,
+      "historical_inventory_sha256": "569ef870514dbd270b44ef87fc6d8fb68363e0cbddb2c3c33569dbf8a0d6e94b",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_shape_examples.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 145277,
+      "historical_inventory_sha256": "dfd0da7d3f82c18507191290db0e345b311ac8b970f8bdcb4480697ea8656e6a",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_shape_examples.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 570623,
+      "historical_inventory_sha256": "5725e16320a1bc7cbcddc7417007e226b8fa73fcf967349cdbde4f4935daef33",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_uncertainty_coverage.pdf",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 17439,
+      "historical_inventory_sha256": "e0518243494c4554e59f3fa26c3e26764feca4180ee4b9e21909b58f3c23ff77",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/recheck_20261003/export_reproduced/test_uncertainty_coverage.png",
+      "section": "section_2",
+      "kind": "duplicated_reproduced_export",
+      "bytes": 118239,
+      "historical_inventory_sha256": "c460faba96544b7e8da65028d4bd098e4eb01ddac1cf745eaf3c0d0421792816",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/correction_rms_by_mode.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 16605,
+      "historical_inventory_sha256": "849ac7bcc6858ad765ccc7e67fe1ecba3e19e33057a9ec464050d0341de554e7",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/correction_rms_by_mode.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 83036,
+      "historical_inventory_sha256": "c301493446011cbd76aea95e1c66178ccaff5d6ebd40f78889af4e34b72927a7",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/cv_model_comparison.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 17185,
+      "historical_inventory_sha256": "0c20419535c5f9a318c0af85b6c0ce485faaf6d670028f022d37ce120d5c7d8f",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/cv_model_comparison.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 77681,
+      "historical_inventory_sha256": "2e8a92b7ac6bf50b3b27a0de5fddab53628038e3e23af3f14bcc27a4299bd494",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/design_pairwise.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 1546165,
+      "historical_inventory_sha256": "78d5602a724e915b8e9c44ecb3a13a92c96a3cfb2262656b84c05842d16ad66b",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/design_pairwise.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 1539705,
+      "historical_inventory_sha256": "1cb001ae8793a8048c8e52e059f044089f389b747d726e8864887f87c02e4d5d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/design_space.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 1929000,
+      "historical_inventory_sha256": "6adb1b5180fb9ad4028c84144ced5ee26d3af35869400b7d798a4886b007f736",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/design_space.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 1967170,
+      "historical_inventory_sha256": "91575c6b3d812b554b0efe040ab9845d72f80e8be3696066326689ae299d16bd",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/example_run0011_mode01.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 61068,
+      "historical_inventory_sha256": "2db6048ab4724ce6118c9a8f30716509a1e415d1b617807751104dda5fee1c85",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/example_run0011_mode01.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 222265,
+      "historical_inventory_sha256": "6da4f52f9a650f3185ff79655820d438760fb1f7041db71ba58c2bb7b71ad083",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/frequency_error_by_mode.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 16174,
+      "historical_inventory_sha256": "10cbe5081c2ab58b738f50ea5b0417d2648aec0c9a33d8b9986235f79a422c5d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/frequency_error_by_mode.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 75784,
+      "historical_inventory_sha256": "770c194bf4df988582328136130ec6103915c76d019604c67aa0cad44d6cce86",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/frequency_parity.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 33409,
+      "historical_inventory_sha256": "d924cd71da16293c87d52bba03c57ca06bb38eb1f7703a88329f112fcf9775b8",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/frequency_parity.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 394984,
+      "historical_inventory_sha256": "b099bd3667ded1ea9c38a9de23a5e824cdb4d7a9b6235dc16452f436150dfd4f",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/matching_quality.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 19358,
+      "historical_inventory_sha256": "4cafc27d47b2546911d3a1a742845e6da107b7eeffab773cdec72164015e8a7a",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/matching_quality.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 115215,
+      "historical_inventory_sha256": "9300c195fc8ed782e44d38dfd0b79bc263bf70ef74dc9f7d2510330e883133c9",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/quarantine_reasons.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 17893,
+      "historical_inventory_sha256": "a27ff64afec819d2d544de65382ab535dd8323904d8cd8560d474bca12f4dc6c",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/quarantine_reasons.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 94950,
+      "historical_inventory_sha256": "ef487d50d7f03dfff8b7ae8067bc35d065875da98653a2ece68e2339da459507",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_error_by_mode.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 31009,
+      "historical_inventory_sha256": "1d28d110cfb9779075d48634525b1ed1b551a95517d13d4b6fecc8e12d285cc5",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_error_by_mode.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 162315,
+      "historical_inventory_sha256": "c8d11117d0561341ff7c120a331adc3c27c082074df77f600c9af1442f97c6d8",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_frequency_parity.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 19998,
+      "historical_inventory_sha256": "caea11f40032aa19a11c2feecbb943052fc7f6f8b787279f14e1a37865683be2",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_frequency_parity.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 315443,
+      "historical_inventory_sha256": "5a6644818c0e75bfabd364bbd8f5eda378df3a9d899483dcf9c4f9ce961fb926",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_shape_examples.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 145277,
+      "historical_inventory_sha256": "698a9a15ad97cd67dae9a928a56b4c33bd00cadeacf4d62e555b1663fcadac8e",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_shape_examples.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 570623,
+      "historical_inventory_sha256": "5725e16320a1bc7cbcddc7417007e226b8fa73fcf967349cdbde4f4935daef33",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_uncertainty_coverage.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 17439,
+      "historical_inventory_sha256": "00cb84f6ad27ecb26f226dbaa743d815ce4cf2fc7dc2afecd0770eb530f4774b",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/results_five/test_uncertainty_coverage.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 118239,
+      "historical_inventory_sha256": "c460faba96544b7e8da65028d4bd098e4eb01ddac1cf745eaf3c0d0421792816",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/decoder_spectrum.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 13591,
+      "historical_inventory_sha256": "83767a2cfce6221905be34093b6315e31624722632e176c15e6b6bf38c97e7bf",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/decoder_spectrum.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 78114,
+      "historical_inventory_sha256": "9b3ea7fd8f2424aa5a9323476879defaee5bd70d04b79db57d2991392138d2fd",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/latent_gp_oof_by_mode.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 20018,
+      "historical_inventory_sha256": "5eaee6402a3d918569933f0ccb60a6bbe0bf369b28a0f86100d713f73f772176",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/latent_gp_oof_by_mode.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 118672,
+      "historical_inventory_sha256": "38a0c3619ff5e655d999c70f10b81310a3e367d452d979dec8c559a11cf4b9dc",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/latent_gp_pointwise_diagnostics.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 80396,
+      "historical_inventory_sha256": "4cf842acbb124dff14c4ddfb8454ae5f9ffade45f67210e6089237b05fddc6da",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/latent_gp_pointwise_diagnostics.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 189976,
+      "historical_inventory_sha256": "52f417376e3976b3c84bd7e936d95a6ab46bae98aa822acf7229aa16f3218165",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/latent_gp_worst_oof_field.pdf",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 76719,
+      "historical_inventory_sha256": "acfb64317209ec35e8c2aeae2fc8fbab6bbbbce5cbdf29c094eef3b8c5929219",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/surrogate_five/figures/latent_gp_worst_oof_field.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 203090,
+      "historical_inventory_sha256": "3f335eb80053b65c4552bbe9331100c5b6277a30b757c480598814ae58b097cd",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/learning_curves/field_learning_curve.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 188683,
+      "historical_inventory_sha256": "da27b59ac3e8a64f74876a6e986e197cace12659966fde1ace2950e04379acb1",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/learning_curves/frequency_learning_curve.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 126463,
+      "historical_inventory_sha256": "7845c6bf18e0d46b43fc24f4236a6a692315b88534f3ca5dc5dc5371cfd22aed",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/prospective/field_referral_curve.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 79860,
+      "historical_inventory_sha256": "a363c431896c2a24c4841158fb655de213bf5dcdaaf42b2c098fa0c4c7324f8d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_improvement_20261005/prospective/frequency_referral_curve.png",
+      "section": "section_2",
+      "kind": "generated_figure",
+      "bytes": 80111,
+      "historical_inventory_sha256": "8dfb8c9f111494ace2605f69874e510c66524153b350d25a0593368e52902c36",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mesh1_scratch/hf/run_2209.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 3490219932,
+      "historical_inventory_sha256": "cd4f7b18c2e6e8dc734a85e3f95bbce94e5a27bc2110ff43275e79b9a364d435",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mesh2/hf/run_2209.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 2620183240,
+      "historical_inventory_sha256": "9817dabaf0e8a025344ed323a7f776148caf30f484cc64f2aa1a60cd10404a2a",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mesh2/hf/run_4352.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 916288462,
+      "historical_inventory_sha256": "8a1a200fb84cb536b309bf20e33c59e7faf1131c5a46dc5163c7ccf222b9f97c",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mesh3/hf/run_2209.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 2166606539,
+      "historical_inventory_sha256": "42b106a413b558bd869133a412b7b5a0a9c159f8ec13222156b0870cb46fc11d",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mesh3/hf/run_4352.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 592791145,
+      "historical_inventory_sha256": "49addeba72cf36ceed0325ac526ceeb180c103011dc07d515f6accaec0dae91a",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/mumps_blr3408_control_mesh3/hf/run_3408.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 2515093656,
+      "historical_inventory_sha256": "66a7833fb6421f849c2e5a98b6f3c408091ac113d3318975e7007114850f5346",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    },
+    {
+      "path": "p1_data_five/hf_followup_20261003/resume3408_mesh2/hf/run_3408.mph",
+      "section": "section_3",
+      "kind": "native_simulation",
+      "bytes": 4057373065,
+      "historical_inventory_sha256": "10d4292c863609fc61251c6b742ff539009d37501bd6c108ef6121e75a7b8938",
+      "hash_source": "Previously authenticated immutable/local inventory; not rehashed during deletion"
+    }
+  ],
+  "native_saved_state_reextraction_available_after_cleanup": false,
+  "frozen_inventories_will_remain_historical_and_unmodified": true,
+  "P2_files_selected_for_removal": false,
+  "tracked_files_selected_for_removal": [],
+  "deleted_at_utc": "2026-10-06T17:48:01.889043+00:00",
+  "removed_by_section": {
+    "section_1": {
+      "files": 63,
+      "bytes": 1677252
+    },
+    "section_2": {
+      "files": 74,
+      "bytes": 21648526
+    },
+    "section_3": {
+      "files": 7,
+      "bytes": 16358556039
+    }
+  },
+  "removed_file_count": 144,
+  "removed_bytes": 16381881817,
+  "empty_directories_removed": [
+    "p1_improvement_20261005/execution_sources/uncertainty-region/__pycache__",
+    "p1_improvement_20261005/execution_sources/select-region/__pycache__",
+    "p1_improvement_20261005/execution_sources/select/__pycache__",
+    "p1_improvement_20261005/execution_sources/freeze-models/__pycache__",
+    "p1_improvement_20261005/execution_sources/uncertainty/__pycache__",
+    "p1_improvement_20261005/execution_sources/native-method-control/__pycache__",
+    "p1_improvement_20261005/execution_sources/learning-curves/__pycache__",
+    "simulations/scripts/__pycache__",
+    "p1_improvement_20261005/publication",
+    "plate/__pycache__",
+    "p1_data_five/surrogate_five/figures",
+    "p1_data_five/holdout/figures",
+    "p1_data_five/recheck_20261003/export_reproduced",
+    "p1_data_five/holdout_corrected/figures"
+  ],
+  "protected_non_target_P1_files_unchanged": 12847,
+  "protected_P2_files_unchanged": 223,
+  "frozen_model_replay_after_deletion": {
+    "rows": 800,
+    "models": 6,
+    "all_prediction_max_differences": 0.0,
+    "old_bytecode_native_ZIP_plots_and_publication_receipts_inaccessible": true,
+    "P1_files_written": false
+  },
+  "scientific_source_files_unchanged": 43,
+  "new_COMSOL_solve_or_scientific_model_refit": false,
+  "verified_at_utc": "2026-10-06T17:57:25.225875+00:00",
+  "original_baseline_inventory_members_intentionally_absent": 77,
+  "original_moved_file_inventory_members_intentionally_absent": 26,
+  "every_missing_inventory_member_is_explicitly_authorized": true,
+  "P2_files_and_cached_modules_preserved": 223,
+  "scientific_sources_and_original_frozen_inventories_unmodified": true,
+  "all_721_correction_CSVs_retained": true,
+  "unique_scientific_inputs_weights_records_or_source_removed": false
+}

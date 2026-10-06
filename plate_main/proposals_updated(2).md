@@ -142,11 +142,11 @@ damage, aerodynamic and experimental validation require separate evidence.
 The GitHub handoff publishes P1 source, meaningful tests, recorded
 environment, Markdown and checksum-identified JSON/CSV results only.
 Per the publication restriction, **no MPH simulation files, ZIP archives,
-raw bulk arrays or fitted binary weights are uploaded**. The complete local
-study now uses unpacked `p1_improvement_20261005/` folders under `plate_main`,
-with original data in `p1_data_five/`; no ZIP is needed for replay. A public
-clone still lacks the ignored bulk inputs/weights and is not a complete
-public data/model release. See [local reproduction](P1_REPRODUCIBILITY.md#local-unpacked-study--no-zip-required).
+raw bulk arrays or fitted binary weights are uploaded**. Numerical arrays,
+fitted models and extracted state arrays remain unpacked locally. Authorized
+cleanup removed native MPH files and derived/bookkeeping outputs: LF-only
+replay remains available, but saved-MPH re-extraction requires recovery or
+new solves. See [local reproduction](P1_REPRODUCIBILITY.md#local-unpacked-study--no-zip-required).
 
 ---
 

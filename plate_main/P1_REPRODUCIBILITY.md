@@ -21,7 +21,7 @@ records are execution provenance, not paths required by the public checkout.
 
 The complete source/text inventory is in
 [publication_manifest.json](p1_published_results/publication_manifest.json);
-[source_manifest.json](p1_published_results/source_manifest.json) records all 43
+[source_manifest.json](p1_published_results/source_manifest.json) records all 44
 Python files and [historical_text_manifest.json](p1_published_results/historical_text_manifest.json)
 retains the referenced earlier audit evidence. Scoped `.gitattributes` disables
 newline conversion so a Windows checkout preserves the frozen SHA-256 bytes.
@@ -95,12 +95,13 @@ availability.
 
 The working study was moved from `D:\p1_improvement_20261005` to
 `plate_main\p1_improvement_20261005`. It is a normal directory, not an archive.
-The original audited data stay in `plate_main\p1_data_five`; they were not
-overwritten or duplicated. The local layout is:
+The original audited numerical arrays stay in `plate_main\p1_data_five`.
+Authorized cleanup removed native MPH files and derived/bookkeeping outputs,
+not source, fitted weights, calibration or extracted shell-state arrays:
 
 ```text
 plate_main/
-  p1_data_five/                    original audited data and native references
+  p1_data_five/                    original numerical data; native MPH files removed
   p1_improvement_20261005/
     baseline_sources/             original audited source/document revisions
     package_sources/              source revisions captured in the improvement package
@@ -120,11 +121,11 @@ Existing absolute paths in archived records remain original execution
 provenance; they are not rewritten to falsify the historical run.
 
 [unpacked_relocation_verification.json](p1_published_results/unpacked_relocation_verification.json)
-records 1,640 moved files independently SHA-256-verified, 1,617 captured
-improvement-study members authenticated, and all 11,211 original baseline
-members available unpacked with matching hashes. Original baseline/package
-source snapshots contain 39/9 files. No ZIP or MPH file was moved into the
-new study directory.
+records the **pre-cleanup** relocation: 1,640 moved files and all 11,211
+original baseline members were then available with matching hashes.
+The later [cleanup manifest](p1_published_results/cleanup_manifest.json)
+records intentional removals; the current folders are no longer an exact
+copy of every archived member. Original source snapshots remain preserved.
 
 From `plate_main`, replay directly:
 
@@ -141,11 +142,30 @@ Replay changes only its derived verification JSON. Never edit frozen
 execution snapshots or recorded hashes. The retained 40-row neural attempt
 differed by up to 1.05e-8; its failure and unchanged tolerances remain recorded.
 
-**The ZIPs are no longer required to preserve or replay this local P1 study.**
-The old D-drive directory now contains only the two original ZIP backups,
-which were left untouched rather than deleted during relocation. They may
-be removed if no additional archive backup is desired; keep a verified
-backup of the unpacked folders if deleting them.
+**No ZIP is required for retained numerical data or fitted-model replay.**
+The earlier relocation left two optional ZIP backups in D; this cleanup does
+not manage backups outside `plate_main`. Recovering deleted native models
+requires a separately retained backup or new native solves.
+
+### Authorized cleanup — 2026-10-06
+
+The [cleanup manifest](p1_published_results/cleanup_manifest.json) lists 144
+removed files totalling 16,381,881,817 bytes: P1/shared bytecode, publication
+bookkeeping, two empty supervisor logs, duplicated exports, generated PNG/PDF
+figures and seven native MPH simulations. P2 files and bytecode were preserved.
+
+Post-cleanup read-only replay reproduced all six models over 800 rows with
+zero differences in every prediction array, without generating caches or
+figures. Numerical source data, fitted weights, calibration, reference-state
+NPZ arrays and all 721 correction CSVs remain available.
+
+**Saved-MPH native re-extraction is no longer available from this folder.**
+Restore the original native files from a separate backup or explicitly plan
+new native solves before using that workflow. Analysis of retained numerical
+state arrays and LF-only replay do not need the deleted MPH files.
+The original frozen protocols and file inventories remain historical records;
+the cleanup manifest records their deliberate missing members without
+rewriting scientific hashes or claiming byte-for-byte archive completeness.
 
 ### Optional original archive evidence
 
