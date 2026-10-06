@@ -1,0 +1,23 @@
+{
+  "control_completed_before_launch_at_utc": "2026-10-05T11:24:29.868612+00:00",
+  "run": 3408,
+  "mesh_size": 2,
+  "solver": "mumps-blr",
+  "solver_settings": {"linsolver": "mumps", "mumpsblr": "on", "mumpsblrtol": "1e-8"},
+  "experiment_source_sha256": "740e36977ca0614dd18f7130adf55054a7d91920d6cbbe8b182fd572ee0e4213",
+  "output": "resume3408_mesh2",
+  "control_protocol": "mumps_blr_control_protocol.json",
+  "control_results": "mumps_blr_control_results.json",
+  "control_passed_before_launch": true,
+  "control_bundle_sha256": "39debda866051de033d659195d64983873eacd650601faa7d71111b4ceba3cf0",
+  "control_observed_max_frequency_change_pct": 0.00011997840905496345,
+  "control_observed_max_field_rms": 3.8133657962448465e-6,
+  "resource_settings": {"cores": 4, "jvm_heap_gib": 8, "scratch_root": "D:/", "deadline_minutes": 360, "heartbeat_seconds": 60, "attempts": 1},
+  "accepted_mode_policy": "All original ten accepted target identities; Hungarian MAC to campaign anchors, global complex phase alignment, interior RMS; no exclusions or threshold changes",
+  "analysis": "Campaign mesh4 and original mesh3 versus fine mesh2; also compressed-MUMPS mesh3 versus mesh2 for same-method convergence. Frozen surrogate predictions/calibration evaluated without refitting.",
+  "mesh_diagnostic_targets": {"max_frequency_change_pct": 0.1, "max_field_rms": 0.00075},
+  "unchanged": "Frozen geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid and default numerical error checks",
+  "scope": "Targeted diagnostic, not a campaign-wide convergence certificate; no automatic retry",
+  "launch_returned_at_utc": "2026-10-05T11:26:26.462141+00:00",
+  "supervisor_pid": 12756
+}

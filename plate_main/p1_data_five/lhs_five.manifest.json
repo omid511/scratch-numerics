@@ -1,0 +1,35 @@
+{
+  "artifact": "p1_design",
+  "count": 10000,
+  "design_sha256": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+  "distribution": "legacy",
+  "parameter_names": [
+    "alpha",
+    "beta",
+    "theta_c",
+    "eta1",
+    "eta2"
+  ],
+  "proposal_parameter_names": [
+    "k1",
+    "k2",
+    "k3",
+    "k4",
+    "k5",
+    "cell_wall_thickness",
+    "theta_c",
+    "h_top",
+    "h_bottom",
+    "aerodynamic_pressure"
+  ],
+  "requested_count": 10000,
+  "run_id_policy": "explicit one-based run_id; row order is not an identity",
+  "schema_version": 1,
+  "scope": "pilot-five-variable",
+  "seed": 42,
+  "simulation_adapter_status": {
+    "pilot_five_variable_lf": "implemented",
+    "proposal_boundary_stiffness_pressure_adapter": "not-defined-in-repository"
+  },
+  "source": "lhs_sampling.generate_lhs/scale_to_physical"
+}

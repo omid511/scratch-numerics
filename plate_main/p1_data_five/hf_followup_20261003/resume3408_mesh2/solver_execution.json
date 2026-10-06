@@ -1,0 +1,30 @@
+{
+  "attempts": 1,
+  "code_sha256": {
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363",
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+  },
+  "cores": 4,
+  "deadline_minutes": 360.0,
+  "exit_code": 0,
+  "experiment_source_sha256": "740e36977ca0614dd18f7130adf55054a7d91920d6cbbe8b182fd572ee0e4213",
+  "finished_at_utc": "2026-10-05T14:36:07.524902+00:00",
+  "java_heap_gib": 8,
+  "mesh_size": 2,
+  "native_progress_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\resume3408_mesh2\\worker_logs\\run_3408_20261005T112802Z_12756_mumps_blr.progress.log",
+  "numerical_change": "Explicit direct-solver settings; preserve generated sequence with runNoGen",
+  "owned_scratch_removed": true,
+  "recorded_at_utc": "2026-10-05T11:28:02.090850+00:00",
+  "run": 3408,
+  "samples_sha256": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+  "solver": "mumps-blr",
+  "solver_settings": {
+    "linsolver": "mumps",
+    "mumpsblr": "on",
+    "mumpsblrtol": "1e-8"
+  },
+  "unchanged": "geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid; no refitting or recalibration",
+  "worker_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\resume3408_mesh2\\worker_logs\\run_3408_20261005T112802Z_12756_mumps_blr.log",
+  "worker_owned_scratch": "D:\\p1_solver_g9rudxpy"
+}

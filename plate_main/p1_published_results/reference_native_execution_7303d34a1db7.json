@@ -1,0 +1,41 @@
+{
+  "attempts_per_job_per_source_version": 1,
+  "outcomes": [
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T08:38:05.101838+00:00",
+      "label": "run2209_mesh3",
+      "owned_scratch_removed": true,
+      "started_at_utc": "2026-10-06T08:37:00.767872+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T08:38:54.576074+00:00",
+      "label": "run2209_mesh2",
+      "owned_scratch_removed": true,
+      "started_at_utc": "2026-10-06T08:38:05.105580+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T08:39:51.132971+00:00",
+      "label": "run2209_mesh1",
+      "owned_scratch_removed": true,
+      "started_at_utc": "2026-10-06T08:38:54.579296+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T08:41:40.351068+00:00",
+      "label": "run3408_mesh3_compressed",
+      "owned_scratch_removed": true,
+      "started_at_utc": "2026-10-06T08:39:51.135709+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T08:43:02.514064+00:00",
+      "label": "run3408_mesh2_compressed",
+      "owned_scratch_removed": true,
+      "started_at_utc": "2026-10-06T08:41:40.354816+00:00"
+    }
+  ],
+  "source_sha256": "7303d34a1db7807c8d95c4ceb7f1327d6f2ec85f13134732a206524e47dd9923"
+}

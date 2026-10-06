@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "scientific_source_files": [
+    {
+      "path": "compute_corrections.py",
+      "bytes": 22773,
+      "sha256": "3c373fa574c782546156b3de21e72ee2e7c53474b6af369a2c3df19a6beb200c"
+    },
+    {
+      "path": "fsdt_mode_shapes.py",
+      "bytes": 10188,
+      "sha256": "6cc7c3215ec1589128ed47a614caf39f9ecca6a59d6fc5c7baa877327408c9cd"
+    },
+    {
+      "path": "hc_HighFidelity_LHS.py",
+      "bytes": 22196,
+      "sha256": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c"
+    },
+    {
+      "path": "honeycomb.py",
+      "bytes": 1266,
+      "sha256": "5d3d4d931b00cb425e893f2a70595afbb3d51203aa60c33204d54509cff1149f"
+    },
+    {
+      "path": "lhs_sampling.py",
+      "bytes": 4742,
+      "sha256": "b2300f3a68338da3610d8d176e84b0e60b570a1f0e14f3d3af54d487c214df0d"
+    },
+    {
+      "path": "make_p1_design.py",
+      "bytes": 175,
+      "sha256": "11a31db34e1bd08c13fc76e52d54e5e46ca4e18f8eaaf4f356b01191ca369c7e"
+    },
+    {
+      "path": "make_p1_proposal_design.py",
+      "bytes": 3423,
+      "sha256": "9aa60629d4f4555be7a654a6a1deabe21bedc31050e97b618e4c875910cec8d2"
+    },
+    {
+      "path": "p1_build_targets.py",
+      "bytes": 3060,
+      "sha256": "3c60ef6279eae52c659d6383ad3fde3dd081ede90fc469663d209aaeaae748e8"
+    },
+    {
+      "path": "p1_claim_report.py",
+      "bytes": 8046,
+      "sha256": "cebe57f66201c6a8c0a9251c5e9616914a181f2e7a3c58d67287bd5a06a2eb6f"
+    },
+    {
+      "path": "p1_decoder_upgrade.py",
+      "bytes": 10552,
+      "sha256": "dcbc9c4ad592597349311c56208c6ea324f2d4127292924c362e7f75a16cabd5"
+    },
+    {
+      "path": "p1_delivery.py",
+      "bytes": 27475,
+      "sha256": "f9c0a0363ddf629042b4145b0dc5ecbddd42156c78582844b61c3b68bcf69430"
+    },
+    {
+      "path": "p1_design.py",
+      "bytes": 9721,
+      "sha256": "e3e834b77df11d65ef73bf86e7e33f80bd674421adce6b8b80b79d803c514acc"
+    },
+    {
+      "path": "p1_geometry.py",
+      "bytes": 3809,
+      "sha256": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363"
+    },
+    {
+      "path": "p1_holdout.py",
+      "bytes": 15914,
+      "sha256": "5e944133dff0da4da8a9de54a8b1af9a7a29d7d4b41645e4280cd4cfaae671f1"
+    },
+    {
+      "path": "p1_improve.py",
+      "bytes": 31219,
+      "sha256": "1db4a8ca488f00cd633b3d59219d0ff8c4e5bbe668c568dc337213fd8f012703"
+    },
+    {
+      "path": "p1_improved_models.py",
+      "bytes": 26922,
+      "sha256": "17f3e21223a2e490d9654dba9bf64e43eca81c47a75244826829f4e3993fc8ea"
+    },
+    {
+      "path": "p1_improvement_study.py",
+      "bytes": 41270,
+      "sha256": "8bf9337164b167c364b8930f6e97292f5b96146b4ea3f4ca888f060840c5c5fd"
+    },
+    {
+      "path": "p1_pairing.py",
+      "bytes": 9176,
+      "sha256": "0c46c551198bcf0702237a33c79e3dfd8c9842583bfc8de800c3d2dcc319c93d"
+    },
+    {
+      "path": "p1_preflight.py",
+      "bytes": 13318,
+      "sha256": "40c964807a3a5b4cecfcfd7688321a35ec1e47f3cabbfc45ef318cd35a65f3fa"
+    },
+    {
+      "path": "p1_prospective.py",
+      "bytes": 48040,
+      "sha256": "fa4a01e0d675e7a8c5960445db3573f9e616aa7ffc69752c880f351c66058cdb"
+    },
+    {
+      "path": "p1_recheck.py",
+      "bytes": 25361,
+      "sha256": "2fd99676907772b80d08dbc2441bbb0c473e31b364abe0bd66b95a414fdd4f54"
+    },
+    {
+      "path": "p1_reference_diagnosis.py",
+      "bytes": 21989,
+      "sha256": "ab1dbfb508de9fd9f5d4e32b7ced6a47fce3b4c8ca2f49abed1be718ae5247f7"
+    },
+    {
+      "path": "p1_sensitivity.py",
+      "bytes": 13231,
+      "sha256": "ff8870ad3733f20488a0dc37a4e1e7e682bb393ace8b63f2dee8eab966b8a6d5"
+    },
+    {
+      "path": "p1_surrogate.py",
+      "bytes": 69053,
+      "sha256": "b7c6ebc756900aa6725945f441f2e912e8d65b50f1c8be520056c5a356ce901f"
+    },
+    {
+      "path": "plate/__init__.py",
+      "bytes": 150,
+      "sha256": "9e8f0f704f54d310d635402cad3f6fac2b4f8a82660936b3062dd00131a8a830"
+    },
+    {
+      "path": "plate/derivation_helper.py",
+      "bytes": 2472,
+      "sha256": "d19a3dc936e748be46a405625dd61832c2f2809e893457b8e11754bfb1748c47"
+    },
+    {
+      "path": "plate/laminate.py",
+      "bytes": 10701,
+      "sha256": "5d3b7ea102f3349830567c611e2da399e80aafe64c898b5c0658cb6201598b70"
+    },
+    {
+      "path": "plate/misc.py",
+      "bytes": 517,
+      "sha256": "7e2b10eb2ab666e8535105382fe6ef9b0b7a0dae2aadc396b6e6d4d17f633717"
+    },
+    {
+      "path": "plate/plate.py",
+      "bytes": 36921,
+      "sha256": "2e1ddf5b7e94a4fd2a8c782488e9b43dc671e4976e46e88d1d51ae7db1819e8c"
+    },
+    {
+      "path": "plate/quadrature.py",
+      "bytes": 1968,
+      "sha256": "887d77e9bdffedcbf2003dbbb5c41230b0ab84cacf98777f6eb4c68214d4ff0b"
+    },
+    {
+      "path": "plate/solver.py",
+      "bytes": 10389,
+      "sha256": "77783492a60bed4a39efd164e29ed2f6ee6a0e3457c0a2a7f4a0abffcc84ea40"
+    },
+    {
+      "path": "plate/trail_function.py",
+      "bytes": 9063,
+      "sha256": "63ddbfaeee7837be5d20e46dd681d64f4c440655580b8f3cdbb2746708ba5dc2"
+    },
+    {
+      "path": "plate/viewer.py",
+      "bytes": 1894,
+      "sha256": "1b45dc100f4093f59c90727166093b6af8bf606b255f47d7b54446913c8fb066"
+    },
+    {
+      "path": "plot_p1_results.py",
+      "bytes": 23150,
+      "sha256": "484e32bdf2e9216617d073e844625e4488b370cb77af5d0970dd07df48cfa467"
+    },
+    {
+      "path": "run_hf_batches.py",
+      "bytes": 11239,
+      "sha256": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+    },
+    {
+      "path": "run_lf_batches.py",
+      "bytes": 7979,
+      "sha256": "cbee966d5a36e7b51c577d66d5ded9bac5d6e44243e6fae4f55364e257afb1f4"
+    },
+    {
+      "path": "run_p1_hf_plan.py",
+      "bytes": 6414,
+      "sha256": "16c3d94f864d49c6c70161aed644ee1b50a477412cde85a7e7a883e997b15f2c"
+    },
+    {
+      "path": "simulations/scripts/hc_mesh_convergence.py",
+      "bytes": 12283,
+      "sha256": "0fc1415d7fb1dd1f486b2aebbd1036eadc886f8fb78f6d621312cfc6a529cd7c"
+    },
+    {
+      "path": "test_p1_full_workflow.py",
+      "bytes": 15491,
+      "sha256": "728a47f3e3f6e1564e0a73d76d17eabe4914492f9367cee8292d7c96bcb6540a"
+    },
+    {
+      "path": "test_p1_improvement.py",
+      "bytes": 7530,
+      "sha256": "fe26b4b271597517d4502687adcad01630c2ee13865fa04fd06e228100dc0258"
+    },
+    {
+      "path": "test_p1_pairing.py",
+      "bytes": 5407,
+      "sha256": "5532d11dd7762c12b49d86fc94e2fdf8a350351a13d30e93ea6b35abebc7778e"
+    },
+    {
+      "path": "test_p1_surrogate.py",
+      "bytes": 5523,
+      "sha256": "8e2dff1131576d69ea4df4ef79db25a61bf160072a7b40910aa4da80a357f173"
+    },
+    {
+      "path": "test_regressions.py",
+      "bytes": 10383,
+      "sha256": "16cdf6762b39f3a5c22d809ae25ca7222a7e55059ff60e5493ae6a05f25b597c"
+    }
+  ],
+  "scope": "All original baseline P1/shared Python files plus completed improvement implementation and behavioral tests",
+  "recorded_environment": "runtime_environment.json",
+  "requirement_pins": "../requirements_p1.txt",
+  "native_license_redistributed": false,
+  "original_root_override": "P1_ORIGINAL_ROOT",
+  "frozen_methods_modified_for_publication": false
+}

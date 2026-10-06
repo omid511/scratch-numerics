@@ -1,0 +1,9 @@
+Worker PID 12676; durable log: C:\Users\LEGION\AppData\Local\Temp\tmpvpe1nwok\worker.log
+2026-10-04T10:13:17.252099+00:00 Worker PID 12676 still running; elapsed 0.1 minutes; log C:\Users\LEGION\AppData\Local\Temp\tmpvpe1nwok\worker.log
+Worker deadline reached after 0.1 minutes; process tree stopped.
+Wrote 3 designs to C:\Users\LEGION\AppData\Local\Temp\tmpi2zkv0w_\samples.csv; use the same table for LF and HF.
+..................................
+----------------------------------------------------------------------
+Ran 34 tests in 4.789s
+
+OK

@@ -1,0 +1,17 @@
+{
+  "scope": "Tiny0.012m-domain API/method smoke only; not a full run3408 reference",
+  "solver": "mumps",
+  "mumpsblr": "on",
+  "mumpsblrtol": "1e-8",
+  "errorchk": "auto",
+  "original_frequencies_hz": [
+    65582.15162314886,
+    72314.14408839002
+  ],
+  "compressed_frequencies_hz": [
+    65582.1516231489,
+    72314.14408838998
+  ],
+  "frequency_change_pct_max": 6.036958085508126e-14,
+  "field_rms_max": 8.478529564115655e-15
+}

@@ -1,0 +1,177 @@
+{
+  "bundle_sha256": {
+    "mesh2\\hf\\run_2209.npz": "8cd4a7be6cb55237ace2bdcea10fadf40c6dd11b0c428a3d60c39c92d06bfc31",
+    "mesh2\\hf\\run_4352.npz": "9fb485d1e67be42ed15ba6198532f8c99eb0e81e0cb3cf3f99fe8cfc18065dc2",
+    "mesh3\\hf\\run_2209.npz": "1e3134a3bb0b8f57cf4f6b4abf39100b7d207718c624503f83f013890d92384e",
+    "mesh3\\hf\\run_4352.npz": "69ad9eaf7dfdadfa3145720e419a26b81ebba0dd0809abcb041ac0abf03ce4e1"
+  },
+  "limitation": "Two targeted failure geometries, not a random campaign sample or a campaign-wide convergence certificate; unchanged predictions and calibration, no fitting on refined HF labels.",
+  "policy": "reuse p1_pairing Hungarian MAC assignment to campaign HF anchors; global complex phase alignment; accepted target rows only; flag MAC<0.8, margin<0.05 and relative frequency gap<0.005",
+  "runs": {
+    "2209": {
+      "accepted_target_modes": 9,
+      "mesh2_vs_mesh3": {
+        "all_modes_meet_diagnostic_targets": false,
+        "field_interior_rms": {
+          "max": 0.01337760718864916,
+          "median": 8.777352779138674e-05,
+          "p95": 0.00809778028001678
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.05673548686013268,
+          "median": 0.029248368271229237,
+          "p95": 0.051042598450223575
+        },
+        "unambiguous_modes": 9
+      },
+      "mesh2_vs_mesh4": {
+        "all_modes_meet_diagnostic_targets": false,
+        "field_interior_rms": {
+          "max": 0.07102911419528206,
+          "median": 0.00032495160793444516,
+          "p95": 0.042891688660417385
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.33195437463808003,
+          "median": 0.19856625259071567,
+          "p95": 0.30300864587184206
+        },
+        "unambiguous_modes": 9
+      },
+      "mesh3_vs_mesh4": {
+        "all_modes_meet_diagnostic_targets": false,
+        "field_interior_rms": {
+          "max": 0.05765171288958169,
+          "median": 0.0002851921380573803,
+          "p95": 0.03482479113360649
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.2750628295424352,
+          "median": 0.16926837608148337,
+          "p95": 0.2519274513268945
+        },
+        "unambiguous_modes": 9
+      },
+      "refined_accuracy_identity_flagged_modes": 0,
+      "unchanged_surrogate_against_refined_reference": {
+        "mesh2": {
+          "field_rms": {
+            "max": 0.2092917475925072,
+            "median": 0.009975951290817771,
+            "p95": 0.14585258527458989
+          },
+          "frequency_error_pct": {
+            "max": 3.259492683080138,
+            "median": 1.661889527669636,
+            "p95": 2.754734380010617
+          },
+          "simultaneous_field_covered": false,
+          "simultaneous_frequency_covered": true
+        },
+        "mesh4": {
+          "field_rms": {
+            "max": 0.13855447065403248,
+            "median": 0.009880833674541784,
+            "p95": 0.10335269998610264
+          },
+          "frequency_error_pct": {
+            "max": 2.917852369854844,
+            "median": 1.5346028564815333,
+            "p95": 2.468897615627671
+          },
+          "simultaneous_field_covered": false,
+          "simultaneous_frequency_covered": true
+        }
+      }
+    },
+    "4352": {
+      "accepted_target_modes": 10,
+      "mesh2_vs_mesh3": {
+        "all_modes_meet_diagnostic_targets": true,
+        "field_interior_rms": {
+          "max": 0.0003695846763706473,
+          "median": 0.00024350164900763593,
+          "p95": 0.0003449598609447164
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.01972923648388199,
+          "median": 0.011251509871551858,
+          "p95": 0.01882810451641687
+        },
+        "unambiguous_modes": 10
+      },
+      "mesh2_vs_mesh4": {
+        "all_modes_meet_diagnostic_targets": false,
+        "field_interior_rms": {
+          "max": 0.0009794166624215999,
+          "median": 0.0002239260966261474,
+          "p95": 0.0009313929988459901
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.020984111995535366,
+          "median": 0.007420571251142275,
+          "p95": 0.01777136706633674
+        },
+        "unambiguous_modes": 10
+      },
+      "mesh3_vs_mesh4": {
+        "all_modes_meet_diagnostic_targets": false,
+        "field_interior_rms": {
+          "max": 0.0013011805288875005,
+          "median": 0.00015841850171239956,
+          "p95": 0.0012312516760945313
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.03107455587710998,
+          "median": 0.011583296760068633,
+          "p95": 0.02692859631920149
+        },
+        "unambiguous_modes": 10
+      },
+      "refined_accuracy_identity_flagged_modes": 0,
+      "unchanged_surrogate_against_refined_reference": {
+        "mesh2": {
+          "field_rms": {
+            "max": 0.03711789531374768,
+            "median": 0.022368286137724576,
+            "p95": 0.03607176837584009
+          },
+          "frequency_error_pct": {
+            "max": 8.382611773742148,
+            "median": 3.5424091048466595,
+            "p95": 7.541783993967255
+          },
+          "simultaneous_field_covered": true,
+          "simultaneous_frequency_covered": false
+        },
+        "mesh4": {
+          "field_rms": {
+            "max": 0.037227684233802995,
+            "median": 0.022336882549735246,
+            "p95": 0.03610934427082668
+          },
+          "frequency_error_pct": {
+            "max": 8.38233039342531,
+            "median": 3.543414450831304,
+            "p95": 7.532799648831037
+          },
+          "simultaneous_field_covered": true,
+          "simultaneous_frequency_covered": false
+        }
+      }
+    }
+  },
+  "simulations": 4,
+  "source_sha256": {
+    "analyze.py": "3d57e96433366018285fafda0381f957c37b14f9767326e21ea3b6bf93411636",
+    "p1_pairing.py": "0c46c551198bcf0702237a33c79e3dfd8c9842583bfc8de800c3d2dcc319c93d",
+    "p1_recheck.py": "2fd99676907772b80d08dbc2441bbb0c473e31b364abe0bd66b95a414fdd4f54",
+    "p1_surrogate.py": "b7c6ebc756900aa6725945f441f2e912e8d65b50f1c8be520056c5a356ce901f"
+  }
+}

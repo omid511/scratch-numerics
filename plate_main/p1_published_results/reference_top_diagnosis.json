@@ -1,0 +1,363 @@
+{
+  "runs": {
+    "2209": {
+      "accepted_mode": 7,
+      "campaign_hf_cluster": [
+        8,
+        9
+      ],
+      "quantity": "Extracted top-transverse fields; not full shell state or mass metric",
+      "references": {
+        "mesh1": {
+          "bundle_sha256": "80c1084dd4a3fd838b449b341c4555b06a0d9eeb1f3ea05fbdb6c8c59ea58d2c",
+          "current_normalized_gram": [
+            [
+              1.0000000000000002,
+              0.002831536854617669
+            ],
+            [
+              0.002831536854617669,
+              1.0000000000000004
+            ]
+          ],
+          "current_span_condition": 1.0028355570303378,
+          "frequency_gap_pct": 0.7125167361365553,
+          "frequency_hz": [
+            4653.603017987405,
+            4686.998667918824
+          ],
+          "individual_mac": [
+            0.9512566261071554,
+            0.9514098420714728
+          ],
+          "matched_hf_modes": [
+            8,
+            9
+          ],
+          "principal_angles_degrees": [
+            0.047151112649060474,
+            0.052352154675087706
+          ],
+          "reference_normalized_gram": [
+            [
+              1.0000000000000004,
+              0.0024753446801403047
+            ],
+            [
+              0.0024753446801403047,
+              1.0000000000000004
+            ]
+          ],
+          "reference_span_condition": 1.0024784159435256
+        },
+        "mesh2": {
+          "bundle_sha256": "8cd4a7be6cb55237ace2bdcea10fadf40c6dd11b0c428a3d60c39c92d06bfc31",
+          "current_normalized_gram": [
+            [
+              1.0000000000000004,
+              0.0027973397843458624
+            ],
+            [
+              0.0027973397843458624,
+              1.0000000000000002
+            ]
+          ],
+          "current_span_condition": 1.0028012633070524,
+          "frequency_gap_pct": 0.7118695711592629,
+          "frequency_hz": [
+            4657.336570449922,
+            4690.728438871965
+          ],
+          "individual_mac": [
+            0.9691683325136907,
+            0.9692795499046586
+          ],
+          "matched_hf_modes": [
+            8,
+            9
+          ],
+          "principal_angles_degrees": [
+            0.03713956245203578,
+            0.04253406876178234
+          ],
+          "reference_normalized_gram": [
+            [
+              1.0000000000000004,
+              0.0024753446801403047
+            ],
+            [
+              0.0024753446801403047,
+              1.0000000000000004
+            ]
+          ],
+          "reference_span_condition": 1.0024784159435256
+        },
+        "mesh3": {
+          "bundle_sha256": "1e3134a3bb0b8f57cf4f6b4abf39100b7d207718c624503f83f013890d92384e",
+          "current_normalized_gram": [
+            [
+              1.0,
+              0.002759131492146175
+            ],
+            [
+              0.002759131492146175,
+              1.0000000000000004
+            ]
+          ],
+          "current_span_condition": 1.002762948419602,
+          "frequency_gap_pct": 0.7157334720935759,
+          "frequency_hz": [
+            4659.1613344460375,
+            4692.748909150131
+          ],
+          "individual_mac": [
+            0.9799153304453871,
+            0.9799948476533911
+          ],
+          "matched_hf_modes": [
+            8,
+            9
+          ],
+          "principal_angles_degrees": [
+            0.03302435804179399,
+            0.038729078426868756
+          ],
+          "reference_normalized_gram": [
+            [
+              1.0000000000000004,
+              0.0024753446801403047
+            ],
+            [
+              0.0024753446801403047,
+              1.0000000000000004
+            ]
+          ],
+          "reference_span_condition": 1.0024784159435256
+        },
+        "mesh4": {
+          "bundle_sha256": "33268b316fbb21b03e8fbe7c1977d6813bbf97fc416ca7002ade7722e91e21e7",
+          "current_normalized_gram": [
+            [
+              1.0000000000000004,
+              0.0024753446801403047
+            ],
+            [
+              0.0024753446801403047,
+              1.0000000000000004
+            ]
+          ],
+          "current_span_condition": 1.0024784159435256,
+          "frequency_gap_pct": 0.772759248273753,
+          "frequency_hz": [
+            4667.936325308302,
+            4704.289154817695
+          ],
+          "individual_mac": [
+            1.0000000000000009,
+            1.0000000000000004
+          ],
+          "matched_hf_modes": [
+            8,
+            9
+          ],
+          "principal_angles_degrees": [
+            0.0,
+            2.091309789151873e-06
+          ],
+          "reference_normalized_gram": [
+            [
+              1.0000000000000004,
+              0.0024753446801403047
+            ],
+            [
+              0.0024753446801403047,
+              1.0000000000000004
+            ]
+          ],
+          "reference_span_condition": 1.0024784159435256
+        }
+      },
+      "selection": "Nearest campaign frequency, fixed before finer-span fitting"
+    },
+    "3408": {
+      "accepted_mode": 10,
+      "campaign_hf_cluster": [
+        12,
+        11
+      ],
+      "quantity": "Extracted top-transverse fields; not full shell state or mass metric",
+      "references": {
+        "mesh2_compressed": {
+          "bundle_sha256": "b9919d0cadf48da678b70cc49d1f2d5baf95980f1adb0be6aabfc89e6548eb86",
+          "current_normalized_gram": [
+            [
+              1.0000000000000002,
+              0.0024602981890442677
+            ],
+            [
+              0.0024602981890442677,
+              1.0000000000000004
+            ]
+          ],
+          "current_span_condition": 1.0024633321825822,
+          "frequency_gap_pct": 0.6967455835047849,
+          "frequency_hz": [
+            4492.841448645007,
+            4461.537774277701
+          ],
+          "individual_mac": [
+            0.9961155446498985,
+            0.9961572849964134
+          ],
+          "matched_hf_modes": [
+            12,
+            11
+          ],
+          "principal_angles_degrees": [
+            0.05257037161829434,
+            0.07740011910287285
+          ],
+          "reference_normalized_gram": [
+            [
+              0.9999999999999999,
+              0.0021174089416816093
+            ],
+            [
+              0.0021174089416816093,
+              1.0
+            ]
+          ],
+          "reference_span_condition": 1.0021196554061662
+        },
+        "mesh3_compressed": {
+          "bundle_sha256": "39debda866051de033d659195d64983873eacd650601faa7d71111b4ceba3cf0",
+          "current_normalized_gram": [
+            [
+              1.0000000000000002,
+              0.0024017233674875327
+            ],
+            [
+              0.0024017233674875327,
+              0.9999999999999999
+            ]
+          ],
+          "current_span_condition": 1.0024046144444625,
+          "frequency_gap_pct": 0.71636972231539,
+          "frequency_hz": [
+            4495.246571795316,
+            4463.043986411554
+          ],
+          "individual_mac": [
+            0.9973899154520945,
+            0.9974181695245687
+          ],
+          "matched_hf_modes": [
+            12,
+            11
+          ],
+          "principal_angles_degrees": [
+            0.04417697080914384,
+            0.06874153773702804
+          ],
+          "reference_normalized_gram": [
+            [
+              0.9999999999999999,
+              0.0021174089416816093
+            ],
+            [
+              0.0021174089416816093,
+              1.0
+            ]
+          ],
+          "reference_span_condition": 1.0021196554061662
+        },
+        "mesh3_original": {
+          "bundle_sha256": "4f87570fbaad7e4371c1c1c69c8e2d4ddb0f59691a59574bfe94e8b71c062a56",
+          "current_normalized_gram": [
+            [
+              1.0,
+              0.00240171980168243
+            ],
+            [
+              0.00240171980168243,
+              1.0
+            ]
+          ],
+          "current_span_condition": 1.0024046108700626,
+          "frequency_gap_pct": 0.7163705377823033,
+          "frequency_hz": [
+            4495.246513427969,
+            4463.043891805085
+          ],
+          "individual_mac": [
+            0.9973899108085518,
+            0.9974181642394828
+          ],
+          "matched_hf_modes": [
+            12,
+            11
+          ],
+          "principal_angles_degrees": [
+            0.04417357132882646,
+            0.0687447476747698
+          ],
+          "reference_normalized_gram": [
+            [
+              0.9999999999999999,
+              0.0021174089416816093
+            ],
+            [
+              0.0021174089416816093,
+              1.0
+            ]
+          ],
+          "reference_span_condition": 1.0021196554061662
+        },
+        "mesh4": {
+          "bundle_sha256": "c05ebaf7ebacbb370d91fcddfc95bdf0cfcdfafc3c5002a77936ae319ac3384b",
+          "current_normalized_gram": [
+            [
+              0.9999999999999999,
+              0.0021174089416816093
+            ],
+            [
+              0.0021174089416816093,
+              1.0
+            ]
+          ],
+          "current_span_condition": 1.0021196554061662,
+          "frequency_gap_pct": 0.8188662814894326,
+          "frequency_hz": [
+            4495.551937696261,
+            4458.739378711622
+          ],
+          "individual_mac": [
+            1.0,
+            1.0
+          ],
+          "matched_hf_modes": [
+            12,
+            11
+          ],
+          "principal_angles_degrees": [
+            0.0,
+            0.0
+          ],
+          "reference_normalized_gram": [
+            [
+              0.9999999999999999,
+              0.0021174089416816093
+            ],
+            [
+              0.0021174089416816093,
+              1.0
+            ]
+          ],
+          "reference_span_condition": 1.0021196554061662
+        }
+      },
+      "selection": "Nearest campaign frequency, fixed before finer-span fitting"
+    }
+  },
+  "source_sha256": "57682d5933d12b73844d9ddc3df4349eeeb0ce272c486b9edba13bf9f91bc420"
+}

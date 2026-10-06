@@ -1,0 +1,393 @@
+{
+  "completed": 48,
+  "group": "evaluation",
+  "model_freeze_sha256": "7a28b4d600e54d722cffb8c127a8a13f285eb19ffc5d5616b796e44ab387868f",
+  "one_attempt_per_geometry": true,
+  "outcomes": [
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:46:12.153082+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10033,
+      "started_at_utc": "2026-10-06T11:42:28.255384+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:48:15.635634+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10034,
+      "started_at_utc": "2026-10-06T11:46:12.157854+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:50:43.859148+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10035,
+      "started_at_utc": "2026-10-06T11:48:15.639315+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:57:37.777085+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10036,
+      "started_at_utc": "2026-10-06T11:50:43.864012+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:01:42.127740+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10037,
+      "started_at_utc": "2026-10-06T11:57:37.783687+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:05:20.663941+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10038,
+      "started_at_utc": "2026-10-06T12:01:42.132834+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:10:48.542668+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10039,
+      "started_at_utc": "2026-10-06T12:05:20.668862+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:14:15.103915+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10040,
+      "started_at_utc": "2026-10-06T12:10:48.547467+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:20:05.716047+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10041,
+      "started_at_utc": "2026-10-06T12:14:15.107931+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:22:39.478313+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10042,
+      "started_at_utc": "2026-10-06T12:20:05.720125+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:24:21.469302+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10043,
+      "started_at_utc": "2026-10-06T12:22:39.483775+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:26:19.437610+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10044,
+      "started_at_utc": "2026-10-06T12:24:21.473719+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:29:06.501514+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10045,
+      "started_at_utc": "2026-10-06T12:26:19.441842+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:32:57.866328+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10046,
+      "started_at_utc": "2026-10-06T12:29:06.507574+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:37:16.102808+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10047,
+      "started_at_utc": "2026-10-06T12:32:57.873607+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:38:59.237004+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10048,
+      "started_at_utc": "2026-10-06T12:37:16.107158+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:45:39.318553+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10049,
+      "started_at_utc": "2026-10-06T12:38:59.240770+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:47:47.730252+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10050,
+      "started_at_utc": "2026-10-06T12:45:39.326257+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:49:45.256586+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10051,
+      "started_at_utc": "2026-10-06T12:47:47.734587+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:57:03.745831+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10052,
+      "started_at_utc": "2026-10-06T12:49:45.260761+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T12:59:13.441860+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10053,
+      "started_at_utc": "2026-10-06T12:57:03.749861+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:04:36.935045+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10054,
+      "started_at_utc": "2026-10-06T12:59:13.445887+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:08:24.125795+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10055,
+      "started_at_utc": "2026-10-06T13:04:36.944879+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:12:43.155611+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10056,
+      "started_at_utc": "2026-10-06T13:08:24.129661+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:15:37.091276+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10057,
+      "started_at_utc": "2026-10-06T13:12:43.159320+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:21:47.087365+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10058,
+      "started_at_utc": "2026-10-06T13:15:37.095724+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:24:53.530282+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10059,
+      "started_at_utc": "2026-10-06T13:21:47.093946+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:27:17.178728+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10060,
+      "started_at_utc": "2026-10-06T13:24:53.534040+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:29:13.046795+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10061,
+      "started_at_utc": "2026-10-06T13:27:17.183797+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:31:29.789173+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10062,
+      "started_at_utc": "2026-10-06T13:29:13.051008+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:35:23.241881+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10063,
+      "started_at_utc": "2026-10-06T13:31:29.793140+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:37:40.157252+00:00",
+      "group": "iid",
+      "owned_scratch_removed": true,
+      "run": 10064,
+      "started_at_utc": "2026-10-06T13:35:23.245824+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:43:21.444625+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10065,
+      "started_at_utc": "2026-10-06T13:37:40.161059+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:50:55.323933+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10066,
+      "started_at_utc": "2026-10-06T13:43:21.448174+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:54:26.766209+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10067,
+      "started_at_utc": "2026-10-06T13:50:55.328693+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T13:58:57.513161+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10068,
+      "started_at_utc": "2026-10-06T13:54:26.770014+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:07:07.715810+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10069,
+      "started_at_utc": "2026-10-06T13:58:57.516991+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:12:44.355466+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10070,
+      "started_at_utc": "2026-10-06T14:07:07.723286+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:15:38.351664+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10071,
+      "started_at_utc": "2026-10-06T14:12:44.359179+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:21:03.705505+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10072,
+      "started_at_utc": "2026-10-06T14:15:38.357567+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:26:02.356535+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10073,
+      "started_at_utc": "2026-10-06T14:21:03.710386+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:30:16.337614+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10074,
+      "started_at_utc": "2026-10-06T14:26:02.360774+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:33:03.331146+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10075,
+      "started_at_utc": "2026-10-06T14:30:16.341970+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:37:10.250220+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10076,
+      "started_at_utc": "2026-10-06T14:33:03.334963+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:40:29.209761+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10077,
+      "started_at_utc": "2026-10-06T14:37:10.253978+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:45:56.767074+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10078,
+      "started_at_utc": "2026-10-06T14:40:29.216091+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:52:37.631322+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10079,
+      "started_at_utc": "2026-10-06T14:45:56.770844+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T14:57:07.551060+00:00",
+      "group": "challenge",
+      "owned_scratch_removed": true,
+      "run": 10080,
+      "started_at_utc": "2026-10-06T14:52:37.637623+00:00"
+    }
+  ],
+  "requested": 48
+}

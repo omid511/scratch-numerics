@@ -1,0 +1,13 @@
+{
+  "observed_at_utc": "2026-10-04T17:49:31.087184+00:00",
+  "owned_supervisor_pid": 2152,
+  "owned_worker_pid": 13540,
+  "processes_absent": true,
+  "saved_reference_bundle": false,
+  "last_heartbeat_elapsed_minutes": 299.5,
+  "last_observed_stage": "eigensolve-and-save; geometry/mesh completed in194.9s with785895elements",
+  "termination": "Eval wait ended with kernel exit130; no supervisor terminal-status record. This is an interrupted attempt, not a measured deadline or numerical failure.",
+  "scratch_evidence": "MUMPS out-of-core factor files on D-volume; no model/eigenfield export saved.",
+  "owned_scratch_removed": true,
+  "free_scratch_volume_gib_after_cleanup": 69.46136474609375
+}

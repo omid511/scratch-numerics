@@ -1,0 +1,4 @@
+Starting tiny COMSOL integration smoke
+COMSOL connected
+Tiny model built; solving
+PASS [ 79464.04738005  87138.86492065 102105.75513511] (3, 5, 5)

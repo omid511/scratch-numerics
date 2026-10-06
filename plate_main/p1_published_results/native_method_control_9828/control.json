@@ -1,0 +1,130 @@
+{
+  "acceptance": {
+    "field_rms": 0.00075,
+    "frequency_pct": 0.1
+  },
+  "outcome": {
+    "exit_code": 0,
+    "finished_at_utc": "2026-10-06T08:45:18.913575+00:00",
+    "group": "historical_method_control",
+    "owned_scratch_removed": true,
+    "run": 9828,
+    "started_at_utc": "2026-10-06T08:43:35.205302+00:00"
+  },
+  "reference_verified": true,
+  "rows": [
+    {
+      "field_rms": 2.7596254323102567e-13,
+      "frequency_error_pct": 4.992867914936249e-10,
+      "mac": 0.9999999999999996,
+      "matched_mode": 1,
+      "mode": 1
+    },
+    {
+      "field_rms": 4.017327012262502e-13,
+      "frequency_error_pct": 1.3619649203512568e-10,
+      "mac": 1.0,
+      "matched_mode": 2,
+      "mode": 2
+    },
+    {
+      "field_rms": 2.5657233595820125e-13,
+      "frequency_error_pct": 1.195106183649111e-10,
+      "mac": 0.9999999999999998,
+      "matched_mode": 3,
+      "mode": 3
+    },
+    {
+      "field_rms": 2.658294185302749e-13,
+      "frequency_error_pct": 6.198559877518369e-11,
+      "mac": 0.9999999999999998,
+      "matched_mode": 4,
+      "mode": 4
+    },
+    {
+      "field_rms": 1.8829812002096659e-13,
+      "frequency_error_pct": 5.1031585511883016e-11,
+      "mac": 0.9999999999999993,
+      "matched_mode": 5,
+      "mode": 5
+    },
+    {
+      "field_rms": 2.513538641758917e-13,
+      "frequency_error_pct": 4.306212219843097e-11,
+      "mac": 1.0,
+      "matched_mode": 6,
+      "mode": 6
+    },
+    {
+      "field_rms": 2.182659720321591e-13,
+      "frequency_error_pct": 3.0178814806133906e-11,
+      "mac": 0.9999999999999996,
+      "matched_mode": 7,
+      "mode": 7
+    },
+    {
+      "field_rms": 1.9510570453444047e-13,
+      "frequency_error_pct": 2.8954604460629178e-11,
+      "mac": 1.0,
+      "matched_mode": 8,
+      "mode": 8
+    },
+    {
+      "field_rms": 1.560539809991154e-13,
+      "frequency_error_pct": 2.581714032242191e-11,
+      "mac": 1.0,
+      "matched_mode": 9,
+      "mode": 9
+    },
+    {
+      "field_rms": 4.69783986839206e-13,
+      "frequency_error_pct": 1.9012495510508025e-11,
+      "mac": 0.9999999999999998,
+      "matched_mode": 10,
+      "mode": 10
+    },
+    {
+      "field_rms": 4.5426214724840475e-13,
+      "frequency_error_pct": 1.845210066955327e-11,
+      "mac": 1.0,
+      "matched_mode": 11,
+      "mode": 11
+    },
+    {
+      "field_rms": 2.1386071740305633e-13,
+      "frequency_error_pct": 1.909269233438888e-11,
+      "mac": 1.0,
+      "matched_mode": 12,
+      "mode": 12
+    },
+    {
+      "field_rms": 1.1684455975285624e-13,
+      "frequency_error_pct": 1.4874381082859682e-11,
+      "mac": 1.0,
+      "matched_mode": 13,
+      "mode": 13
+    },
+    {
+      "field_rms": 8.361623832756827e-14,
+      "frequency_error_pct": 1.3760516900798897e-11,
+      "mac": 1.0,
+      "matched_mode": 14,
+      "mode": 14
+    },
+    {
+      "field_rms": 2.0522732362768772e-13,
+      "frequency_error_pct": 1.2999033090723602e-11,
+      "mac": 0.9999999999999993,
+      "matched_mode": 15,
+      "mode": 15
+    },
+    {
+      "field_rms": 3.674771970797294e-13,
+      "frequency_error_pct": 1.1354692371528606e-11,
+      "mac": 1.0,
+      "matched_mode": 16,
+      "mode": 16
+    }
+  ],
+  "scope": "One historical geometry verifies the new no-MPH acquisition path against the old nominal export; not universal discretization certification."
+}

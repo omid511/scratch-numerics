@@ -1,0 +1,54 @@
+{
+  "accepted_3408_modes": 10,
+  "both_owned_scratch_directories_removed": true,
+  "broken_document_links": [],
+  "compressed_control_analysis_exit": 0,
+  "compressed_control_exit": 0,
+  "compressed_control_passed": true,
+  "compressed_refinement_exit": 0,
+  "computational_audit_source_matches": {
+    "compute_corrections.py": true,
+    "p1_holdout.py": true,
+    "p1_pairing.py": true,
+    "p1_recheck.py": true,
+    "p1_surrogate.py": true
+  },
+  "finest2209_analysis_exit": 0,
+  "finest2209_previous_results_unchanged": true,
+  "finest3408_analysis_exit": 0,
+  "flagged_3408_comparisons": 0,
+  "frozen_inputs_match": {
+    "corrections_five/training.npz": true,
+    "hf_plan/hf_plan.csv": true,
+    "holdout_corrected/holdout_metrics.json": true,
+    "lhs_five.csv": true
+  },
+  "local_document_links_checked": 113,
+  "owned_processes": {
+    "10664": {
+      "process_absent": true,
+      "running": false
+    },
+    "12756": {
+      "exit_code": 0,
+      "running": false
+    },
+    "17720": {
+      "exit_code": 0,
+      "running": false
+    },
+    "19196": {
+      "process_absent": true,
+      "running": false
+    }
+  },
+  "physical_sources_match": {
+    "hc_HighFidelity_LHS.py": true,
+    "p1_geometry.py": true,
+    "run_hf_batches.py": true
+  },
+  "regression_evidence": "supervisor_regressions.txt;34 tests passed before solver experiments; not rerun to confirm",
+  "same_method_mesh_diagnostic_passed": false,
+  "scope": "Native reference completion and saved-data audit verified; mesh diagnostic failure retained, no refitting or recalibration, not a campaign-wide accuracy certificate",
+  "verified_at_utc": "2026-10-05T14:41:41.705424+00:00"
+}

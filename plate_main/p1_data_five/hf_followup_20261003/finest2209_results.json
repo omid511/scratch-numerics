@@ -1,0 +1,49 @@
+{
+  "accepted_modes": 9,
+  "finest_bundle_sha256": "80c1084dd4a3fd838b449b341c4555b06a0d9eeb1f3ea05fbdb6c8c59ea58d2c",
+  "finest_saved_mesh": 1,
+  "flagged_comparisons": 0,
+  "mesh1_simultaneous_field_covered": false,
+  "mesh1_simultaneous_frequency_covered": true,
+  "run": 2209,
+  "scope": "Saved targeted geometry only, no new solve or fitting; not a campaign-wide convergence certificate.",
+  "source_sha256": "31522ee9c5c985a299018c3e2270bfa23fca878e54749cae3a6ac81c01856dbf",
+  "steps": {
+    "mesh1_vs_mesh2": {
+      "field_rms": {
+        "max": 0.017777379460489972,
+        "median": 0.00015527598798575052,
+        "p95": 0.010781895722046506
+      },
+      "frequency_change_pct": {
+        "max": 0.10203601396689051,
+        "median": 0.06383238687959691,
+        "p95": 0.09479098768226589
+      }
+    },
+    "mesh1_vs_mesh4": {
+      "field_rms": {
+        "max": 0.088805719179022,
+        "median": 0.0004228265276857292,
+        "p95": 0.053600876041955035
+      },
+      "frequency_change_pct": {
+        "max": 0.43432910161703997,
+        "median": 0.2625253890488786,
+        "p95": 0.39569071756959057
+      }
+    }
+  },
+  "unchanged_surrogate_against_mesh1": {
+    "field_rms": {
+      "max": 0.2270184165580981,
+      "median": 0.01003334743522199,
+      "p95": 0.15649688300193465
+    },
+    "frequency_error_pct": {
+      "max": 3.364854553456386,
+      "median": 1.7140166793393772,
+      "p95": 2.847396547832835
+    }
+  }
+}

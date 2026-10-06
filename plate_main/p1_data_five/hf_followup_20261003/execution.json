@@ -1,0 +1,59 @@
+{
+  "initial_mesh3_mesh2_batches_completed_at_utc": "2026-10-03T23:05:43.923919+00:00",
+  "geometry_preflight_exit": 0,
+  "mesh3_batch_exit": 0,
+  "mesh2_batch_exit": 0,
+  "mesh1_run2209_exit": 1,
+  "initial_successful_new_simulations": 4,
+  "initial_failed_new_simulations": 1,
+  "failure": "COMSOL Eigenvalue Solver matrix assembly: Unable to read or write out-of-core file.",
+  "initial_mesh1_npz_created": false,
+  "local_volumes": {
+    "C:\\": {
+      "total_gib": 476.8255043029785,
+      "free_gib": 34.52442169189453
+    },
+    "D:\\": {
+      "total_gib": 376.92382431030273,
+      "free_gib": 69.46139144897461
+    }
+  },
+  "temporary_directory": "C:\\Users\\LEGION\\AppData\\Local\\Temp",
+  "small_temporary_io_probe_passes": true,
+  "remaining_limit": "Run2209 mesh2-to1 field RMS maximum0.017777379460489972 and run3408 same-method mesh3-to2 maximum0.0047969925671496215 exceed the0.00075 individual-shape diagnostic target. Run3408 computation is complete; no campaign-wide convergence certificate.",
+  "frozen_input_hashes_unchanged": true,
+  "prediction_and_calibration_refits": 0,
+  "completed_observed_solves": 7,
+  "completed_refinements": 6,
+  "completed_same_mesh_solver_controls": 1,
+  "failed_default_scratch_attempts": 1,
+  "cancelled_extreme_refinements": 2,
+  "run3408_status": "Compressed-MUMPS mesh3 control passed all ten accepted identities. Mesh2 saved successfully at2026-10-05T14:36:07.524902Z after188.1minutes, all32 candidates converged; all ten accepted identities unambiguous. Same-method frequency diagnostic passes, individual-field diagnostic fails at accepted mode10; no results discarded.",
+  "all_owned_workers_stopped": true,
+  "finest_saved_run2209_analysis_exit": 0,
+  "new_solver_launches_after_halt": true,
+  "launch_authorization": "User explicitly reauthorized codes/simulations after the initial halt; full-reference attempts only, no unchanged automatic retries.",
+  "active_experiment": null,
+  "last_completed_experiment": {
+    "protocol": "mumps_blr_refinement_protocol.json",
+    "execution_manifest": "resume3408_mesh2/solver_execution.json",
+    "supervisor_pid": 12756,
+    "worker_pid": 19196,
+    "finished_at_utc": "2026-10-05T14:36:07.524902+00:00",
+    "exit_code": 0,
+    "owned_scratch_removed": true
+  },
+  "final_verification": "final_verification.json",
+  "verified_at_utc": "2026-10-05T14:41:41.705424+00:00",
+  "finest_saved_run3408_analysis_exit": 0,
+  "run3408_same_method_mesh_diagnostic_passed": false,
+  "followup_outcomes": {
+    "default_mumps_interruption": "resume3408_outcome.json",
+    "pardiso_control_timeout": "pardiso3408_control_mesh3/pardiso_execution.json",
+    "compressed_mumps_control": "mumps_blr3408_control_mesh3/solver_execution.json",
+    "compressed_mumps_control_analysis": "mumps_blr_control_results.json",
+    "compressed_mumps_refinement": "resume3408_mesh2/solver_execution.json",
+    "compressed_mumps_refinement_analysis": "finest3408_results.json"
+  },
+  "original_failed_3408_output_unchanged": true
+}

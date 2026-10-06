@@ -1,0 +1,297 @@
+{
+  "runs": {
+    "2209": {
+      "comparisons": {
+        "mesh2_vs_mesh1": {
+          "levels": [
+            {
+              "current_normalized_gram": [
+                [
+                  1.0000000000000024,
+                  2.8335167890208306e-05
+                ],
+                [
+                  2.8335167890208306e-05,
+                  0.9999999999999996
+                ]
+              ],
+              "current_span_condition": 1.0000283355693427,
+              "individual_mac": [
+                0.9978770229791074,
+                0.9978761289040613
+              ],
+              "principal_angles_degrees": [
+                0.03142733308244394,
+                0.0395204261953019
+              ],
+              "reference_normalized_gram": [
+                [
+                  0.9999999999999997,
+                  1.8560413770384636e-05
+                ],
+                [
+                  1.8560413770384636e-05,
+                  0.9999999999999972
+                ]
+              ],
+              "reference_span_condition": 1.000018560586018
+            },
+            {
+              "current_normalized_gram": [
+                [
+                  1.0000000000000062,
+                  1.5887772659401998e-07
+                ],
+                [
+                  1.5887772659401998e-07,
+                  1.0000000000000009
+                ]
+              ],
+              "current_span_condition": 1.0000001588777387,
+              "individual_mac": [
+                0.9978763751701966,
+                0.9978771700153383
+              ],
+              "principal_angles_degrees": [
+                0.0290710247606631,
+                0.03362532473947501
+              ],
+              "reference_normalized_gram": [
+                [
+                  1.0000000000000029,
+                  8.645037974023514e-06
+                ],
+                [
+                  8.645037974023514e-06,
+                  0.9999999999999937
+                ]
+              ],
+              "reference_span_condition": 1.000008645075343
+            }
+          ],
+          "quadrature_angle_change_degrees": 0.00589510145582689,
+          "quadrature_angle_target_passed": true
+        },
+        "mesh3_vs_mesh1": {
+          "levels": [
+            {
+              "current_normalized_gram": [
+                [
+                  1.0000000000000024,
+                  2.8335167890208306e-05
+                ],
+                [
+                  2.8335167890208306e-05,
+                  0.9999999999999996
+                ]
+              ],
+              "current_span_condition": 1.0000283355693427,
+              "individual_mac": [
+                0.9935519725830244,
+                0.9935520364261275
+              ],
+              "principal_angles_degrees": [
+                0.04308809622641999,
+                0.07189700489850455
+              ],
+              "reference_normalized_gram": [
+                [
+                  1.0,
+                  2.912098585386795e-05
+                ],
+                [
+                  2.912098585386795e-05,
+                  1.000000000000003
+                ]
+              ],
+              "reference_span_condition": 1.000029121409882
+            },
+            {
+              "current_normalized_gram": [
+                [
+                  1.0000000000000062,
+                  1.5887772659401998e-07
+                ],
+                [
+                  1.5887772659401998e-07,
+                  1.0000000000000009
+                ]
+              ],
+              "current_span_condition": 1.0000001588777387,
+              "individual_mac": [
+                0.9935524192297509,
+                0.9935531541875521
+              ],
+              "principal_angles_degrees": [
+                0.032389310861721546,
+                0.03689695768409261
+              ],
+              "reference_normalized_gram": [
+                [
+                  0.9999999999999974,
+                  4.8202068807466625e-06
+                ],
+                [
+                  4.8202068807466625e-06,
+                  0.9999999999999989
+                ]
+              ],
+              "reference_span_condition": 1.0000048202184977
+            }
+          ],
+          "quadrature_angle_change_degrees": 0.03500004721441194,
+          "quadrature_angle_target_passed": true
+        },
+        "mesh3_vs_mesh2": {
+          "levels": [
+            {
+              "current_normalized_gram": [
+                [
+                  0.9999999999999997,
+                  1.8560413770384636e-05
+                ],
+                [
+                  1.8560413770384636e-05,
+                  0.9999999999999972
+                ]
+              ],
+              "current_span_condition": 1.000018560586018,
+              "individual_mac": [
+                0.9988232589347105,
+                0.9988238170550509
+              ],
+              "principal_angles_degrees": [
+                0.04262472260119867,
+                0.08413289753067749
+              ],
+              "reference_normalized_gram": [
+                [
+                  1.0,
+                  2.912098585386795e-05
+                ],
+                [
+                  2.912098585386795e-05,
+                  1.000000000000003
+                ]
+              ],
+              "reference_span_condition": 1.000029121409882
+            },
+            {
+              "current_normalized_gram": [
+                [
+                  1.0000000000000029,
+                  8.645037974023514e-06
+                ],
+                [
+                  8.645037974023514e-06,
+                  0.9999999999999937
+                ]
+              ],
+              "current_span_condition": 1.000008645075343,
+              "individual_mac": [
+                0.9988245448511088,
+                0.9988242320151254
+              ],
+              "principal_angles_degrees": [
+                0.026803642850114513,
+                0.04782601784040843
+              ],
+              "reference_normalized_gram": [
+                [
+                  0.9999999999999974,
+                  4.8202068807466625e-06
+                ],
+                [
+                  4.8202068807466625e-06,
+                  0.9999999999999989
+                ]
+              ],
+              "reference_span_condition": 1.0000048202184977
+            }
+          ],
+          "quadrature_angle_change_degrees": 0.03630687969026906,
+          "quadrature_angle_target_passed": true
+        }
+      },
+      "not_claimed": "Full-DOF eigenvector convergence or an exact mass-matrix certificate",
+      "quantity": "Mass-weighted full shell displacement/director state sampled on all physical shell surfaces"
+    },
+    "3408": {
+      "comparisons": {
+        "mesh3_compressed_vs_mesh2_compressed": {
+          "levels": [
+            {
+              "current_normalized_gram": [
+                [
+                  0.9999999999999996,
+                  1.989036245747203e-05
+                ],
+                [
+                  1.989036245747203e-05,
+                  0.9999999999999986
+                ]
+              ],
+              "current_span_condition": 1.0000198905602748,
+              "individual_mac": [
+                0.9998736164403976,
+                0.9998737042435061
+              ],
+              "principal_angles_degrees": [
+                0.02771886413727562,
+                0.03952709027720655
+              ],
+              "reference_normalized_gram": [
+                [
+                  0.999999999999999,
+                  3.075231163611043e-05
+                ],
+                [
+                  3.075231163611043e-05,
+                  0.9999999999999974
+                ]
+              ],
+              "reference_span_condition": 1.0000307527845032
+            },
+            {
+              "current_normalized_gram": [
+                [
+                  1.0000000000000018,
+                  2.3179698655122656e-05
+                ],
+                [
+                  2.3179698655122656e-05,
+                  0.9999999999999976
+                ]
+              ],
+              "current_span_condition": 1.0000231799673107,
+              "individual_mac": [
+                0.9998737353932232,
+                0.9998734512797806
+              ],
+              "principal_angles_degrees": [
+                0.030574668897201476,
+                0.04367957336154072
+              ],
+              "reference_normalized_gram": [
+                [
+                  1.0000000000000056,
+                  1.921556991171192e-05
+                ],
+                [
+                  1.921556991171192e-05,
+                  1.000000000000001
+                ]
+              ],
+              "reference_span_condition": 1.0000192157545342
+            }
+          ],
+          "quadrature_angle_change_degrees": 0.00415248308433417,
+          "quadrature_angle_target_passed": true
+        }
+      },
+      "not_claimed": "Full-DOF eigenvector convergence or an exact mass-matrix certificate",
+      "quantity": "Mass-weighted full shell displacement/director state sampled on all physical shell surfaces"
+    }
+  },
+  "source_sha256": "ab1dbfb508de9fd9f5d4e32b7ced6a47fce3b4c8ca2f49abed1be718ae5247f7"
+}

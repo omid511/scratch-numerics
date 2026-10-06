@@ -1,0 +1,38 @@
+{
+  "before_any_prospective_HF_export": true,
+  "lf_input_sha256": "10d71563fd26dd05104ee48660fc89b9e2f4f44f7eb16abb96516cad9256435c",
+  "model_freeze_sha256": "7a28b4d600e54d722cffb8c127a8a13f285eb19ffc5d5616b796e44ab387868f",
+  "models": {
+    "cokriging_matern32": {
+      "input_rows": 800,
+      "prediction_seconds": 0.14336900000034802,
+      "prediction_sha256": "e8e505d91c4a3f0dd0315acb457c0c5e1fd2f8d7a876f5054625c8f8ca314f5b"
+    },
+    "current_pca48_rbf": {
+      "input_rows": 800,
+      "prediction_seconds": 0.19712319999962347,
+      "prediction_sha256": "a5b4c4ff6ff6bc1b6c92fbbce8653b4d53d229dd83c02e9cf1a58eb59458c06f"
+    },
+    "direct_hf_matern32": {
+      "input_rows": 800,
+      "prediction_seconds": 0.15303749999930005,
+      "prediction_sha256": "ed297a8d3d1753c9224ada6502854726717f81077562f698b98eea5369ec040d"
+    },
+    "neural_inr_lr0.0003": {
+      "input_rows": 800,
+      "prediction_seconds": 4.260185000000092,
+      "prediction_sha256": "f89604923a73b057df1da3db25a71e166f72b297fc93d1c59945bc5645a7d574"
+    },
+    "output_pca_matern32": {
+      "input_rows": 800,
+      "prediction_seconds": 0.19870850000006612,
+      "prediction_sha256": "fd83d8932323085b4e6abd84b1fee61116ad8f63fa521e267ab807c3762b7cfe"
+    },
+    "region_selected": {
+      "input_rows": 800,
+      "prediction_seconds": 0.1853889000003619,
+      "prediction_sha256": "40d4a23c3d6a5a8fc4c683b101b91718ae6b66cb867a7d76d199b155ed0b2ddf"
+    }
+  },
+  "predicted_at_utc": "2026-10-06T09:40:38.179112+00:00"
+}

@@ -118,9 +118,11 @@ def load_run(path, fidelity):
         raise ValueError(f'{path}: incompatible dataset provenance')
     if not isinstance(meta.get('run_id'), int):
         raise ValueError(f'{path}: missing integer run_id')
-    if set(PARAMETERS) - set(meta.get('parameters', {})):
+    parameters = meta.get('parameters')
+    if (not isinstance(parameters, dict) or not parameters
+            or any(not isinstance(name, str) or not name for name in parameters)):
         raise ValueError(f'{path}: missing physical parameters')
-    if any(not np.isfinite(float(meta['parameters'][p])) for p in PARAMETERS):
+    if any(not np.isfinite(float(value)) for value in parameters.values()):
         raise ValueError(f'{path}: nonfinite parameters')
     for axis in (x, y):
         if axis.ndim != 1 or len(axis) < 3 or not np.isfinite(axis).all() or np.any(np.diff(axis) <= 0):
@@ -156,12 +158,20 @@ def load_run(path, fidelity):
                 or np.any(transverse_fraction < 0)
                 or np.any(transverse_fraction > 1)):
             raise ValueError(f'{path}: invalid HF transverse-energy provenance')
-    expected_surface, expected_extraction = ('top', 'comsol-interp') if fidelity == 'hf' else ('midplane', 'ritz')
-    if meta.get('surface') != expected_surface or meta.get('extraction') != expected_extraction:
+    if fidelity == 'lf':
+        expected_surface, expected_extraction = 'midplane', 'ritz'
+        valid_observations = {(expected_surface, expected_extraction)}
+    else:
+        expected_surface = 'top'
+        valid_observations = {
+            (expected_surface, 'comsol-interp'),
+            (expected_surface, 'abaqus-export'),
+        }
+    if (meta.get('surface'), meta.get('extraction')) not in valid_observations:
         raise ValueError(f'{path}: unexpected observation surface/extraction')
     # Every bundle must carry provenance sufficient to reject mixed revisions.
     required = ('config_hash', 'source_hash') if fidelity == 'hf' else ('input_hash', 'code_hash')
-    if any(not isinstance(meta.get(k), str) or not meta[k] for k in required):
+    if any(not isinstance(meta.get(key), str) or not meta[key] for key in required):
         raise ValueError(f'{path}: incomplete provenance; regenerate with the v2 driver')
     return dict(x=x, y=y, w=w, f=f, w_peak_abs=peak,
                 w_peak_ratio=peak_ratio, eigen_mode_indices=mode_indices,
@@ -172,8 +182,15 @@ def load_run(path, fidelity):
 def check_pair(lf, hf):
     if lf['meta']['run_id'] != hf['meta']['run_id']:
         raise ValueError('Run ID mismatch')
-    if any(not np.isclose(lf['meta']['parameters'][p], hf['meta']['parameters'][p], rtol=0, atol=1e-12) for p in PARAMETERS):
+    lf_parameters = lf['meta'].get('parameters', {})
+    hf_parameters = hf['meta'].get('parameters', {})
+    if set(lf_parameters) != set(hf_parameters):
+        raise ValueError('LF/HF physical parameter schema mismatch')
+    if any(not np.isclose(lf_parameters[name], hf_parameters[name],
+                          rtol=0, atol=1e-12)
+           for name in lf_parameters):
         raise ValueError('LF/HF physical parameter mismatch')
     for axis in ('x', 'y'):
-        if lf[axis].shape != hf[axis].shape or not np.allclose(lf[axis], hf[axis], rtol=0, atol=1e-12):
+        if lf[axis].shape != hf[axis].shape or not np.allclose(
+                lf[axis], hf[axis], rtol=0, atol=1e-12):
             raise ValueError('LF/HF grid mismatch')

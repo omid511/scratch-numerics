@@ -1,0 +1,15 @@
+{
+  "definition": "1 - sum of residual interior-field variances / sum of target interior-field variances; constant exactly representable targets report 1",
+  "equal_energy_example": {
+    "legacy": 0.9984025559105432,
+    "corrected": 0.5,
+    "analytical_expected": 0.5
+  },
+  "frozen_training_summary_recomputed": {
+    "interior_rms_median": 0.0006539161264757841,
+    "interior_rms_p95": 0.001512543942929455,
+    "edge_rms_median": 6.530329351526868e-05,
+    "latent_dim": 48,
+    "decoder_explained_variance": 0.999255561239549
+  }
+}

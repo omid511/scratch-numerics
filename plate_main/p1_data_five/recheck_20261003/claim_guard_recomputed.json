@@ -1,0 +1,47 @@
+{
+  "artifact": "p1_claim_report",
+  "checks": {
+    "design_is_explicit_and_nonempty": true,
+    "design_manifest_scope_matches_contract": true,
+    "design_uses_supported_parameter_contract": true,
+    "hf_count_in_declared_range": true,
+    "hf_ids_match_design": true,
+    "hf_role_counts_nonzero": true,
+    "hf_roles_present": true,
+    "hf_uses_requested_extraction": true,
+    "lf_count_in_declared_range": true,
+    "lf_ids_match_design": true,
+    "scope_is_declared_contract": true,
+    "strict_holdout_has_calibration": true,
+    "strict_holdout_has_test_rows": true,
+    "strict_holdout_report_exists": true,
+    "target_parameter_contract_matches_design": true,
+    "target_revision_exists": true,
+    "target_run_filter_matches_plan": true
+  },
+  "claim_guard": "Even when ready, report held-out empirical distributions and uncertainty coverage; do not claim a universal four-percent error or simulator-independent accuracy.",
+  "counts": {
+    "accepted_targets": 721,
+    "design": 10000,
+    "hf": 80,
+    "hf_roles": {
+      "calibration": 16,
+      "test": 16,
+      "train": 48
+    },
+    "lf": 10000,
+    "quarantined_targets": 79
+  },
+  "hf_extraction": "comsol-interp",
+  "next_failures": [],
+  "parameter_scope": "pilot-five-variable",
+  "schema_version": 1,
+  "sha256": {
+    "design": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+    "design_manifest": "b36150ffd425b2f783abd5a56a4676bea0beea9dac74c8210cc2d8e54614d621",
+    "hf_plan": "887eed56704e1740f324ded7adc14fff55590b7adad51dfec03f80df82c1b042",
+    "holdout": "714ec7be9da3b69e839b07d78ecb4ab19902401f7cb4781e80124e43f93635fc",
+    "target_manifest": "8d3c3de975a756f458c800fddac0a1a3e06897d5692b17e5f5fd77b22795318e"
+  },
+  "status": "ready_for_scientific_review"
+}

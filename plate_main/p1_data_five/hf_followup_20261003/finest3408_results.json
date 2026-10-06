@@ -1,0 +1,78 @@
+{
+  "accepted_modes": 10,
+  "bundle_sha256": {
+    "2": "b9919d0cadf48da678b70cc49d1f2d5baf95980f1adb0be6aabfc89e6548eb86",
+    "3": "4f87570fbaad7e4371c1c1c69c8e2d4ddb0f59691a59574bfe94e8b71c062a56",
+    "3_compressed": "39debda866051de033d659195d64983873eacd650601faa7d71111b4ceba3cf0",
+    "4": "c05ebaf7ebacbb370d91fcddfc95bdf0cfcdfafc3c5002a77936ae319ac3384b"
+  },
+  "finest_bundle_sha256": "b9919d0cadf48da678b70cc49d1f2d5baf95980f1adb0be6aabfc89e6548eb86",
+  "finest_saved_mesh": 2,
+  "flagged_comparisons": 0,
+  "mesh2_simultaneous_field_covered": true,
+  "mesh2_simultaneous_frequency_covered": true,
+  "mesh_diagnostic_targets": {
+    "max_field_rms": 0.00075,
+    "max_frequency_change_pct": 0.1
+  },
+  "numerical_solver_control": {
+    "max_field_rms": 3.8133657962448465e-06,
+    "max_frequency_change_pct": 0.00011997840905496345,
+    "passed": true,
+    "results_sha256": "cbe104600d9aa2057d0dee5fcd5e9ccfb91a46072c5acc630ef13a17f073136d"
+  },
+  "run": 3408,
+  "same_method_mesh_diagnostic_passed": false,
+  "scope": "Saved targeted geometry only, no new solve or fitting; not a campaign-wide convergence certificate.",
+  "source_sha256": "31522ee9c5c985a299018c3e2270bfa23fca878e54749cae3a6ac81c01856dbf",
+  "steps": {
+    "mesh2_vs_mesh3": {
+      "field_rms": {
+        "max": 0.004796997014674971,
+        "median": 9.673666272903441e-05,
+        "p95": 0.0027085757417136492
+      },
+      "frequency_change_pct": {
+        "max": 0.054861052356782986,
+        "median": 0.04968113983355586,
+        "p95": 0.05426254709621792
+      }
+    },
+    "mesh2_vs_mesh3_compressed": {
+      "field_rms": {
+        "max": 0.0047969925671496215,
+        "median": 9.662700590741951e-05,
+        "p95": 0.0027069927657967677
+      },
+      "frequency_change_pct": {
+        "max": 0.05486200515138508,
+        "median": 0.04968681331969436,
+        "p95": 0.054263655736702575
+      }
+    },
+    "mesh2_vs_mesh4": {
+      "field_rms": {
+        "max": 0.02733447994274738,
+        "median": 0.000349904201285846,
+        "p95": 0.01527071844706691
+      },
+      "frequency_change_pct": {
+        "max": 0.139856537945757,
+        "median": 0.07275129032838387,
+        "p95": 0.13538532561146116
+      }
+    }
+  },
+  "unchanged_surrogate_against_mesh2": {
+    "field_rms": {
+      "max": 0.15934159670925857,
+      "median": 0.0066648835252315335,
+      "p95": 0.09775557986067493
+    },
+    "frequency_error_pct": {
+      "max": 3.6258870530720877,
+      "median": 1.1626364035755132,
+      "p95": 3.347961950449255
+    }
+  }
+}

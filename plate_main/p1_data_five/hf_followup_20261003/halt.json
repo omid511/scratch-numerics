@@ -1,0 +1,30 @@
+{
+  "checked_at_utc": "2026-10-04T08:45:24.093377+00:00",
+  "reason": "User reported a 12-hour wait; stop additional refinement work and preserve completed results.",
+  "owned_processes": [
+    {
+      "ProcessId": 7648,
+      "ParentProcessId": 9700,
+      "CreationDate": "/Date(1791087618391)/",
+      "CommandLine": "C:\\Python314\\python.exe run_hf_batches.py --samples C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\lhs_five.csv --runs 3408 --output C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\extreme3408_mesh2_scratch --mesh-size 2 --cores 2 --attempts 1 --java-heap-gb 8",
+      "stop_returncode": 0
+    },
+    {
+      "ProcessId": 15644,
+      "ParentProcessId": 7648,
+      "CreationDate": "/Date(1791087618775)/",
+      "CommandLine": "C:\\Python314\\python.exe -c \"import sys\nimport mph\nif sys.platform == \\\"win32\\\":\n    mph.option(\\\"session\\\", \\\"stand-alone\\\")\nfrom hc_HighFidelity_LHS import main\nsys.exit(main())\n\" --samples C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\lhs_five.csv --output C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\extreme3408_mesh2_scratch --runs 3408 --cores 2 --mesh-size 2 --worker",
+      "stop_returncode": 255
+    }
+  ],
+  "last_eval_interrupted": true,
+  "new_solver_launches": 0,
+  "completed_observed_solves": 5,
+  "run3408_completion": "stopped; no successful worker exit was captured",
+  "frozen_campaign_overwritten": false,
+  "owned_worker_tree_terminated": true,
+  "remaining_owned_workers": 0,
+  "cancelled_experiment_temporary_directory_removed": true,
+  "frozen_input_hashes_unchanged": true,
+  "saved_artifact_analysis_exit": 0
+}

@@ -1,0 +1,80 @@
+{
+  "verified_at_utc": "2026-10-06T16:14:02.849126+00:00",
+  "scope": "Source-only clean index checkout plus separately retained local study inputs; not a public bulk-data restoration",
+  "source_files_syntax_parsed": 43,
+  "source_study_historical_records_byte_authenticated": 150,
+  "clean_checkout_exact_byte_comparisons": 163,
+  "markdown_local_links_checked": 118,
+  "markdown_errors": [],
+  "synthetic_regressions": {
+    "command": "python -m unittest test_p1_improvement test_p1_full_workflow test_p1_pairing test_p1_surrogate test_regressions",
+    "tests": 44,
+    "exit_code": 0,
+    "elapsed_seconds": 4.607
+  },
+  "frozen_model_replay": {
+    "rows": 800,
+    "models": 6,
+    "all_array_max_differences": {
+      "cokriging_matern32": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "current_pca48_rbf": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "direct_hf_matern32": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "neural_inr_lr0.0003": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "output_pca_matern32": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      },
+      "region_selected": {
+        "correction": 0.0,
+        "correction_std": 0.0,
+        "frequency": 0.0,
+        "frequency_std": 0.0
+      }
+    },
+    "without_HF_inputs": true
+  },
+  "replay_uses_original_800_row_batch_layout": true,
+  "replay_requires_separately_retained_local_study_inputs": true,
+  "no_COMSOL_solve_or_scientific_model_refit": true,
+  "saved_trial_plot_recreation": {
+    "exit_code": 0,
+    "fitted_new_model": false,
+    "visually_inspected": true,
+    "plots": [
+      {
+        "filename": "field_learning_curve.png",
+        "bytes": 188683,
+        "sha256": "da27b59ac3e8a64f74876a6e986e197cace12659966fde1ace2950e04379acb1"
+      },
+      {
+        "filename": "frequency_learning_curve.png",
+        "bytes": 126463,
+        "sha256": "7845c6bf18e0d46b43fc24f4236a6a692315b88534f3ca5dc5dc5371cfd22aed"
+      }
+    ]
+  },
+  "MPH_ZIP_raw_array_weight_or_Release_asset_uploaded": false,
+  "complete_public_data_model_availability": false
+}

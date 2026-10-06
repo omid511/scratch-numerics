@@ -1,0 +1,28 @@
+{
+  "config": {
+    "L": 0.3,
+    "boundary": "CCCC",
+    "candidate_eigs": 32,
+    "eigen_shift_hz": 1000,
+    "grid_res": 80,
+    "material": "Al:70e9,2710,0.33",
+    "mesh_size": 4,
+    "mode_selection": "transverse_energy_fraction>=0.5",
+    "n_eigs": 16
+  },
+  "config_hash": "1f57351ae7c18e1cf62f6c67d609a43770fa64990d42a6dadf76244467181177",
+  "extraction": "comsol-interp",
+  "fidelity": "hf",
+  "model_version": "p1-v2",
+  "parameters": {
+    "alpha": 0.7695198727055449,
+    "beta": 0.35527408704883,
+    "eta1": 2.975767921232065,
+    "eta2": 0.10068748739382648,
+    "theta_c": 27.265490880564165
+  },
+  "run_id": 9828,
+  "schema_version": 2,
+  "source_hash": "b2be524d7104695c01735c2921bc13dca4203a94940ec3e363cacc5778227215",
+  "surface": "top"
+}

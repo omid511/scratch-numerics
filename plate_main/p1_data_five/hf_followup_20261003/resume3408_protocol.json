@@ -1,0 +1,59 @@
+{
+  "command": [
+    "C:\\Python314\\python.exe",
+    "-u",
+    "run_hf_batches.py",
+    "--samples",
+    "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\lhs_five.csv",
+    "--runs",
+    "3408",
+    "--output",
+    "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\resume3408_mesh2",
+    "--mesh-size",
+    "2",
+    "--cores",
+    "4",
+    "--attempts",
+    "1",
+    "--java-heap-gb",
+    "8",
+    "--scratch-root",
+    "D:/",
+    "--timeout-minutes",
+    "360",
+    "--heartbeat-seconds",
+    "60"
+  ],
+  "started_at_utc": "2026-10-04T09:39:17.860829+00:00",
+  "purpose": "Finish the incomplete extreme-angle reference refinement under bounded, observable process supervision",
+  "physics_and_extraction": "unchanged frozen COMSOL builder, geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid",
+  "execution_changes": {
+    "cores": 4,
+    "jvm_heap_gib": 8,
+    "scratch_root": "D:/",
+    "deadline_minutes": 360,
+    "attempts": 1,
+    "timeout_retry": false,
+    "parent_exit_cleanup": true,
+    "heartbeat_seconds": 60
+  },
+  "code_sha256": {
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc",
+    "run_p1_hf_plan.py": "f51002f7e65964376bf38376df9fdffa0a0c2582e221143ee9f7120920829379",
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363"
+  },
+  "frozen_input_sha256": {
+    "lhs_five.csv": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+    "hf_plan/hf_plan.csv": "887eed56704e1740f324ded7adc14fff55590b7adad51dfec03f80df82c1b042",
+    "corrections_five/training.npz": "818ec9601afe2a565d0ceac65b373ef947f275329cc66b4ec1566e712b75b151",
+    "holdout_corrected/holdout_metrics.json": "714ec7be9da3b69e839b07d78ecb4ab19902401f7cb4781e80124e43f93635fc"
+  },
+  "prelaunch_checks": {
+    "regression_tests": 34,
+    "regression_exit": 0,
+    "parent_loss_smoke_exit": 130,
+    "parent_loss_worker_stopped": true,
+    "licensed_cli_scratch_smoke_exit": 0
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "recorded_at_utc": "2026-10-05T10:59:27.324884+00:00",
+  "run": 3408,
+  "mesh_size": 3,
+  "cores": 4,
+  "java_heap_gib": 8,
+  "deadline_minutes": 360.0,
+  "attempts": 1,
+  "solver": "mumps-blr",
+  "solver_settings": {
+    "linsolver": "mumps",
+    "mumpsblr": "on",
+    "mumpsblrtol": "1e-8"
+  },
+  "numerical_change": "Explicit direct-solver settings; preserve generated sequence with runNoGen",
+  "unchanged": "geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid; no refitting or recalibration",
+  "code_sha256": {
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363",
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+  },
+  "experiment_source_sha256": "740e36977ca0614dd18f7130adf55054a7d91920d6cbbe8b182fd572ee0e4213",
+  "samples_sha256": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+  "worker_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\mumps_blr3408_control_mesh3\\worker_logs\\run_3408_20261005T105927Z_17720_mumps_blr.log",
+  "native_progress_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\mumps_blr3408_control_mesh3\\worker_logs\\run_3408_20261005T105927Z_17720_mumps_blr.progress.log",
+  "worker_owned_scratch": "D:\\p1_solver_11lzfyc6"
+}
+Worker PID 10664; durable log: C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:00:27.510061+00:00 Worker PID 10664 still running; elapsed 1.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:01:27.621596+00:00 Worker PID 10664 still running; elapsed 2.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:02:27.717328+00:00 Worker PID 10664 still running; elapsed 3.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:03:27.841391+00:00 Worker PID 10664 still running; elapsed 4.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:04:27.960813+00:00 Worker PID 10664 still running; elapsed 5.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:05:28.032364+00:00 Worker PID 10664 still running; elapsed 6.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:06:28.122128+00:00 Worker PID 10664 still running; elapsed 7.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:07:28.232680+00:00 Worker PID 10664 still running; elapsed 8.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:08:28.325640+00:00 Worker PID 10664 still running; elapsed 9.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:09:28.421784+00:00 Worker PID 10664 still running; elapsed 10.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:10:28.527098+00:00 Worker PID 10664 still running; elapsed 11.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:11:28.609654+00:00 Worker PID 10664 still running; elapsed 12.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:12:28.736111+00:00 Worker PID 10664 still running; elapsed 13.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:13:28.822893+00:00 Worker PID 10664 still running; elapsed 14.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:14:28.928636+00:00 Worker PID 10664 still running; elapsed 15.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:15:29.021709+00:00 Worker PID 10664 still running; elapsed 16.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:16:29.114235+00:00 Worker PID 10664 still running; elapsed 17.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:17:29.209434+00:00 Worker PID 10664 still running; elapsed 18.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:18:29.322757+00:00 Worker PID 10664 still running; elapsed 19.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:19:29.405344+00:00 Worker PID 10664 still running; elapsed 20.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:20:29.491398+00:00 Worker PID 10664 still running; elapsed 21.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:21:29.579091+00:00 Worker PID 10664 still running; elapsed 22.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:22:29.658375+00:00 Worker PID 10664 still running; elapsed 23.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:23:29.753236+00:00 Worker PID 10664 still running; elapsed 24.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log
+2026-10-05T11:24:29.860098+00:00 Worker PID 10664 still running; elapsed 25.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\mumps_blr3408_control_mesh3\worker_logs\run_3408_20261005T105927Z_17720_mumps_blr.log

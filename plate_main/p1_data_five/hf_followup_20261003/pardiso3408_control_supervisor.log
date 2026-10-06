@@ -1,0 +1,104 @@
+{
+  "recorded_at_utc": "2026-10-05T08:47:15.827217+00:00",
+  "run": 3408,
+  "mesh_size": 3,
+  "cores": 4,
+  "java_heap_gib": 8,
+  "deadline_minutes": 60.0,
+  "attempts": 1,
+  "numerical_change": "Default MUMPS to PARDISO, multithreaded solves; preserve generated sequence with runNoGen",
+  "unchanged": "geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid; no refitting or recalibration",
+  "code_sha256": {
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363",
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+  },
+  "experiment_source_sha256": "4289f67be0df4ae6e66565c46b8ff2513f47a8a446c0f63f2388ad03b7768a0d",
+  "samples_sha256": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+  "worker_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\pardiso3408_control_mesh3\\worker_logs\\run_3408_20261005T084715Z_8408_pardiso.log",
+  "native_progress_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\pardiso3408_control_mesh3\\worker_logs\\run_3408_20261005T084715Z_8408_pardiso.progress.log",
+  "worker_owned_scratch": "D:\\p1_pardiso_oxdf3g7u"
+}
+Worker PID 1624; durable log: C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T084715Z_8408_pardiso.log
+{
+  "recorded_at_utc": "2026-10-05T09:04:49.171303+00:00",
+  "run": 3408,
+  "mesh_size": 3,
+  "cores": 4,
+  "java_heap_gib": 8,
+  "deadline_minutes": 60.0,
+  "attempts": 1,
+  "numerical_change": "Default MUMPS to PARDISO, multithreaded solves; preserve generated sequence with runNoGen",
+  "unchanged": "geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid; no refitting or recalibration",
+  "code_sha256": {
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363",
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+  },
+  "experiment_source_sha256": "4141b56b02cd2a8a96fbce19fa874a62d43a6f39539ff086c1a2689fc94dc9e2",
+  "samples_sha256": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+  "worker_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\pardiso3408_control_mesh3\\worker_logs\\run_3408_20261005T090449Z_2696_pardiso.log",
+  "native_progress_log": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\pardiso3408_control_mesh3\\worker_logs\\run_3408_20261005T090449Z_2696_pardiso.progress.log",
+  "worker_owned_scratch": "D:\\p1_pardiso_ngdrup5l"
+}
+Worker PID 932; durable log: C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:05:49.313618+00:00 Worker PID 932 still running; elapsed 1.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:06:49.388707+00:00 Worker PID 932 still running; elapsed 2.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:07:49.459778+00:00 Worker PID 932 still running; elapsed 3.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:08:49.551743+00:00 Worker PID 932 still running; elapsed 4.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:09:49.623370+00:00 Worker PID 932 still running; elapsed 5.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:10:49.721392+00:00 Worker PID 932 still running; elapsed 6.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:11:49.834671+00:00 Worker PID 932 still running; elapsed 7.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:12:49.932394+00:00 Worker PID 932 still running; elapsed 8.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:13:50.056185+00:00 Worker PID 932 still running; elapsed 9.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:14:50.163427+00:00 Worker PID 932 still running; elapsed 10.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:15:50.285785+00:00 Worker PID 932 still running; elapsed 11.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:16:50.381661+00:00 Worker PID 932 still running; elapsed 12.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:17:50.508178+00:00 Worker PID 932 still running; elapsed 13.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:18:50.572200+00:00 Worker PID 932 still running; elapsed 14.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:19:50.668416+00:00 Worker PID 932 still running; elapsed 15.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:20:50.715654+00:00 Worker PID 932 still running; elapsed 16.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:21:50.795817+00:00 Worker PID 932 still running; elapsed 17.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:22:50.922064+00:00 Worker PID 932 still running; elapsed 18.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:23:51.015527+00:00 Worker PID 932 still running; elapsed 19.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:24:51.109909+00:00 Worker PID 932 still running; elapsed 20.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:25:51.220818+00:00 Worker PID 932 still running; elapsed 21.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:26:51.302267+00:00 Worker PID 932 still running; elapsed 22.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:27:51.408992+00:00 Worker PID 932 still running; elapsed 23.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:28:51.500133+00:00 Worker PID 932 still running; elapsed 24.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:29:51.556634+00:00 Worker PID 932 still running; elapsed 25.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:30:51.607482+00:00 Worker PID 932 still running; elapsed 26.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:31:51.713626+00:00 Worker PID 932 still running; elapsed 27.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:32:51.804508+00:00 Worker PID 932 still running; elapsed 28.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:33:51.905682+00:00 Worker PID 932 still running; elapsed 29.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:34:52.007432+00:00 Worker PID 932 still running; elapsed 30.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:35:52.094288+00:00 Worker PID 932 still running; elapsed 31.0 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:36:52.193031+00:00 Worker PID 932 still running; elapsed 32.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:37:52.253879+00:00 Worker PID 932 still running; elapsed 33.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:38:52.323536+00:00 Worker PID 932 still running; elapsed 34.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:39:52.397526+00:00 Worker PID 932 still running; elapsed 35.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:40:52.500943+00:00 Worker PID 932 still running; elapsed 36.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:41:52.589663+00:00 Worker PID 932 still running; elapsed 37.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:42:52.690474+00:00 Worker PID 932 still running; elapsed 38.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:43:52.790223+00:00 Worker PID 932 still running; elapsed 39.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:44:52.902011+00:00 Worker PID 932 still running; elapsed 40.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:45:53.001040+00:00 Worker PID 932 still running; elapsed 41.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:46:53.075948+00:00 Worker PID 932 still running; elapsed 42.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:47:53.147478+00:00 Worker PID 932 still running; elapsed 43.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:48:53.242882+00:00 Worker PID 932 still running; elapsed 44.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:49:53.342929+00:00 Worker PID 932 still running; elapsed 45.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:50:53.431421+00:00 Worker PID 932 still running; elapsed 46.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:51:53.507031+00:00 Worker PID 932 still running; elapsed 47.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:52:53.604716+00:00 Worker PID 932 still running; elapsed 48.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:53:53.681636+00:00 Worker PID 932 still running; elapsed 49.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:54:53.766308+00:00 Worker PID 932 still running; elapsed 50.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:55:53.879690+00:00 Worker PID 932 still running; elapsed 51.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:56:53.978228+00:00 Worker PID 932 still running; elapsed 52.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:57:54.070775+00:00 Worker PID 932 still running; elapsed 53.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:58:54.174238+00:00 Worker PID 932 still running; elapsed 54.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T09:59:54.256412+00:00 Worker PID 932 still running; elapsed 55.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T10:00:54.352992+00:00 Worker PID 932 still running; elapsed 56.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T10:01:54.472883+00:00 Worker PID 932 still running; elapsed 57.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T10:02:54.588301+00:00 Worker PID 932 still running; elapsed 58.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+2026-10-05T10:03:54.682601+00:00 Worker PID 932 still running; elapsed 59.1 minutes; log C:\Users\LEGION\Documents\GitHub\mechanics\plate_main\p1_data_five\hf_followup_20261003\pardiso3408_control_mesh3\worker_logs\run_3408_20261005T090449Z_2696_pardiso.log
+Worker deadline reached after 60.0 minutes; process tree stopped.

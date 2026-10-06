@@ -1,0 +1,197 @@
+Authenticating raw provenance, rebuilt targets and saved model weights
+Refitting strict baselines on training runs only
+Checking independent held-out decoder reconstruction
+Fitting fixed theta>=60 region-exclusion diagnostic
+MAC-matching archived mesh refinements to accepted target modes
+{
+  "output": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\recheck_20261003\\independent_verified",
+  "strict_comparison": {
+    "models": {
+      "fsdt": {
+        "field": {
+          "median": 0.01369892284082921,
+          "p95": 0.08428751013500486,
+          "max": 0.16632705516807883
+        },
+        "frequency": {
+          "median": 4.921774473406268,
+          "p95": 14.987965246702903,
+          "max": 33.97849285138063
+        }
+      },
+      "latent_gp": {
+        "field": {
+          "median": 0.0076577761861500665,
+          "p95": 0.046186060070279276,
+          "max": 0.15459092841125224
+        },
+        "frequency": {
+          "median": 1.2558303005011084,
+          "p95": 6.650515809664047,
+          "max": 15.17004701943165
+        }
+      },
+      "cokriging": {
+        "field": {
+          "median": 0.007650663245929392,
+          "p95": 0.05323128881282684,
+          "max": 0.1525212404795478
+        },
+        "frequency": {
+          "median": 1.2558303005011084,
+          "p95": 6.650515809664047,
+          "max": 15.17004701943165
+        }
+      },
+      "fourier_inr_proxy": {
+        "field": {
+          "median": 0.03994045647139441,
+          "p95": 0.1083250039734225,
+          "max": 0.17745910424741893
+        }
+      }
+    },
+    "paired": {
+      "orientation": "latent minus co-kriging; positive favors co-kriging",
+      "row_median": 0.00017238528223614542,
+      "row_mean": -0.0004863383263150297,
+      "latent_row_wins": 64,
+      "rows": 150,
+      "median_of_geometry_paired_medians": 9.05622463724747e-05,
+      "geometry_bootstrap_95_percent_interval": [
+        -0.0007202568331750505,
+        0.00031451072459665465
+      ],
+      "latent_geometry_median_wins_over_cokriging": 7,
+      "latent_geometry_median_wins_over_fsdt": {
+        "field": 11,
+        "frequency": 14
+      },
+      "frequency_paths_max_abs_difference": 0.0
+    },
+    "configuration": {
+      "train_runs": 48,
+      "train_rows": 431,
+      "test_runs": 16,
+      "test_rows": 150,
+      "gp_max_iterations": 80,
+      "seed": 42,
+      "fourier_features": 64,
+      "fourier_ridge": 0.0001,
+      "fourier_max_points": 120000
+    },
+    "baseline_caution": "Fourier-feature ridge coordinate model is not a trained neural INR MLP; its weakness establishes no superiority over neural INRs."
+  },
+  "uncertainty_geometry_spearman": {
+    "field": 0.4647058823529412,
+    "frequency_relative": 0.3323529411764706
+  },
+  "region_errors": {
+    "field": {
+      "median": 0.013227959327803015,
+      "p95": 0.07389182225081338,
+      "max": 0.15597969424939703
+    },
+    "frequency": {
+      "median": 1.937656302622536,
+      "p95": 12.961090310447705,
+      "max": 25.06723098360696
+    }
+  },
+  "control_errors": {
+    "field": {
+      "median": 0.008190146688150893,
+      "p95": 0.04240193755231878,
+      "max": 0.13783393238968458
+    },
+    "frequency": {
+      "median": 1.74752443654289,
+      "p95": 5.39660903000539,
+      "max": 6.000686462575864
+    }
+  },
+  "mesh_geometries": {
+    "reference_9828": {
+      "mesh4_recompute_bit_identical": true,
+      "mesh3_vs_mesh4": {
+        "unambiguous_accepted_target_modes": 10,
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "median": 0.08647604015681695,
+          "p95": 0.15295730191198537,
+          "max": 0.1655308762818792
+        },
+        "field_interior_rms": {
+          "median": 0.00042408994498779385,
+          "p95": 0.00062952848335104,
+          "max": 0.0006441882741106656
+        }
+      },
+      "mesh2_vs_mesh3": {
+        "unambiguous_accepted_target_modes": 10,
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "median": 0.025983397831009652,
+          "p95": 0.05756027785421598,
+          "max": 0.06283862121331092
+        },
+        "field_interior_rms": {
+          "median": 0.0002574930063135375,
+          "p95": 0.0005212294023949754,
+          "max": 0.0005723310338619555
+        }
+      }
+    },
+    "thin_highloss_5873": {
+      "mesh4_recompute_bit_identical": true,
+      "mesh3_vs_mesh4": {
+        "unambiguous_accepted_target_modes": 10,
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "median": 0.06448334838689561,
+          "p95": 0.09913846051054175,
+          "max": 0.102953021400611
+        },
+        "field_interior_rms": {
+          "median": 0.00015875053901808644,
+          "p95": 0.00031282445530772497,
+          "max": 0.0003275489692938528
+        }
+      },
+      "mesh2_vs_mesh3": {
+        "unambiguous_accepted_target_modes": 10,
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "median": 0.005162484202225435,
+          "p95": 0.007761108509218878,
+          "max": 0.00803407614845209
+        },
+        "field_interior_rms": {
+          "median": 1.8327513927226878e-05,
+          "p95": 2.647983533434513e-05,
+          "max": 2.6537357197053318e-05
+        }
+      }
+    },
+    "extreme_angle_3408": {
+      "mesh4_recompute_bit_identical": true,
+      "mesh3_vs_mesh4": {
+        "unambiguous_accepted_target_modes": 10,
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "median": 0.05222786393101829,
+          "p95": 0.0856814584605332,
+          "max": 0.08820389325922585
+        },
+        "field_interior_rms": {
+          "median": 0.0003161341543938813,
+          "p95": 0.012618105738534096,
+          "max": 0.022538687240961187
+        }
+      },
+      "mesh2_vs_mesh3": {
+        "status": "missing; previously recorded out-of-core assembly failure; not rerun"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "recorded_before_control_at_utc": "2026-10-05T10:33:02.578956+00:00",
+  "purpose": "Test MUMPS block-low-rank factor storage against the original same-mesh reference before any fine-mesh acceptance",
+  "run": 3408,
+  "nominal_anchor": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf\\run_3408.npz",
+  "saved_mumps_mesh3": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\mesh_convergence_check\\extreme_angle_3408_mesh3\\hf\\run_3408.npz",
+  "new_control_output": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\mumps_blr3408_control_mesh3",
+  "accepted_mode_policy": "Original ten accepted target identities, Hungarian MAC to campaign anchors, global complex phase alignment, interior RMS; no row removal",
+  "identity_flags": "MAC<0.8, assignment margin<0.05, relative frequency gap<=0.005",
+  "control_acceptance": {
+    "max_frequency_change_pct": 0.01,
+    "max_field_rms": 7.5e-05,
+    "flagged_modes": 0
+  },
+  "tolerance_rationale": "One tenth of the predeclared mesh diagnostic tolerances, fixed before control results",
+  "frozen_physics": "unchanged builder/geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid",
+  "resource_settings": {
+    "cores": 4,
+    "jvm_heap_gib": 8,
+    "scratch_root": "D:/",
+    "control_deadline_minutes": 360,
+    "attempts": 1
+  },
+  "source_sha256": {
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363",
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+  },
+  "experiment_source_sha256": "740e36977ca0614dd18f7130adf55054a7d91920d6cbbe8b182fd572ee0e4213",
+  "solver": "mumps-blr",
+  "solver_settings": {
+    "linsolver": "mumps",
+    "mumpsblr": "on",
+    "mumpsblrtol": "1e-8"
+  },
+  "expected_accepted_modes": 10,
+  "result_prefix": "mumps_blr_control",
+  "selection_rationale": "Uncompressed/PARDISO paths spill factors to disk at5.86mDOFs; the PARDISO60min control timed out. Installed MUMPSBLR is documented to reduce LU storage; retain error checks and measure any approximation effect. No fitted-model or physical changes."
+}

@@ -1,0 +1,37 @@
+{
+  "accepted": 721,
+  "all_pairing_decisions_bit_identical": true,
+  "calibration_recomputed_exactly": true,
+  "decoder": "linear boundary-enforced PCA, not a neural autoencoder",
+  "deployable_model_max_abs_difference": {
+    "correction": 0.0,
+    "correction_std": 0.0,
+    "frequency": 0.0,
+    "frequency_std": 0.0
+  },
+  "per_field_csvs_bit_identical": 721,
+  "quarantined": 79,
+  "raw_source_hashes": {
+    "code_sha256": {
+      "checked": 2,
+      "mismatches": []
+    },
+    "source_sha256": {
+      "checked": 160,
+      "mismatches": []
+    }
+  },
+  "role_rows": {
+    "calibration": 140,
+    "test": 150,
+    "train": 431
+  },
+  "strict_saved_model_max_abs_replay_difference": {
+    "correction": 0.0,
+    "correction_std": 0.0,
+    "frequency": 0.0,
+    "frequency_std": 0.0
+  },
+  "target_arrays_bit_identical": true,
+  "uncertainty_caution": "Independent-output GP propagation omits cross-latent covariance; conformal coverage is empirical here, not a proof of pure design-space epistemic uncertainty."
+}

@@ -1,0 +1,3 @@
+# Frozen source and text-evidence SHA-256 checks require exact saved bytes.
+# Disable platform-dependent newline conversion within plate_main only.
+* -text

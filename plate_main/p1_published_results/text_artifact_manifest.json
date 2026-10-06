@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "published_scope": "Text evidence only; no MPH, ZIP, raw NPZ arrays or fitted binary weights uploaded",
+  "original_study_root_is_provenance_only": "D:\\p1_improvement_20261005",
+  "frozen_scientific_artifacts_modified": false,
+  "records": [
+    {
+      "path": "improvement_report.json",
+      "bytes": 1957259,
+      "sha256": "6bcaf6511667c25c731e230274c011b278bb9e69b3df3ed0f64a88da191a9a7c",
+      "original_study_relative_path": "improvement_report.json"
+    },
+    {
+      "path": "model_freeze.json",
+      "bytes": 17812,
+      "sha256": "7a28b4d600e54d722cffb8c127a8a13f285eb19ffc5d5616b796e44ab387868f",
+      "original_study_relative_path": "model_freeze.json"
+    },
+    {
+      "path": "prospective/generation.json",
+      "bytes": 914,
+      "sha256": "ded84dcd9036040bf35689cc6c7b1d7224deb2652d176bba472fe8a6b5154023",
+      "original_study_relative_path": "prospective/generation.json"
+    },
+    {
+      "path": "prospective/calibration.json",
+      "bytes": 78560,
+      "sha256": "141cb9766d56c82af1964511cdf1f726d688cd941c8c7758ebcc478bcb2f6e2a",
+      "original_study_relative_path": "prospective/calibration.json"
+    },
+    {
+      "path": "prospective/evaluation_results.json",
+      "bytes": 1364435,
+      "sha256": "7681a1692245915d6226fd3a5917569af1e88a278e8a990d4baf5ca5ce23d22c",
+      "original_study_relative_path": "prospective/evaluation_results.json"
+    },
+    {
+      "path": "prospective/engineering_results.json",
+      "bytes": 170150,
+      "sha256": "e7858b6df8f3ccb6cf9d6be81fb8e0f198b6ba848c10dc0fd75b297713bc4812",
+      "original_study_relative_path": "prospective/engineering_results.json"
+    },
+    {
+      "path": "package_manifest.json",
+      "bytes": 1365,
+      "sha256": "944142cd98699ff5a053f39d8d781fe2d9114b281d30b87704dcddcbb6b2ed9e",
+      "original_study_relative_path": "package_manifest.json"
+    },
+    {
+      "path": "package_verification.json",
+      "bytes": 254,
+      "sha256": "d84559cc4393d832b7f8675c035885252c90bde6f8c319168093b8a60a3dbb98",
+      "original_study_relative_path": "package_verification.json"
+    },
+    {
+      "path": "archive_restoration_smoke.json",
+      "bytes": 11044,
+      "sha256": "f24b0c669b826efa913e8a56378e0c0fb6bbe99e0ba8bb1c93f13ec55bd33839",
+      "original_study_relative_path": "archive_restoration_smoke.json"
+    },
+    {
+      "path": "runtime_environment.json",
+      "bytes": 876,
+      "sha256": "318f6149b0be001d9d78f259f8893904f57944b5ada32aadba3716e14be00b92",
+      "original_study_relative_path": "runtime_environment.json"
+    },
+    {
+      "path": "protocol.json",
+      "bytes": 6614,
+      "sha256": "29a2ed1b2981ad4ccd54aaeccb0dd23a00dea981cd89d3ab9fb169cbe83705d7",
+      "original_study_relative_path": "protocol.json"
+    },
+    {
+      "path": "learning_curves/results.json",
+      "bytes": 294088,
+      "sha256": "0b9b91d616513f0551e618d280cd125ec8b60c598e99cb5a4b562a3feb5ebf08",
+      "original_study_relative_path": "learning_curves/results.json"
+    },
+    {
+      "path": "decomposition/training_results.json",
+      "bytes": 34534,
+      "sha256": "2e923035f5396a15eed9ceda91b754bee42cda0d6fd99f0ec4fa18fa788701d7",
+      "original_study_relative_path": "decomposition/training_results.json"
+    },
+    {
+      "path": "selection/results.json",
+      "bytes": 49867,
+      "sha256": "4df418dcd7b6b6b9f067ba5eea0d1a1e6a8d1d917e6fa472ab46675f947b8ae0",
+      "original_study_relative_path": "selection/results.json"
+    },
+    {
+      "path": "region_selection/results.json",
+      "bytes": 40064,
+      "sha256": "52752fd90f9c8a62431ee67890479961128540799887d8e5c588e436d42fff0b",
+      "original_study_relative_path": "region_selection/results.json"
+    },
+    {
+      "path": "uncertainty_selection/results.json",
+      "bytes": 70034,
+      "sha256": "3002071bdc139a9d03e3d4cf04984bf5d95cae4ddb07f7e317a7f60df9f2c632",
+      "original_study_relative_path": "uncertainty_selection/results.json"
+    },
+    {
+      "path": "region_uncertainty_selection/results.json",
+      "bytes": 50356,
+      "sha256": "6ede7c288b768c4453424a8e555411a61d3b0870e968859dd089822ceeaead10",
+      "original_study_relative_path": "region_uncertainty_selection/results.json"
+    },
+    {
+      "path": "reference_top_diagnosis.json",
+      "bytes": 10434,
+      "sha256": "41668e49b9a680141cbd7153b81890fb86801405ccafe013bdcc983daa6ed708",
+      "original_study_relative_path": "reference_top_diagnosis.json"
+    },
+    {
+      "path": "reference_mass_diagnosis_all_pairs.json",
+      "bytes": 9556,
+      "sha256": "67fc94df23454fad205c2409c8058f9a7bd5ea8ed22203f9e4df2e579a11315f",
+      "original_study_relative_path": "reference_mass_diagnosis_all_pairs.json"
+    },
+    {
+      "path": "prospective/evaluation_mode_rows.csv",
+      "bytes": 228887,
+      "sha256": "2c63911f7b270f7b761cf33f6fc2e4f5914f621b3bc33214d83d834f48e613fa",
+      "original_study_relative_path": "prospective/evaluation_mode_rows.csv"
+    },
+    {
+      "path": "prospective/calibration_targets/pairing.csv",
+      "bytes": 60194,
+      "sha256": "ff94cba1f9c655e97431950079e4f9a72683ca783cf177582886e1c3f32d00ae",
+      "original_study_relative_path": "prospective/calibration_targets/pairing.csv"
+    },
+    {
+      "path": "prospective/evaluation_targets/pairing.csv",
+      "bytes": 87140,
+      "sha256": "c105c9ec78c5a76767b16604f101d8f8542b78c5dab225289ac925b6a69af064",
+      "original_study_relative_path": "prospective/evaluation_targets/pairing.csv"
+    },
+    {
+      "path": "prospective/plan.csv",
+      "bytes": 9499,
+      "sha256": "a3ada86084133ded0d94863bdb71f6b3990665f98015a514210997a99d1d3dbc",
+      "original_study_relative_path": "prospective/plan.csv"
+    },
+    {
+      "path": "prospective/design.csv",
+      "bytes": 8192,
+      "sha256": "67e6fde610ff004c05f3771ed7d87ac44f8e0c68285d44a7e40cb572c56bc089",
+      "original_study_relative_path": "prospective/design.csv"
+    },
+    {
+      "path": "prospective/screening_decisions.json",
+      "bytes": 99070,
+      "sha256": "4356937ea950a7d41bd9977e354f067a70d83acefe8abff369818095402741a8",
+      "original_study_relative_path": "prospective/screening_decisions.json"
+    },
+    {
+      "path": "prospective/blinded_predictions/manifest.json",
+      "bytes": 1554,
+      "sha256": "d81b661d4f6d8a4eb1e66b40d5a8ef7e5f7853a96df429eba2155eb866588db9",
+      "original_study_relative_path": "prospective/blinded_predictions/manifest.json"
+    },
+    {
+      "path": "prospective/calibration_targets/manifest.json",
+      "bytes": 382,
+      "sha256": "68fe48ec8b42acafbc0990712a3c51555d36c31a2450b3320985c2d71c727ffb",
+      "original_study_relative_path": "prospective/calibration_targets/manifest.json"
+    },
+    {
+      "path": "prospective/evaluation_targets/manifest.json",
+      "bytes": 381,
+      "sha256": "708030072fc1a62e2a3bcfbf489fe76f9eb0b473d20cf5916e19c81c7fa09aa6",
+      "original_study_relative_path": "prospective/evaluation_targets/manifest.json"
+    },
+    {
+      "path": "prospective/hf_calibration_execution.json",
+      "bytes": 8223,
+      "sha256": "2710e07aac89ee4841f654be8eb0974333330e359e2be572e7b5c27b52698e3d",
+      "original_study_relative_path": "prospective/hf_calibration_execution.json"
+    },
+    {
+      "path": "prospective/hf_evaluation_execution.json",
+      "bytes": 11934,
+      "sha256": "044a2d76d3da92a7baef5e54beb99aa48928cedc75a11ba0ce5208fbffde2072",
+      "original_study_relative_path": "prospective/hf_evaluation_execution.json"
+    },
+    {
+      "path": "workflow_regression_verification.json",
+      "bytes": 898,
+      "sha256": "1087e2d0f1c8c4da6a438a14111eb3318d829b9c787d0594cf1f5109ce41a159",
+      "original_study_relative_path": "workflow_regression_verification.json"
+    },
+    {
+      "path": "direct_HF_invariance_verification.json",
+      "bytes": 331,
+      "sha256": "747de21a4f55cb307f98675364ee5ecdb1a5e811198ee01efdd7d84cae5c4a02",
+      "original_study_relative_path": "direct_HF_invariance_verification.json"
+    },
+    {
+      "path": "delivery_subset_replay_failure.json",
+      "bytes": 3045,
+      "sha256": "140e201c9fe567ce3d3315e7962a997b21cfdf87699067dec35a00fff1ff6d1f",
+      "original_study_relative_path": "delivery_subset_replay_failure.json"
+    },
+    {
+      "path": "initial_portable_replay_failure.json",
+      "bytes": 3500,
+      "sha256": "dd54fbec12fb98714d32a247768748ffec8a4efd96331a712b222a9d4f275d34",
+      "original_study_relative_path": "initial_portable_replay_failure.json"
+    },
+    {
+      "path": "reference_native_execution_7303d34a1db7.json",
+      "bytes": 1335,
+      "sha256": "1195ac3f369787d40fcd57fa639d7ccc93b66b7dd27d959bf56833bcb1dc9c15",
+      "original_study_relative_path": "reference_native_execution_7303d34a1db7.json"
+    },
+    {
+      "path": "native_method_control_9828/control.json",
+      "bytes": 3447,
+      "sha256": "76264ea6b3540f932b8b3399ebd307795f183680cd3ab3321fe08dcd69175158",
+      "original_study_relative_path": "native_method_control_9828/control.json"
+    },
+    {
+      "path": "learning_curves/historical_mode_rows.csv",
+      "bytes": 888630,
+      "sha256": "cdd63ea97556c9b97d7e6467c85cf6d90a1773d0cbce79882ecb8d1283041d92",
+      "original_study_relative_path": "learning_curves/historical_mode_rows.csv"
+    },
+    {
+      "path": "decomposition/train_mode_rows.csv",
+      "bytes": 59404,
+      "sha256": "32e5f98d23549ef92ed77a45c5649e07d33ee5c3e411981aa65936ddf652b44f",
+      "original_study_relative_path": "decomposition/train_mode_rows.csv"
+    },
+    {
+      "path": "selection/mode_rows.csv",
+      "bytes": 260477,
+      "sha256": "e2319a3e83435c05ca4acff8771a173c222bc05ca68351cfb970fd4a0dc62ef9",
+      "original_study_relative_path": "selection/mode_rows.csv"
+    },
+    {
+      "path": "region_selection/mode_rows.csv",
+      "bytes": 181341,
+      "sha256": "1e51bec22916e960566a6492d6bf2f53f3081ac0509c08a82b745b51133bc2e9",
+      "original_study_relative_path": "region_selection/mode_rows.csv"
+    }
+  ],
+  "local_only_archives": [
+    "audited_baseline.zip",
+    "p1_improvement_artifacts.zip"
+  ],
+  "bulk_data_model_public_availability": false
+}

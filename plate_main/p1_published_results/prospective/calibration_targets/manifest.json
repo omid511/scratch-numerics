@@ -1,0 +1,10 @@
+{
+  "accepted": 295,
+  "accepted_geometries": 32,
+  "created_at_utc": "2026-10-06T11:40:12.855547+00:00",
+  "frozen_reference_sha256": "96e72842f83ebc75f0c320029e77a20f5f145ce3642d8a8cff1035ad110ba3a1",
+  "quarantined_or_missing": 25,
+  "requested_geometries": 32,
+  "role": "calibration",
+  "training_filename_is_an_inherited_data_contract_not_training_permission": true
+}

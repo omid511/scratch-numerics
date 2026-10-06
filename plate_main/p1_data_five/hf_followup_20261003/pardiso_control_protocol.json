@@ -1,0 +1,33 @@
+{
+  "recorded_before_control_at_utc": "2026-10-05T08:41:41.662659+00:00",
+  "purpose": "Quantify direct-solver change separately from mesh refinement before attempting run3408 mesh2",
+  "run": 3408,
+  "nominal_anchor": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf\\run_3408.npz",
+  "saved_mumps_mesh3": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\mesh_convergence_check\\extreme_angle_3408_mesh3\\hf\\run_3408.npz",
+  "new_control_output": "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\pardiso3408_control_mesh3",
+  "accepted_mode_policy": "Original ten accepted target identities, Hungarian MAC to campaign anchors, global complex phase alignment, interior RMS; no row removal",
+  "identity_flags": "MAC<0.8, assignment margin<0.05, relative frequency gap<=0.005",
+  "control_acceptance": {
+    "max_frequency_change_pct": 0.01,
+    "max_field_rms": 7.5e-05,
+    "flagged_modes": 0
+  },
+  "tolerance_rationale": "One tenth of the predeclared mesh diagnostic tolerances, fixed before control results",
+  "frozen_physics": "unchanged builder/geometry/material/CCCC/1000Hz shift/32 candidates/16 extracted/80x80 grid",
+  "resource_settings": {
+    "cores": 4,
+    "jvm_heap_gib": 8,
+    "scratch_root": "D:/",
+    "control_deadline_minutes": 60,
+    "attempts": 1
+  },
+  "source_sha256": {
+    "hc_HighFidelity_LHS.py": "5fbcc2b294af29a31b14344c992e8b63727180ce5756f2f270267a5895b9fe7c",
+    "p1_geometry.py": "a13bb4b315672b4a9dcdefa2c4a6a449e5c4b6ec54e3afe5d5cc5acd1c496363",
+    "run_hf_batches.py": "103b2e198817355224296f8c3855d751c0e7bbe46a71e2ccd152a16ca64b5cdc"
+  },
+  "initial_experiment_source_sha256": "4289f67be0df4ae6e66565c46b8ff2513f47a8a446c0f63f2388ad03b7768a0d",
+  "experiment_source_sha256": "4141b56b02cd2a8a96fbce19fa874a62d43a6f39539ff086c1a2689fc94dc9e2",
+  "controller_only_correction": "Keep supervision stdlib-only; move numerical imports inside the bounded worker and print import-start phase. Solver/physics settings are unchanged.",
+  "initial_startup_attempts": "pardiso_startup_attempts.json"
+}

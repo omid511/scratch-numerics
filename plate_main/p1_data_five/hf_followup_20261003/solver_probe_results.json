@@ -1,0 +1,36 @@
+{
+  "scope": "Tiny 0.012-m-domain mesh9 API/method smoke, eight candidates/two extracted; not a run3408 reference or convergence result.",
+  "original_settings": {
+    "sol1/e1/dDef": {
+      "linsolver": "mumps",
+      "ooc": "auto",
+      "incore": "auto",
+      "oocmemory": "512",
+      "internalmemusage": "3",
+      "usetotmemory": "0.8",
+      "pardmtsolve": "on",
+      "errorchk": "auto"
+    }
+  },
+  "alternate_settings": {
+    "sol1/e1/dDef": {
+      "linsolver": "pardiso",
+      "ooc": "auto",
+      "incore": "auto",
+      "oocmemory": "512",
+      "internalmemusage": "3",
+      "usetotmemory": "0.8",
+      "pardmtsolve": "on",
+      "errorchk": "auto"
+    }
+  },
+  "alternate_solve_seconds": 3.4071556999999757,
+  "original_frequencies_hz": [
+    65582.15162314879,
+    72314.14408838992
+  ],
+  "alternate_frequencies_hz": [
+    65582.15162314859,
+    72314.14408838973
+  ]
+}

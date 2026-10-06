@@ -1,0 +1,80 @@
+{
+  "campaign_hf_mode": 8,
+  "closest_campaign_hf_mode": 9,
+  "interpretation": "A close pair is just above the original 0.5% near-repeat cutoff. Individual-mode shape changes substantially while its two-field span changes little. This supports numerical basis sensitivity, not individual-shape convergence or physical causal attribution. No accepted row is removed, no target is replaced, and no calibration is changed.",
+  "meshes": {
+    "1": {
+      "frequency_gap_pct": 0.7125167361365553,
+      "frequency_hz": 4653.603017987405,
+      "individual_mac_to_mesh4": 0.9512566261071546,
+      "matched_hf_mode": 8,
+      "mesh4_mode_projection_residual_l2": 0.0008589558124353037,
+      "neighbor_frequency_hz": 4686.998667918824,
+      "neighbor_hf_mode": 9,
+      "neighbor_raw_transverse_peak_ratio": 0.2602807885318937,
+      "principal_angles_degrees": [
+        0.047151112649060474,
+        0.052352154695973076
+      ],
+      "raw_transverse_peak_ratio": 0.3227996131699436,
+      "span_condition_number": 1.002835557030338
+    },
+    "2": {
+      "frequency_gap_pct": 0.7118695711592629,
+      "frequency_hz": 4657.336570449922,
+      "individual_mac_to_mesh4": 0.9691683325136903,
+      "matched_hf_mode": 8,
+      "mesh4_mode_projection_residual_l2": 0.0006865648980489832,
+      "neighbor_frequency_hz": 4690.728438871965,
+      "neighbor_hf_mode": 9,
+      "neighbor_raw_transverse_peak_ratio": 0.25743051370375664,
+      "principal_angles_degrees": [
+        0.03713956245203578,
+        0.04253406876178234
+      ],
+      "raw_transverse_peak_ratio": 0.32642969001445593,
+      "span_condition_number": 1.0028012633070522
+    },
+    "3": {
+      "frequency_gap_pct": 0.7157334720935759,
+      "frequency_hz": 4659.1613344460375,
+      "individual_mac_to_mesh4": 0.9799153304453858,
+      "matched_hf_mode": 8,
+      "mesh4_mode_projection_residual_l2": 0.0006092582046355749,
+      "neighbor_frequency_hz": 4692.748909150131,
+      "neighbor_hf_mode": 9,
+      "neighbor_raw_transverse_peak_ratio": 0.256342152313627,
+      "principal_angles_degrees": [
+        0.03302435804179399,
+        0.03872907840804751
+      ],
+      "raw_transverse_peak_ratio": 0.3304307770818328,
+      "span_condition_number": 1.0027629484196021
+    },
+    "4": {
+      "frequency_gap_pct": 0.772759248273753,
+      "frequency_hz": 4667.936325308302,
+      "individual_mac_to_mesh4": 1.0,
+      "matched_hf_mode": 8,
+      "mesh4_mode_projection_residual_l2": 2.355140544002626e-16,
+      "neighbor_frequency_hz": 4704.289154817695,
+      "neighbor_hf_mode": 9,
+      "neighbor_raw_transverse_peak_ratio": 0.24980719089328118,
+      "principal_angles_degrees": [
+        0.0,
+        2.091309789151873e-06
+      ],
+      "raw_transverse_peak_ratio": 0.3442722320814841,
+      "span_condition_number": 1.0024784159435258
+    }
+  },
+  "quantity": "Extracted top-surface transverse-field span, not a full-DOF or mass-weighted eigenspace",
+  "reference_span_condition_number": 1.0024784159435258,
+  "run": 2209,
+  "selection": "Fixed unstable accepted mode; neighbor selected by smallest mesh4 frequency gap, not by projection fit",
+  "source_sha256": {
+    "analyze_mode7.py": "db777ba36e1be72f495c801cc1191c78395ddb924cc85cc91e124ae4fafd1ad0",
+    "p1_pairing.py": "0c46c551198bcf0702237a33c79e3dfd8c9842583bfc8de800c3d2dcc319c93d"
+  },
+  "stable_target_mode": 7
+}

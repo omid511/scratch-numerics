@@ -1,0 +1,77 @@
+{
+  "baseline_caution": "Fourier-feature ridge coordinate model is not a trained neural INR MLP; its weakness establishes no superiority over neural INRs.",
+  "configuration": {
+    "fourier_features": 64,
+    "fourier_max_points": 120000,
+    "fourier_ridge": 0.0001,
+    "gp_max_iterations": 80,
+    "seed": 42,
+    "test_rows": 150,
+    "test_runs": 16,
+    "train_rows": 431,
+    "train_runs": 48
+  },
+  "models": {
+    "cokriging": {
+      "field": {
+        "max": 0.1525212404795478,
+        "median": 0.007650663245929392,
+        "p95": 0.05323128881282684
+      },
+      "frequency": {
+        "max": 15.17004701943165,
+        "median": 1.2558303005011084,
+        "p95": 6.650515809664047
+      }
+    },
+    "fourier_inr_proxy": {
+      "field": {
+        "max": 0.17745910424741893,
+        "median": 0.03994045647139441,
+        "p95": 0.1083250039734225
+      }
+    },
+    "fsdt": {
+      "field": {
+        "max": 0.16632705516807883,
+        "median": 0.01369892284082921,
+        "p95": 0.08428751013500486
+      },
+      "frequency": {
+        "max": 33.97849285138063,
+        "median": 4.921774473406268,
+        "p95": 14.987965246702903
+      }
+    },
+    "latent_gp": {
+      "field": {
+        "max": 0.15459092841125224,
+        "median": 0.0076577761861500665,
+        "p95": 0.046186060070279276
+      },
+      "frequency": {
+        "max": 15.17004701943165,
+        "median": 1.2558303005011084,
+        "p95": 6.650515809664047
+      }
+    }
+  },
+  "paired": {
+    "frequency_paths_max_abs_difference": 0.0,
+    "geometry_bootstrap_95_percent_interval": [
+      -0.0007202568331750505,
+      0.00031451072459665465
+    ],
+    "latent_geometry_median_wins_over_cokriging": 7,
+    "latent_geometry_median_wins_over_fsdt": {
+      "field": 11,
+      "frequency": 14
+    },
+    "latent_row_wins": 64,
+    "median_of_geometry_paired_medians": 9.05622463724747e-05,
+    "orientation": "latent minus co-kriging; positive favors co-kriging",
+    "row_mean": -0.0004863383263150297,
+    "row_median": 0.00017238528223614542,
+    "rows": 150
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "baseline_manifest_sha256": "b43ae170a8854eceebecc93bb35f0073a76ea61866e163458ebe6d3706590abf",
+  "decomposition": {
+    "hypothesis": "Regression dominates typical field errors; difficult tails can additionally contain representation and reference sensitivity.",
+    "identity": "Total error = regression-in-field-space + oracle representation error; report the MSE cross term, not a false additive variance attribution.",
+    "reference_limit": "Finer-reference drift is observed sensitivity, not an exact error bar or converged truth."
+  },
+  "delivery": "Reproducible matched source/raw data/models/predictions/protocols/figures; claim-by-claim outcomes including failures; no upload without user authorization.",
+  "engineering": {
+    "acceptance": "Positive benefit only with fewer HF calls and zero observed false acceptances; quantify finite-sample uncertainty; ambiguous/unverified identities cannot count as successes.",
+    "claim_limit": "Decisions verified against the declared COMSOL reference; no universal physical safety guarantee.",
+    "metrics": [
+      "False acceptances",
+      "False rejections",
+      "HF referral fraction",
+      "Verified saved HF calls",
+      "Training/LF/HF/inference cost"
+    ],
+    "task": "Screen a predeclared first-mode frequency threshold; confident accept/reject or HF referral.",
+    "threshold": "Median first-mode HF frequency among original train geometries, fixed before prospective labels; a benchmark threshold, not an external service safety requirement."
+  },
+  "isolation": {
+    "historical_calibration_test": "Diagnostics and historical benchmarks only; not untouched evidence or model-selection labels.",
+    "model_selection": "Original 48 train geometries only; geometry-grouped CV; every scaler/decoder fitted within its training fold.",
+    "prospective": "Freeze fitted models/configuration/metrics before new evaluation geometries and HF labels; independent calibration; no final-label tuning."
+  },
+  "learning_curves": {
+    "families": [
+      "Direct-HF",
+      "Original PCA-GP correction",
+      "Co-kriging",
+      "Genuine neural INR"
+    ],
+    "hf_train_budgets": [
+      8,
+      16,
+      24,
+      32,
+      48
+    ],
+    "policy": "Same nested geometry subsets and historical evaluation cases for all families; fit representation on each subset; report tuning and runtime, and do not select models from historical-test curves.",
+    "repeats": 3
+  },
+  "physical_scope": "Five variables; fixed Al/CCCC; original FSDT order15 and COMSOL shell builder; no aerodynamic or damage extension.",
+  "prospective": {
+    "calibration_count": 32,
+    "distribution": "Independent uniform draws within the five original physical bounds; IID calibration/test use the same distribution.",
+    "excluded_region_challenge_count": 16,
+    "geometry_generation": "Only after model freeze; deterministic independent RNG streams, new run IDs above10000, no duplicate old designs.",
+    "iid_test_count": 32,
+    "region": "theta_c>=60 degrees; separate exclusion model fitted/tuned only below60; calibrate its in-region-of-training scale below60 and report challenge coverage as shift diagnostics, not a guarantee."
+  },
+  "recorded_at_utc": "2026-10-05T20:15:52.582666+00:00",
+  "reference": {
+    "acceptance": "Retain individual modes regardless of outcome. Accept subspace interpretation only with stable quadrature and observed span stability; never call a sampled-field span full-DOF convergence.",
+    "additional_solve_policy": "Choose a specific numerical experiment only after diagnosis; no unchanged automatic retry or blind largest-mesh escalation.",
+    "diagnostics": [
+      "Individual MAC/RMS/frequency gaps",
+      "Top-transverse span",
+      "Common-shell mass-weighted full displacement/director span if native variables are available",
+      "Quadrature sensitivity"
+    ],
+    "hypothesis": "Close-mode numerical basis mixing explains individual-shape drift better than a change in the modal subspace.",
+    "mesh_targets": {
+      "field_rms": 0.00075,
+      "frequency_pct": 0.1
+    },
+    "neighbor_selection": "Nearest campaign-reference frequency; fixed before projecting any finer fields.",
+    "quadrature_angle_target_degrees": 0.05,
+    "quadrature_levels": [
+      {
+        "face_order": 40,
+        "wall_order": 2
+      },
+      {
+        "face_order": 80,
+        "wall_order": 4
+      }
+    ],
+    "runs": {
+      "2209": {
+        "accepted_mode": 7
+      },
+      "3408": {
+        "accepted_mode": 10
+      }
+    }
+  },
+  "resources": {
+    "concurrent_native_jobs": 1,
+    "heartbeat_seconds": 60,
+    "java_heap_gib": 8,
+    "native_cores": 4,
+    "native_worker_deadline_minutes": 360,
+    "policy": "Durable stage/native progress; retain failures; all owned worker trees stopped on parent loss or deadline.",
+    "prospective_save_full_model": false,
+    "scratch_root": "D:/",
+    "timeout_retries": 0
+  },
+  "seed": 20261005,
+  "selection": {
+    "candidate_policy": "Small, finite targeted GP/representation changes chosen from training-only decomposition; no automatic nonlinear-decoder upgrade.",
+    "folds": 4,
+    "gp_max_iterations": 80,
+    "neural_scope": "Required by proposal: genuine coordinate-conditioned MLP with design, mode and LF conditioning, structural boundary factor; Fourier ridge remains labeled as a proxy.",
+    "neural_steps": 1500,
+    "primary": "Geometry-level median field RMS",
+    "promotion": "At least5% primary improvement over original PCA48/RBF with no more than5% degradation in frequency median or field P95 on identical train-only folds; retain negative results.",
+    "secondary": [
+      "Geometry-level frequency relative error",
+      "Field P95 and maximum",
+      "Decoder oracle error"
+    ],
+    "seed": 20261005
+  },
+  "uncertainty": {
+    "caution": "Finite conformal ranks do not establish sharpness, stable estimated coverage or conditional/shift coverage.",
+    "coverage_levels": [
+      90,
+      95
+    ],
+    "hypothesis": "Training-only error-informed uncertainty can provide sharper useful referral decisions than raw GP scales.",
+    "metrics": [
+      "Marginal/simultaneous/joint coverage",
+      "Width",
+      "Proper interval score",
+      "Geometry error discrimination",
+      "Risk versus referral/retained fraction"
+    ],
+    "selection": "Train-only validation; any residual-based scale fitted without the validation geometry; final calibration changes widths only."
+  },
+  "version": 1
+}

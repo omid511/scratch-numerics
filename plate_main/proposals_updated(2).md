@@ -31,62 +31,122 @@ Each proposal produces a standalone result on its own (see individual project ch
 
 ## Proposal 1: Multi-Fidelity Correction Field via Latent-Space Gaussian Process
 
-### 1. Scientific Justification
-The LF implementation does not use a constant global ``kappa = 5/6``.  It
-computes layerwise modified shear-correction factors using the
-Vlachoutsis-style laminate integrals; the baseline factor is approximately
-0.16875 for the current reference laminate.  Proposal 1 therefore learns the
-remaining discrepancy between this implemented FSDT model and the explicit
-shell reference, rather than attributing the whole gap to replacing 5/6.
-The source paper's fixed CCCC comparison cases report an approximately 4%
-FSDT-versus-FEM difference; that number is a benchmark, not a design-wide
-pilot result.  The correction model must measure, rather than assume, how the
-error varies across the sampled design conditions.
+**Current status:** completed, bounded five-variable COMSOL/FSDT study with
+prospectively blinded evaluation. See the [final P1 report](P1_IMPROVEMENT_REPORT.md),
+[historical audit](P1_RESULTS_REVIEW.md), and
+[source/data availability contract](P1_REPRODUCIBILITY.md).
+The broader original proposal is not declared complete by this result.
 
-**Positioning against existing multi-fidelity surrogate work:** this is not generic multi-fidelity regression (fitting a cheap-to-expensive mapping for its own sake). The contribution is a **physics-consistent correction field with calibrated uncertainty** — boundary behavior is enforced by construction rather than learned, and the uncertainty is specifically epistemic over the design space (grows outside sampled conditions) rather than a generic residual-noise estimate. That distinction should be stated explicitly wherever this proposal is written up, since it's what separates it from a standard multi-fidelity Kriging/co-kriging baseline.
+### 1. Scientific Justification and Contribution
 
-### 2. Data Strategy (unchanged from v2)
-- **LF dataset:** 10,000–20,000 samples from the 0.3s FSDT solver.
-- **HF dataset:** 50–100 Abaqus runs, spent deliberately using a sensitivity analysis on the LF solver first, Latin Hypercube weighted toward the parameters that actually matter, one well-designed batch (not iterative — Abaqus turnaround is days, not hours).
-- Full varied-parameter list (boundary stiffnesses k₁–k₅, cell wall thickness, cell angle θc, independent face/core layer thicknesses, aerodynamic pressure) should be written down explicitly, since this — not an assumed dimensionality — determines HF sample adequacy.
-- Split by HF run, not by pixel, when forming train/val/test sets, to avoid leakage.
+The executed LF model already uses layerwise modified shear-correction
+factors from laminate integrals; it is not a constant-global-5/6 model.
+The learned discrepancy therefore cannot be attributed solely to replacing
+that factor. The source paper's approximately four-percent fixed-case
+comparison is a benchmark, not a uniform design-space error bound.
 
-### 3. Proposed Architecture (finalized)
+The contribution is an explicitly audited correction experiment:
+geometry-grouped learning, guarded mode identities and quarantine records,
+train-only representation/regression diagnosis, matched HF budgets,
+independent calibration, genuinely prospective evaluation and an
+HF-verified frequency-screening task. PCA/GP, co-kriging and neural INR
+architectures are established methods; no generally superior new
+architecture or uniformly epistemic uncertainty is claimed.
 
-**Key statistical structure to design around:** each of the 50–100 HF runs gives thousands of correlated spatial points, but there are only 50–100 *independent* observations across the design space. Architectures that implicitly treat every pixel as an independent sample overstate how much design-space data they actually have. The right architecture should exploit the dense spatial supervision while being honest that the design-space coverage is what's actually scarce.
+### 2. Executed Physical Scope and Data
 
-**Recommended: latent-space correction + Gaussian Process.**
+- Five geometric variables: `alpha`, `beta`, `theta_c`, `eta1`, `eta2`.
+  Fixed 0.3-m plate length, aluminium material and CCCC configuration.
+- LF: implemented FSDT/Legendre-Ritz solver, order15, 16 flexural modes,
+  80x80 top-surface field grid and penalty-spring CCCC treatment.
+- HF: explicit-cell COMSOL shell model, nominal hauto4, 32 eigenvalue
+  candidates/16 guarded flexural exports, 80x80 grid and shift1000Hz.
+  The original physical builder and solver were not changed for prospective data.
+- Historical campaign: 10,000 LF designs and80 HF runs, with48 training,
+  16 calibration and16 historical test geometries;721 accepted mode rows.
+  Dense pixels do not increase the number of independent design observations.
+- After freezing means, scale recipes, sources, reference gauge and threshold:
+  32 new calibration,32 new IID test and16 theta>=60 challenge geometries.
+  All80 native acquisitions succeeded. Pairing accepts295/320 calibration
+  and448/480 evaluation rows; quarantines remain explicit.
+- IID calibration/test are independent physical-uniform draws within the
+  original bounds. The regional model is trained/tuned only below60 degrees
+  on34 historical training geometries and calibrated on23 eligible new
+  geometries. Its challenge is distribution-shift diagnosis, not guaranteed
+  extrapolative coverage. The global model did not exclude that region.
 
-```
-Stage 1 (spatial):  HF−LF correction fields  →  encoder/decoder (autoencoder)  →  latent z (10–50 dims)
-Stage 2 (design):    design parameters θ     →  Gaussian Process  →  posterior over z  →  decoder  →  corrected field
-```
+### 3. Implemented Models and Promotion Decisions
 
-- The decoder learns spatial structure from the dense per-run fields (thousands of points per run) — this is the part with plenty of data.
-- The GP models the map from design parameters to the compact latent code — this is the part that's actually data-starved (50–100 points), and a GP is the right tool for exactly that regime: closed-form uncertainty that grows outside the sampled design region, rather than an unconstrained neural extrapolation.
-- This directly replaces the original "branch-net-based DeepONet" plan — a full neural branch net is the component most at risk of overfitting on only 50–100 unique design examples; separating spatial complexity (handled by the decoder) from design complexity (handled by the GP) is a better match to the data's actual shape.
+The frozen global mean remains **boundary-enforced linear PCA48 plus
+per-mode ARD RBF GP correction**, with a separate per-mode relative-frequency
+GP. This is not a neural autoencoder. The perimeter factor enforces zero
+transverse correction, not exact normal derivatives, exact CCCC total
+fields, a corrected stiffness/mass operator or eigen-consistency.
 
-**Boundary conditions — enforced structurally, not learned:**
-$$\Delta(x,y) = b(x,y)\,\hat\Delta(x,y), \quad b(x,y) = x(1-x)y(1-y) \text{ or a signed-distance equivalent}$$
-This guarantees the correction vanishes at the domain edge by construction, at no training cost.
+Direct-HF, original PCA–GP, physical-output PCA–GP, co-kriging and an actual
+coordinate-conditioned PyTorch neural INR were fitted and evaluated.
+The genuine INR conditions on design, stable mode identity and LF inputs;
+the historical Fourier-feature ridge proxy remains separately labelled.
 
-**Baseline to build alongside (not optional — reviewers will ask for it):** a coordinate-conditioned implicit residual network (INR-style: MLP decoder queried at arbitrary (x,y), conditioned on design + LF field) is the more direct neural formulation and a reasonable baseline to compare against the latent+GP pipeline. It shares the boundary-enforcement trick but skips the latent compression step — useful to know whether the compression is actually buying you anything.
+Train-only geometry-grouped validation decomposes decoder representation
+and regression errors, including the MSE cross term. No new global mean
+passes the predeclared promotion gate, despite better physical-output PCA
+oracle reconstruction. Regional co-kriging/RBF passes its in-region gate.
+Local residual-based scales fail both UQ promotion gates, so raw scales remain
+selected. No final-test result is used to change these decisions.
 
-**Known limitation to check for, not just note:** the decoder is deterministic — if a real correction has spatial structure never seen in the 50–100 training fields, the GP layer can't rescue it. Sanity check: held-out reconstruction error on the decoder alone before trusting the full pipeline.
+### 4. Validation, Measured Results and Engineering Task
 
-### 4. Validation (unchanged from v2)
-Leave-p-out CV over HF runs, pointwise error maps (not just aggregate norms), coverage checks on the GP's uncertainty against held-out FEM.
+All90 matched-budget trials complete across HF budgets8/16/24/32/48 and
+three nested repeats. Tuned families receive identical train-only splits
+and two configurations per family within each counted budget. These curves
+use historical test cases; repeat extrema are not confidence intervals,
+and no universal HF-efficiency winner is established.
 
-### 5. Project Charter
-- **Primary claim:** a latent+GP correction model, trained on <=100 HF samples,
-  should be tested for improvement against the fixed-case benchmark and
-  validated by held-out HF runs; calibrated uncertainty must grow
-  appropriately outside the sampled design region.  No universal 4% pilot
-  claim is permitted without the corresponding held-out evidence.
-- **MVP:** fixed decoder (no active learning yet) trained on one deliberately-designed HF batch; GP fit on top; compared against the plain co-kriging baseline from v1 and the INR baseline above; evaluated via leave-p-out CV.
-- **Upgrade path:** if the MVP's GP uncertainty is poorly calibrated or the decoder underfits observed correction diversity, consider a richer decoder (e.g. neural operator backbone) or a second HF batch guided by GP uncertainty. Only pursue if the MVP result specifically points at one of these as the bottleneck.
-- **Dependencies:** none required from other proposals; can share encoder/decoder infrastructure with Proposal 2 (see cross-cutting notes) but isn't blocked by it.
-- **Stop condition:** MVP result plus one upgrade attempt (if justified) is sufficient; don't chase additional architecture variants without a specific observed limitation motivating each one.
+On32 untouched IID geometries, geometry-median field RMS decreases from
+**0.01476687 LF to0.005104386 selected PCA–GP**, and frequency error from
+**4.585452% to0.9468742%**. Pooled accepted-mode-row medians are different:
+selected field RMS0.00559255 and frequency error1.012241% over298 rows.
+Complete comparator/tail metrics are in the committed text results.
+Candidates that score better on evaluation medians are not post-test promoted.
+
+Independent run-simultaneous selected-mean joint coverage is29/32 at90%
+and32/32 at95%; the95% mean joint field/frequency widths are0.835769 and
+2833.78Hz. Proper scores, discrimination, referral curves and finite-sample
+intervals remain load-bearing: broad intervals and weak ranking do not
+establish uniformly useful or purely epistemic uncertainty.
+
+The separately calibrated95% frequency policy screens stable reference
+label1 against the frozen961.333328-Hz benchmark. IID:4/32 HF referrals,
+zero observed false acceptances/rejections and28 verified correct automatic
+decisions, versus24/32 referrals for calibrated LF-only screening.
+Challenge:4/16 referrals, zero false acceptances and one false rejection.
+The task is not a service-safety certificate or a complete-spectrum
+fundamental-frequency guarantee. The validation campaign acquired every HF
+reference; saved calls/time are counterfactual operating savings with setup
+costs retained, not net campaign-cost savings.
+
+### 5. Claim Boundaries, Reproducibility and Remaining Extensions
+
+Mass-weighted sampled displacement/director two-mode spans support modal
+mixing for2209/3408. Thickness, offsets, coupling, rotary inertia and
+quadrature sensitivity are included, but individual-field convergence
+failures remain. No full-DOF or campaign-wide reference-error certificate,
+success on quarantined identities or OOD coverage guarantee is asserted.
+
+The original proposal contemplated Abaqus, broader boundary/aerodynamic
+variables, learned autoencoders and active-learning/operator extensions.
+Those are not completed by the fixed-material, fixed-CCCC COMSOL result;
+damage, aerodynamic and experimental validation require separate evidence.
+
+The GitHub handoff publishes P1 source, meaningful tests, recorded
+environment, Markdown and checksum-identified JSON/CSV results only.
+Per the publication restriction, **no MPH simulation files, ZIP archives,
+raw bulk arrays or fitted binary weights are uploaded**. The immutable full
+archives and successful portable800-row/six-model replay evidence remain
+local. A public clean checkout can inspect results and exercise code but
+cannot replay unavailable bulk inputs/weights by itself; do not call this
+a publicly downloadable complete data/model release.
 
 ---
 

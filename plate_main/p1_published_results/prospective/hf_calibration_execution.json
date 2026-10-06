@@ -1,0 +1,265 @@
+{
+  "completed": 32,
+  "group": "calibration",
+  "model_freeze_sha256": "7a28b4d600e54d722cffb8c127a8a13f285eb19ffc5d5616b796e44ab387868f",
+  "one_attempt_per_geometry": true,
+  "outcomes": [
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T09:48:46.663210+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10001,
+      "started_at_utc": "2026-10-06T09:46:24.576116+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T09:54:13.892906+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10002,
+      "started_at_utc": "2026-10-06T09:48:46.667747+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T09:56:37.712528+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10003,
+      "started_at_utc": "2026-10-06T09:54:13.898653+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T09:59:54.569497+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10004,
+      "started_at_utc": "2026-10-06T09:56:37.717427+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:02:13.294547+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10005,
+      "started_at_utc": "2026-10-06T09:59:54.573860+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:08:22.264294+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10006,
+      "started_at_utc": "2026-10-06T10:02:13.298404+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:11:40.183879+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10007,
+      "started_at_utc": "2026-10-06T10:08:22.271182+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:18:08.699103+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10008,
+      "started_at_utc": "2026-10-06T10:11:40.188745+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:20:32.508564+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10009,
+      "started_at_utc": "2026-10-06T10:18:08.702944+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:23:05.667879+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10010,
+      "started_at_utc": "2026-10-06T10:20:32.512219+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:25:43.110239+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10011,
+      "started_at_utc": "2026-10-06T10:23:05.672055+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:29:08.121146+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10012,
+      "started_at_utc": "2026-10-06T10:25:43.116026+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:30:49.625904+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10013,
+      "started_at_utc": "2026-10-06T10:29:08.125045+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:33:51.172474+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10014,
+      "started_at_utc": "2026-10-06T10:30:49.630057+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:37:04.247117+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10015,
+      "started_at_utc": "2026-10-06T10:33:51.176545+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:41:27.394432+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10016,
+      "started_at_utc": "2026-10-06T10:37:04.250899+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:43:50.102866+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10017,
+      "started_at_utc": "2026-10-06T10:41:27.398064+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:49:34.386354+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10018,
+      "started_at_utc": "2026-10-06T10:43:50.106988+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:53:51.586631+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10019,
+      "started_at_utc": "2026-10-06T10:49:34.390104+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T10:56:25.420930+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10020,
+      "started_at_utc": "2026-10-06T10:53:51.590713+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:04:20.383137+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10021,
+      "started_at_utc": "2026-10-06T10:56:25.424471+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:06:40.647928+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10022,
+      "started_at_utc": "2026-10-06T11:04:20.389790+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:08:36.070389+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10023,
+      "started_at_utc": "2026-10-06T11:06:40.651947+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:13:09.678913+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10024,
+      "started_at_utc": "2026-10-06T11:08:36.074216+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:15:14.216772+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10025,
+      "started_at_utc": "2026-10-06T11:13:09.682517+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:18:08.291033+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10026,
+      "started_at_utc": "2026-10-06T11:15:14.220813+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:22:57.735355+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10027,
+      "started_at_utc": "2026-10-06T11:18:08.294693+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:25:22.785136+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10028,
+      "started_at_utc": "2026-10-06T11:22:57.739219+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:28:27.522245+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10029,
+      "started_at_utc": "2026-10-06T11:25:22.789668+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:31:11.129492+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10030,
+      "started_at_utc": "2026-10-06T11:28:27.526908+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:33:29.577409+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10031,
+      "started_at_utc": "2026-10-06T11:31:11.134605+00:00"
+    },
+    {
+      "exit_code": 0,
+      "finished_at_utc": "2026-10-06T11:40:08.601586+00:00",
+      "group": "calibration",
+      "owned_scratch_removed": true,
+      "run": 10032,
+      "started_at_utc": "2026-10-06T11:33:29.581057+00:00"
+    }
+  ],
+  "requested": 32
+}

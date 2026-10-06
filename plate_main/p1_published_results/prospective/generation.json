@@ -1,0 +1,32 @@
+{
+  "design_sha256": "67e6fde610ff004c05f3771ed7d87ac44f8e0c68285d44a7e40cb572c56bc089",
+  "distribution": "Independent physical-uniform draws; IID calibration/test identical, unlike the historical density-transformed LHS.",
+  "duplicate_identity_rounding_digits": 12,
+  "generated_at_utc": "2026-10-06T09:39:28.581352+00:00",
+  "groups": {
+    "calibration": 32,
+    "challenge": 16,
+    "iid": 32
+  },
+  "model_freeze_sha256": "7a28b4d600e54d722cffb8c127a8a13f285eb19ffc5d5616b796e44ab387868f",
+  "model_frozen_at_utc": "2026-10-06T09:39:20.827965+00:00",
+  "old_geometries_checked": 10000,
+  "plan_sha256": "a3ada86084133ded0d94863bdb71f6b3990665f98015a514210997a99d1d3dbc",
+  "random_streams": {
+    "calibration": [
+      20261005,
+      610,
+      0
+    ],
+    "challenge": [
+      20261005,
+      610,
+      2
+    ],
+    "iid": [
+      20261005,
+      610,
+      1
+    ]
+  }
+}

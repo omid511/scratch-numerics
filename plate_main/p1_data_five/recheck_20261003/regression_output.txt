@@ -1,0 +1,6 @@
+Wrote 3 designs to C:\Users\LEGION\AppData\Local\Temp\tmpa99at3oo\samples.csv; use the same table for LF and HF.
+.................................
+----------------------------------------------------------------------
+Ran 33 tests in 1.334s
+
+OK

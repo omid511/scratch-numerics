@@ -1,0 +1,16 @@
+{
+  "verified_at_utc": "2026-10-06T09:46:30.326949+00:00",
+  "command": [
+    "python",
+    "-m",
+    "unittest",
+    "test_p1_improvement",
+    "test_p1_full_workflow",
+    "test_p1_pairing",
+    "test_p1_surrogate",
+    "test_regressions"
+  ],
+  "exit_code": 0,
+  "stdout": "Worker PID 18148; durable log: C:\\Users\\LEGION\\AppData\\Local\\Temp\\tmp8h1proat\\worker.log\n2026-10-06T09:46:28.953803+00:00 Worker PID 18148 still running; elapsed 0.1 minutes; log C:\\Users\\LEGION\\AppData\\Local\\Temp\\tmp8h1proat\\worker.log\nWorker deadline reached after 0.1 minutes; process tree stopped.\nWrote 3 designs to C:\\Users\\LEGION\\AppData\\Local\\Temp\\tmpd8bqul20\\samples.csv; use the same table for LF and HF.\n",
+  "stderr": "...........................................\n----------------------------------------------------------------------\nRan 43 tests in 4.841s\n\nOK\n"
+}

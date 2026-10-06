@@ -1,0 +1,29 @@
+{
+  "accepted_modes": 10,
+  "bundle_sha256": {
+    "alternate": "39debda866051de033d659195d64983873eacd650601faa7d71111b4ceba3cf0",
+    "anchor": "c05ebaf7ebacbb370d91fcddfc95bdf0cfcdfafc3c5002a77936ae319ac3384b",
+    "original": "4f87570fbaad7e4371c1c1c69c8e2d4ddb0f59691a59574bfe94e8b71c062a56"
+  },
+  "declared_limits": {
+    "flagged_modes": 0,
+    "max_field_rms": 7.5e-05,
+    "max_frequency_change_pct": 0.01
+  },
+  "field_rms": {
+    "max": 3.8133657962448465e-06,
+    "median": 4.1145736390574135e-07,
+    "p95": 3.4766276920948655e-06
+  },
+  "flagged_modes": 0,
+  "frequency_change_pct": {
+    "max": 0.00011997840905496345,
+    "median": 5.670672520737561e-06,
+    "p95": 7.451485997789417e-05
+  },
+  "mesh_size": 3,
+  "passed": true,
+  "run": 3408,
+  "scope": "Same geometry, same mesh3, same accepted identities; numerical linear-solver control, not mesh convergence or campaign-wide truth.",
+  "source_sha256": "35e7a83ced65dc0e9e78fb21611cb66c8e488e758f50af6bd5a41881b887f056"
+}

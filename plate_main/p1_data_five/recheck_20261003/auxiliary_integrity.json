@@ -1,0 +1,31 @@
+{
+  "correction_csvs_exact": 721,
+  "oof_metric_rows": 1293,
+  "oof_folds_training_only": true,
+  "oof_field_metric_max_abs_difference": 1.249000902703301e-16,
+  "frozen_core_sha256": {
+    "design": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+    "design_manifest": "b36150ffd425b2f783abd5a56a4676bea0beea9dac74c8210cc2d8e54614d621",
+    "hf_plan": "887eed56704e1740f324ded7adc14fff55590b7adad51dfec03f80df82c1b042",
+    "holdout": "714ec7be9da3b69e839b07d78ecb4ab19902401f7cb4781e80124e43f93635fc",
+    "target_manifest": "8d3c3de975a756f458c800fddac0a1a3e06897d5692b17e5f5fd77b22795318e"
+  },
+  "lf_orders": [
+    15
+  ],
+  "lf_code_hashes": [
+    "a307ec7a9b771e633167031e3c9f9dcda00ae8cff8927caff32a49dc4b1c4d00"
+  ],
+  "lf_design_hashes_match": true,
+  "saved_decoder_matches_fresh_training_only_fit": {
+    "x": true,
+    "y": true,
+    "boundary_mask": true,
+    "interior_mask": true,
+    "envelope": true,
+    "mean": true,
+    "components": true,
+    "singular_values": true,
+    "residual_variance": true
+  }
+}

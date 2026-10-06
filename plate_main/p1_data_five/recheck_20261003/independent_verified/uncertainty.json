@@ -1,0 +1,170 @@
+{
+  "caution": "150 rows are dependent modes from 16 geometries. Conformal validity assumes exchangeability, not established by deterministic sensitivity-weighted maximin selection; observed coverage is descriptive.",
+  "coverage": {
+    "calibrated": {
+      "evaluated_runs": 16,
+      "field_covered_runs": [
+        422,
+        1190,
+        1826,
+        2802,
+        3377,
+        3408,
+        4082,
+        4352,
+        4470,
+        5873,
+        6148,
+        7862,
+        8539,
+        9311,
+        9779
+      ],
+      "field_pointwise": 0.9997435897435898,
+      "frequency_covered_runs": [
+        422,
+        1190,
+        1826,
+        2209,
+        2802,
+        3377,
+        3408,
+        4082,
+        4470,
+        5873,
+        6148,
+        7862,
+        8539,
+        9311,
+        9779
+      ],
+      "frequency_mode_pair": 0.9933333333333333,
+      "joint_covered_runs": [
+        422,
+        1190,
+        1826,
+        2802,
+        3377,
+        3408,
+        4082,
+        4470,
+        5873,
+        6148,
+        7862,
+        8539,
+        9311,
+        9779
+      ],
+      "mean_field_width": 0.9775260425830882,
+      "mean_frequency_width_hz": 761.5007337865294
+    },
+    "raw": {
+      "evaluated_runs": 16,
+      "field_covered_runs": [
+        1190,
+        1826,
+        9779
+      ],
+      "field_pointwise": 0.9306706114398422,
+      "frequency_covered_runs": [
+        422,
+        1190,
+        1826,
+        2209,
+        3377,
+        4082,
+        5873,
+        8539,
+        9311
+      ],
+      "frequency_mode_pair": 0.8533333333333334,
+      "joint_covered_runs": [
+        1190,
+        1826
+      ],
+      "mean_field_width": 0.062025434819793536,
+      "mean_frequency_width_hz": 238.03198455100681
+    }
+  },
+  "errors": {
+    "field": {
+      "max": 0.15459092841125224,
+      "median": 0.0076577761861500665,
+      "p95": 0.046186060070279276
+    },
+    "frequency": {
+      "max": 15.17004701943165,
+      "median": 1.2558303005011084,
+      "p95": 6.650515809664047
+    }
+  },
+  "geometry_spearman": {
+    "field": 0.4647058823529412,
+    "frequency_relative": 0.3323529411764706
+  },
+  "row_spearman": {
+    "field": 0.707243877505667,
+    "frequency_hz": 0.5008702609004845,
+    "frequency_relative": 0.23375083337037203,
+    "legacy_frequency_mixed_units": 0.227467887461665
+  },
+  "rows": 150,
+  "runs": 16,
+  "widths": {
+    "field_std_median": 0.31321519035104173,
+    "frequency_std_hz_median": 183.50268502172435,
+    "frequency_std_pct_median": 6.545204049973373
+  },
+  "within_mode_spearman": {
+    "1": {
+      "field": 0.6794117647058824,
+      "frequency_relative": 0.09411764705882353,
+      "rows": 16
+    },
+    "10": {
+      "field": 0.2703296703296703,
+      "frequency_relative": 0.45494505494505494,
+      "rows": 14
+    },
+    "2": {
+      "field": 0.6941176470588235,
+      "frequency_relative": 0.14411764705882352,
+      "rows": 16
+    },
+    "3": {
+      "field": 0.6852941176470588,
+      "frequency_relative": 0.0588235294117647,
+      "rows": 16
+    },
+    "4": {
+      "field": 0.6178571428571428,
+      "frequency_relative": 0.007142857142857141,
+      "rows": 15
+    },
+    "5": {
+      "field": 0.024999999999999998,
+      "frequency_relative": 0.11428571428571425,
+      "rows": 15
+    },
+    "6": {
+      "field": -0.23076923076923075,
+      "frequency_relative": 0.3230769230769231,
+      "rows": 14
+    },
+    "7": {
+      "field": 0.5120879120879122,
+      "frequency_relative": -0.221978021978022,
+      "rows": 14
+    },
+    "8": {
+      "field": 0.03823529411764706,
+      "frequency_relative": 0.7529411764705882,
+      "rows": 16
+    },
+    "9": {
+      "field": -0.1912087912087912,
+      "frequency_relative": 0.1252747252747253,
+      "rows": 14
+    }
+  }
+}

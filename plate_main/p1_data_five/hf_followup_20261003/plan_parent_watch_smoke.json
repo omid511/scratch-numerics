@@ -1,0 +1,26 @@
+{
+  "native_solver_started": false,
+  "legacy_outer_wait": {
+    "processes_still_running_after_launcher_exit": {
+      "worker": true,
+      "descendant": true,
+      "plan": true,
+      "driver": true
+    }
+  },
+  "bounded_plan": {
+    "processes_still_running_after_launcher_exit": {
+      "worker": false,
+      "descendant": false,
+      "plan": false,
+      "driver": false
+    },
+    "exit_codes": {
+      "worker": 1,
+      "descendant": 1,
+      "plan": 130,
+      "driver": 130
+    },
+    "output": "{\n  \"schema_version\": 1,\n  \"artifact\": \"p1_hf_execution\",\n  \"samples_sha256\": \"11c16a110f3b0de96eeea83a88e51970432908ec3f7de764a65001d82867ed91\",\n  \"plan_sha256\": \"894c894d40f49a28ad7a020e54c5f8203701c79d545abaefe5e631ad63b2b554\",\n  \"driver\": \"C:\\\\Users\\\\LEGION\\\\AppData\\\\Local\\\\Temp\\\\p1_plan_parent_6g7q35ti\\\\driver.py\",\n  \"output\": \"C:\\\\Users\\\\LEGION\\\\AppData\\\\Local\\\\Temp\\\\p1_plan_parent_6g7q35ti\\\\bounded_plan\",\n  \"role\": \"train\",\n  \"run_ids\": [\n    1\n  ],\n  \"command\": [\n    \"C:\\\\Python314\\\\python.exe\",\n    \"C:\\\\Users\\\\LEGION\\\\AppData\\\\Local\\\\Temp\\\\p1_plan_parent_6g7q35ti\\\\driver.py\",\n    \"--samples\",\n    \"C:\\\\Users\\\\LEGION\\\\AppData\\\\Local\\\\Temp\\\\p1_plan_parent_6g7q35ti\\\\samples.csv\",\n    \"--output\",\n    \"C:\\\\Users\\\\LEGION\\\\AppData\\\\Local\\\\Temp\\\\p1_plan_parent_6g7q35ti\\\\bounded_plan\",\n    \"--runs\",\n    \"1\",\n    \"--cores\",\n    \"2\",\n    \"--mesh-size\",\n    \"4\",\n    \"--attempts\",\n    \"3\",\n    \"--timeout-minutes\",\n    \"360.0\",\n    \"--heartbeat-seconds\",\n    \"60.0\"\n  ],\n  \"mesh_size\": 4,\n  \"cores\": 2,\n  \"java_heap_gb\": null,\n  \"timeout_minutes\": 360.0,\n  \"heartbeat_seconds\": 60.0,\n  \"scratch_root\": null\n}\nWorker PID 20072; durable log: C:\\Users\\LEGION\\AppData\\Local\\Temp\\p1_plan_parent_6g7q35ti\\bounded_plan\\worker.log\nHF plan parent exited; stopping the plan.\nLaunching parent exited; owned worker tree stopped.\n"
+  }
+}

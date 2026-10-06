@@ -1,0 +1,24 @@
+{
+  "hf_plan_csv_byte_identical": true,
+  "sensitivity_csv_byte_identical": true,
+  "exported_numerical_files_byte_identical": {
+    "results_summary.json": true,
+    "test_metrics.csv": true,
+    "test_by_mode.csv": true,
+    "cv_model_comparison.csv": true
+  },
+  "pngs": 13,
+  "pdfs": 13,
+  "tracked_p1_handoff_files": [
+    "plate_main/P1_DATA_README.md",
+    "plate_main/P1_RESULTS_REVIEW.md",
+    "plate_main/p1_geometry.py",
+    "plate_main/p1_pairing.py",
+    "plate_main/plot_p1_results.py",
+    "plate_main/run_hf_batches.py"
+  ],
+  "bulk_model_arrays_ignored_by_repository": "*.npz rule in parent .gitignore",
+  "rtk_available": false,
+  "hf_smoke_exit": 0,
+  "design_csv_byte_identical": true
+}

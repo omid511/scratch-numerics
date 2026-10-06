@@ -1,0 +1,45 @@
+{
+  "observed_at_utc": "2026-10-06T15:11:56.030630+00:00",
+  "initial_package": {
+    "created_at_utc": "2026-10-06T15:04:17.975380+00:00",
+    "improvement_members": 1625,
+    "improvement_source_bytes": 3845440924,
+    "limitations": [
+      "No commit/push/upload",
+      "COMSOL binaries/license not included",
+      "Recorded outcomes and negative results do not become convergence or coverage certificates."
+    ],
+    "local_release_only": true,
+    "parts": [
+      {
+        "bytes": 23527900518,
+        "path": "audited_baseline.zip",
+        "sha256": "25cdcb1b746643c86a6ad1d140c34e0d8c868fc7cb390e854c5e90a81c3ccd28"
+      },
+      {
+        "bytes": 3846094990,
+        "path": "p1_improvement_artifacts.zip",
+        "sha256": "4efb254a982dd7645ed1691419e2974e961bd07a06ea4cb5dcd4ad17a970025a"
+      }
+    ],
+    "restore": [
+      "Extract audited_baseline.zip to a new plate_main directory.",
+      "Extract the improvement archive to a separate release directory; its study/ is the study root.",
+      "Copy source/plate_main/ over the restored plate_main for the documented workflow and reports.",
+      "Set P1_ORIGINAL_ROOT to the restored plate_main; do not rewrite execution snapshots or frozen hashes.",
+      "The original source snapshot is retained inside the first archive; overlay only new workflow/docs/tests.",
+      "Run replay with the restored study root; scientific reruns use a fresh output root and the documented stage order."
+    ]
+  },
+  "initial_verification": {
+    "both_actual_archive_sha256_matched": true,
+    "improvement_members_stream_verified": 1625,
+    "package_manifest_sha256": "f90c9411ae67f456894a06ea1d0b7d76d059d23b44c6a89ce045cc7fa3bb9f0d",
+    "verified_at_utc": "2026-10-06T15:05:40.297068+00:00"
+  },
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 25, in <module>\n    write_json(output/'delivery_model_replay.json',{'replayed_without_HF_input':True,'original_blinded_batch_layout':True,'rows':rows.tolist(),'models':results})\n    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\p1_release_restore_iplqo2t9\\plate_main\\p1_design.py\", line 134, in write_json\n    raise FileExistsError(f\"Refusing to overwrite manifest: {path}\")\nFileExistsError: Refusing to overwrite manifest: D:\\p1_release_restore_iplqo2t9\\release\\study\\delivery_model_replay.json\nTraceback (most recent call last):\n  File \"D:\\p1_release_restore_iplqo2t9\\plate_main\\p1_delivery.py\", line 363, in <module>\n    sys.exit(main())\n             ~~~~^^\n  File \"D:\\p1_release_restore_iplqo2t9\\plate_main\\p1_delivery.py\", line 358, in main\n    {'report': make_report, 'replay': replay, 'pack': pack, 'verify': verify}[args.stage](args.output.resolve())\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\p1_release_restore_iplqo2t9\\plate_main\\p1_delivery.py\", line 266, in replay\n    raise RuntimeError('Actual frozen-model replay failed')\nRuntimeError: Actual frozen-model replay failed\n",
+  "root_cause": "Replay evidence writer refused the already included non-frozen derived replay manifest after model assertions passed. Fixed evidence-only replay idempotence; frozen artifacts unchanged.",
+  "owned_restore_directory_removed": true
+}

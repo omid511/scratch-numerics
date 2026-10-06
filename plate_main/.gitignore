@@ -1,0 +1,11 @@
+# P1 publication: code, Markdown and explicitly reviewed text evidence only.
+# Do not commit or upload native simulations, ZIPs, raw arrays or fitted weights.
+*.mph
+*.mphbin
+*.mph.lock
+*.zip
+*.npz
+*.npy
+*.pt
+*.pth
+*.ckpt

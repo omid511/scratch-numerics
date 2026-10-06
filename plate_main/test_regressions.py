@@ -1,9 +1,11 @@
 import csv
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
-from unittest import mock
 
 import numpy as np
 
@@ -13,9 +15,9 @@ from p1_geometry import extreme_run_ids, physical_parameters, geometry_tolerance
 from plate import Material, Plate, PressurizedPlate, Profile
 from plate.plate import _ordered_shear_stiffness
 from plate.trail_function import cosine_basis, trigonometric_basis
-import run_hf_batches
 import hc_HighFidelity_LHS as hf
 from simulations.scripts import hc_mesh_convergence as mesh
+from run_hf_batches import _supervise
 
 
 class RegressionTests(unittest.TestCase):
@@ -116,46 +118,105 @@ class RegressionTests(unittest.TestCase):
             with np.load(path) as data:
                 data.files
 
-    def test_batch_wrapper_forwards_reexport_and_replace(self):
+    @unittest.skipUnless(os.name == 'nt', 'Windows process-tree termination')
+    def test_hf_deadline_stops_worker_and_descendant(self):
+        import ctypes
+        from ctypes import wintypes
         with tempfile.TemporaryDirectory() as tmp:
-            samples = Path(tmp) / 'samples.csv'
-            samples.write_text('run_id,alpha,beta,theta_c,eta1,eta2\n'
-                               '1,.8,1,30,1,.06\n', encoding='utf-8')
-            result = mock.Mock(returncode=0)
-            with mock.patch.object(run_hf_batches.subprocess, 'run', return_value=result) as run:
-                run_hf_batches.main([
-                    '--samples', str(samples), '--output', tmp,
-                    '--runs', '1', '--reexport', '--replace',
-                ])
-            command = run.call_args.args[0]
-            self.assertIn('--reexport', command)
-            self.assertIn('--replace', command)
-            self.assertIn('--worker', command)
-            self.assertTrue(Path(command[command.index('--samples') + 1]).is_absolute())
-            self.assertTrue(Path(command[command.index('--output') + 1]).is_absolute())
+            directory = Path(tmp)
+            child_pid = directory / 'child_pid.txt'
+            code = (
+                'import subprocess,sys,time\n'
+                'from pathlib import Path\n'
+                'child=subprocess.Popen([sys.executable,"-c","import time; time.sleep(60)"])\n'
+                f'Path({str(child_pid)!r}).write_text(str(child.pid))\n'
+                'time.sleep(60)\n'
+            )
+            status = _supervise([sys.executable, '-c', code], directory, None,
+                                directory / 'worker.log', timeout_s=3,
+                                heartbeat_s=1)
+            self.assertEqual(status, 124)
+            self.assertTrue(child_pid.exists(), 'Worker never created its descendant')
+            kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+            kernel.WaitForSingleObject.restype = wintypes.DWORD
+            kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+            handle = kernel.OpenProcess(0x00100000, False, int(child_pid.read_text()))
+            if handle:
+                try:
+                    self.assertEqual(kernel.WaitForSingleObject(handle, 0), 0,
+                                     'Descendant survived the worker deadline')
+                finally:
+                    kernel.CloseHandle(handle)
+            else:
+                self.assertEqual(ctypes.get_last_error(), 87)
 
-    def test_hf_orchestrator_starts_one_worker_process_per_batch(self):
+    def test_hf_failure_retries_and_preserves_completed_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
-            args = mock.Mock(
-                samples=Path(tmp) / 'samples.csv',
-                output=Path(tmp) / 'output',
-                batch_size=2, max_attempts=1, mesh_size=4, cores=1,
-                candidate_eigs=None, eigen_shift_hz=1000.0,
-                reexport=False, replace=False)
-            result = mock.Mock(returncode=0)
-            with mock.patch.object(hf.subprocess, 'run',
-                                   return_value=result) as run:
-                self.assertEqual(
-                    hf._run_orchestrator(
-                        args, {}, [1, 2, 3], Path(tmp)),
-                    0)
-            self.assertEqual(run.call_count, 2)
-            commands = [call.args[0] for call in run.call_args_list]
-            self.assertTrue(all('--worker' in command for command in commands))
-            self.assertEqual(
-                commands[0][commands[0].index('--runs') + 1], '1,2')
-            self.assertEqual(
-                commands[1][commands[1].index('--runs') + 1], '3')
+            directory = Path(tmp)
+            samples = directory / 'samples.csv'
+            samples.write_text(
+                'run_id,alpha,beta,theta_c,eta1,eta2\n'
+                '1,.8,1,30,1,.06\n2,.8,1,30,1,.06\n',
+                encoding='utf-8')
+            output = directory / 'output'
+            (output / 'hf').mkdir(parents=True)
+            completed = output / 'hf/run_0002.npz'
+            params = dict(alpha=.8, beta=1.0, theta_c=30.0,
+                          eta1=1.0, eta2=.06)
+            grid = np.linspace(0, hf.L_FIXED, hf.GRID_RES)
+            w = np.zeros((hf.N_EIGS, hf.GRID_RES, hf.GRID_RES))
+            w[:, 1:-1, 1:-1] = 1.0
+            np.savez_compressed(
+                completed, x=grid, y=grid, w=w,
+                frequencies=np.arange(1, hf.N_EIGS + 1, dtype=float),
+                solnums=np.arange(1, hf.N_EIGS + 1),
+                w_peak_abs=np.ones(hf.N_EIGS),
+                transverse_fraction=np.ones(hf.N_EIGS),
+                metadata=json.dumps(hf.metadata(params, 2, 4)))
+            original = completed.read_bytes()
+            # Reproduce MPh's JVM shutdown semantics without a COMSOL license:
+            # only sys.exit(), not a bare SystemExit, records the final status.
+            (directory / 'mph.py').write_text(
+                'import atexit, os, sys\n'
+                'status = 0\n'
+                'original_exit = sys.exit\n'
+                'def exit_hook(code=None):\n'
+                '    global status\n'
+                '    if isinstance(code, int):\n'
+                '        status = code\n'
+                '    original_exit(code)\n'
+                'sys.exit = exit_hook\n'
+                'def cleanup():\n'
+                '    sys.stdout.flush()\n'
+                '    sys.stderr.flush()\n'
+                '    os._exit(status)\n'
+                'atexit.register(cleanup)\n'
+                'settings = {}\n'
+                'def option(name, value):\n'
+                '    settings[name] = value\n'
+                'def start(cores=None):\n'
+                '    run = sys.argv[sys.argv.index("--runs") + 1]\n'
+                '    with open(os.environ["HF_ATTEMPT_LOG"], "a") as log:\n'
+                '        log.write(run + "\\n")\n'
+                '    if run == "1":\n'
+                '        raise RuntimeError("Java heap space")\n'
+                '    return object()\n',
+                encoding='utf-8')
+            attempts = directory / 'attempts.txt'
+            env = os.environ.copy()
+            env['PYTHONPATH'] = str(directory) + os.pathsep + env.get('PYTHONPATH', '')
+            env['HF_ATTEMPT_LOG'] = str(attempts)
+            result = subprocess.run(
+                [sys.executable, str(Path(__file__).with_name('run_hf_batches.py')),
+                 '--samples', str(samples), '--output', str(output),
+                 '--runs', '1,2', '--attempts', '2'],
+                env=env, capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertEqual(attempts.read_text().splitlines(), ['1', '1', '2'])
+            self.assertEqual(completed.read_bytes(), original)
 
 
 if __name__ == '__main__':

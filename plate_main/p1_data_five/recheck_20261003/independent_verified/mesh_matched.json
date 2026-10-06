@@ -1,0 +1,88 @@
+{
+  "geometries": {
+    "extreme_angle_3408": {
+      "mesh2_vs_mesh3": {
+        "status": "missing; previously recorded out-of-core assembly failure; not rerun"
+      },
+      "mesh3_vs_mesh4": {
+        "field_interior_rms": {
+          "max": 0.022538687240961187,
+          "median": 0.0003161341543938813,
+          "p95": 0.012618105738534096
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.08820389325922585,
+          "median": 0.05222786393101829,
+          "p95": 0.0856814584605332
+        },
+        "unambiguous_accepted_target_modes": 10
+      },
+      "mesh4_recompute_bit_identical": true
+    },
+    "reference_9828": {
+      "mesh2_vs_mesh3": {
+        "field_interior_rms": {
+          "max": 0.0005723310338619555,
+          "median": 0.0002574930063135375,
+          "p95": 0.0005212294023949754
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.06283862121331092,
+          "median": 0.025983397831009652,
+          "p95": 0.05756027785421598
+        },
+        "unambiguous_accepted_target_modes": 10
+      },
+      "mesh3_vs_mesh4": {
+        "field_interior_rms": {
+          "max": 0.0006441882741106656,
+          "median": 0.00042408994498779385,
+          "p95": 0.00062952848335104
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.1655308762818792,
+          "median": 0.08647604015681695,
+          "p95": 0.15295730191198537
+        },
+        "unambiguous_accepted_target_modes": 10
+      },
+      "mesh4_recompute_bit_identical": true
+    },
+    "thin_highloss_5873": {
+      "mesh2_vs_mesh3": {
+        "field_interior_rms": {
+          "max": 2.6537357197053318e-05,
+          "median": 1.8327513927226878e-05,
+          "p95": 2.647983533434513e-05
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.00803407614845209,
+          "median": 0.005162484202225435,
+          "p95": 0.007761108509218878
+        },
+        "unambiguous_accepted_target_modes": 10
+      },
+      "mesh3_vs_mesh4": {
+        "field_interior_rms": {
+          "max": 0.0003275489692938528,
+          "median": 0.00015875053901808644,
+          "p95": 0.00031282445530772497
+        },
+        "flagged_modes": 0,
+        "frequency_change_pct": {
+          "max": 0.102953021400611,
+          "median": 0.06448334838689561,
+          "p95": 0.09913846051054175
+        },
+        "unambiguous_accepted_target_modes": 10
+      },
+      "mesh4_recompute_bit_identical": true
+    }
+  },
+  "limit": "Three sampled geometries and two available finest steps are a spot check, not a campaign-wide convergence bound or a physical-truth certificate.",
+  "policy": "MAC assignment against campaign HF modes, stable accepted target identities, phase aligned, interior RMS"
+}

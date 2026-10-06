@@ -13,21 +13,35 @@ from pathlib import Path
 import shutil
 import tempfile
 import numpy as np
-from p1_pairing import (PARAMETERS, load_run, check_pair, assign, align_real,
-                        normalized, boundary_mask, repeated, assignment_margin)
+from p1_pairing import (load_run, check_pair, assign, align_real, normalized,
+                        boundary_mask, repeated, assignment_margin)
 
 def file_hash(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def select_reference_run(runs, excluded=()):
+def infer_parameter_names(runs):
+    if not runs:
+        raise ValueError('Cannot infer parameters from empty run set')
+    first = next(iter(runs.values()))['meta'].get('parameters', {})
+    names = tuple(first)
+    if not names:
+        raise ValueError('Run metadata contains no physical parameters')
+    for run in runs.values():
+        if tuple(run['meta'].get('parameters', {})) != names:
+            raise ValueError('All run bundles must use one parameter schema')
+    return names
+
+
+def select_reference_run(runs, excluded=(), parameter_names=None):
     """Choose the normalized-parameter medoid from the available runs."""
     excluded = set(excluded)
     candidates = sorted(set(runs) - excluded)
     if not candidates:
         raise ValueError('No runs remain for reference selection')
+    names = tuple(parameter_names or infer_parameter_names(runs))
     values = np.asarray([
-        [float(runs[run]['meta']['parameters'][parameter]) for parameter in PARAMETERS]
+        [float(runs[run]['meta']['parameters'][parameter]) for parameter in names]
         for run in candidates
     ])
     if not np.isfinite(values).all():
@@ -202,7 +216,8 @@ def _portable_key(path, root):
 
 def build_targets(root, name='corrections_v5', modes=10, reference_run=None,
                   min_mac=.8, min_margin=.05, degeneracy_gap=.005,
-                  min_hf_transverse_fraction=.5, leave_p_out=1):
+                  min_hf_transverse_fraction=.5, leave_p_out=1, runs=None,
+                  scope='pilot-five-variable'):
     root = Path(root).resolve()
     if Path(name).name != name or name in ('', '.', '..'):
         raise ValueError('Output name must be a single directory name')
@@ -217,6 +232,25 @@ def build_targets(root, name='corrections_v5', modes=10, reference_run=None,
     if destination.exists():
         raise FileExistsError(f'{destination} already exists; use --name for a new dataset revision')
     lpaths, hpaths = sorted((root / 'lf').glob('run_*.npz')), sorted((root / 'hf').glob('run_*.npz'))
+    if runs is not None:
+        requested = {int(run) for run in runs}
+        if not requested or any(run < 1 for run in requested):
+            raise ValueError('runs must contain positive IDs')
+        def selected(path):
+            try:
+                return int(Path(path).stem.rsplit('_', 1)[1]) in requested
+            except (IndexError, ValueError):
+                return False
+        lpaths = [path for path in lpaths if selected(path)]
+        hpaths = [path for path in hpaths if selected(path)]
+        selected_lf_ids = {
+            int(Path(path).stem.rsplit('_', 1)[1]) for path in lpaths
+        }
+        selected_hf_ids = {
+            int(Path(path).stem.rsplit('_', 1)[1]) for path in hpaths
+        }
+        if requested - selected_lf_ids or requested - selected_hf_ids:
+            raise ValueError('Requested run IDs are missing from LF or HF bundles')
     if not lpaths or not hpaths:
         raise ValueError('Need version-2 NPZ runs in both lf/ and hf/')
     lf, hf = {}, {}
@@ -232,6 +266,7 @@ def build_targets(root, name='corrections_v5', modes=10, reference_run=None,
                          f'HF-only={sorted(hf.keys() - lf.keys())}')
     for run_id in lf:
         check_pair(lf[run_id], hf[run_id])
+    parameter_names = infer_parameter_names(lf)
     pool = _reference_pool(lf, modes)
     reference_selection = select_reference_modes(
         lf, modes, degeneracy_gap, reference_run=reference_run, pool=pool)
@@ -241,7 +276,7 @@ def build_targets(root, name='corrections_v5', modes=10, reference_run=None,
     elif len(set(selected_reference_ids.tolist())) == 1:
         summary_ref_id = int(selected_reference_ids[0])
     else:
-        summary_ref_id = select_reference_run(lf)
+        summary_ref_id = select_reference_run(lf, parameter_names=parameter_names)
     if summary_ref_id not in lf:
         raise ValueError(f'Reference run {summary_ref_id} unavailable')
     ref = lf[summary_ref_id]
@@ -333,16 +368,17 @@ def build_targets(root, name='corrections_v5', modes=10, reference_run=None,
             lf=stack(1), hf=stack(2), correction=stack(3),
             run_ids=np.array([a[0]['run'] for a in accepted], dtype=int),
             mode_ids=np.array([a[0]['mode'] for a in accepted], dtype=int),
-            parameters=np.array([[a[4][parameter] for parameter in PARAMETERS]
-                                 for a in accepted]).reshape(-1, len(PARAMETERS)),
-            parameter_names=np.array(PARAMETERS),
+            parameters=np.array([[a[4][parameter] for parameter in parameter_names]
+                                 for a in accepted]).reshape(-1, len(parameter_names)),
+            parameter_names=np.array(parameter_names),
             f_lf=np.array([a[0]['f_fsdt'] for a in accepted]),
             f_hf=np.array([a[0]['f_comsol'] for a in accepted]))
         manifest = dict(
             schema_version=3, model_version='p1-corrections-v5',
+            parameter_names=list(parameter_names),
             reference_run=summary_ref_id,
-            reference_run_by_mode=reference_selection['reference_ids'].tolist(),
-            reference_mode_quality=reference_selection['quality'],
+            scope=scope,
+            requested_run_ids=sorted(int(run) for run in (runs or sorted(lf))),
             reference_selection=dict(
                 strategy=reference_selection['selection_mode'],
                 policy=(
@@ -350,7 +386,6 @@ def build_targets(root, name='corrections_v5', modes=10, reference_run=None,
                     'fall back to per-mode stable references; explicit override '
                     'forces one run')),
             requested_modes=modes, min_mac=min_mac,
-            min_assignment_margin=min_margin, degeneracy_relative_gap=degeneracy_gap,
             hf_quality_policy=dict(
                 raw_w_peak_ratio='diagnostic_only; not an acceptance criterion',
                 min_transverse_energy_fraction=min_hf_transverse_fraction,
@@ -387,11 +422,31 @@ def main(argv=None):
                         help='Quarantine exported HF modes below this fraction when available')
     parser.add_argument('--leave-p-out', type=int, default=1,
                         help='Run-level tracking audit fold size')
+    parser.add_argument('--runs',
+                        help='Comma-separated run IDs; restrict target build to an HF subset')
+    parser.add_argument('--scope', choices=('pilot-five-variable', 'full-proposal'),
+                        default='pilot-five-variable',
+                        help='Scope label recorded in the immutable target manifest')
     args = parser.parse_args(argv)
+    try:
+        runs = (None if args.runs is None
+                else list(dict.fromkeys(int(value) for value in args.runs.split(','))))
+    except ValueError:
+        parser.error('--runs must contain comma-separated integers')
+    if runs is not None and (not runs or any(run < 1 for run in runs)):
+        parser.error('--runs must contain positive integers')
     manifest, directory = build_targets(
-        args.output, args.name, args.modes, args.reference_run,
-        args.min_mac, args.min_margin, args.degeneracy_gap,
-        args.min_hf_transverse_fraction, args.leave_p_out)
+        root=args.output,
+        name=args.name,
+        modes=args.modes,
+        reference_run=args.reference_run,
+        min_mac=args.min_mac,
+        min_margin=args.min_margin,
+        degeneracy_gap=args.degeneracy_gap,
+        min_hf_transverse_fraction=args.min_hf_transverse_fraction,
+        leave_p_out=args.leave_p_out,
+        runs=runs,
+        scope=args.scope)
     print(f"Accepted {manifest['accepted']}; quarantined {manifest['quarantined']}. Output: {directory}")
     if not manifest['accepted']:
         raise SystemExit('No training targets accepted; inspect pairing.csv. Do not train.')

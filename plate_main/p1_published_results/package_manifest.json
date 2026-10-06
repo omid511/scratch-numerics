@@ -1,0 +1,31 @@
+{
+  "created_at_utc": "2026-10-06T15:12:18.636596+00:00",
+  "improvement_members": 1626,
+  "improvement_source_bytes": 3845444455,
+  "limitations": [
+    "No commit/push/upload",
+    "COMSOL binaries/license not included",
+    "Recorded outcomes and negative results do not become convergence or coverage certificates."
+  ],
+  "local_release_only": true,
+  "parts": [
+    {
+      "bytes": 23527900518,
+      "path": "audited_baseline.zip",
+      "sha256": "25cdcb1b746643c86a6ad1d140c34e0d8c868fc7cb390e854c5e90a81c3ccd28"
+    },
+    {
+      "bytes": 3846098878,
+      "path": "p1_improvement_artifacts.zip",
+      "sha256": "bb1cd1cf53da7cfe73b491063a92501c33d738f97b39339354a7fb5305255a50"
+    }
+  ],
+  "restore": [
+    "Extract audited_baseline.zip to a new plate_main directory.",
+    "Extract the improvement archive to a separate release directory; its study/ is the study root.",
+    "Copy source/plate_main/ over the restored plate_main for the documented workflow and reports.",
+    "Set P1_ORIGINAL_ROOT to the restored plate_main; do not rewrite execution snapshots or frozen hashes.",
+    "The original source snapshot is retained inside the first archive; overlay only new workflow/docs/tests.",
+    "Run replay with the restored study root; scientific reruns use a fresh output root and the documented stage order."
+  ]
+}

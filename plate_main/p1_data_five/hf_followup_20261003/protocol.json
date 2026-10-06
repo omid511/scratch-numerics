@@ -1,0 +1,79 @@
+{
+  "selected_runs": {
+    "2209": "original calibrated field-coverage failure",
+    "4352": "original calibrated frequency-coverage failure"
+  },
+  "selection": "fixed before new solves; targeted validation failures, not representative random sampling",
+  "mesh_levels": [
+    4,
+    3,
+    2
+  ],
+  "mesh4": "reuse unchanged frozen campaign bundles",
+  "known_failed_3408_mesh2": "not rerun",
+  "configuration": "unchanged Al/geometry/CCCC/1000-Hz shift/32 candidates/16 extracted/80x80 grid; only mesh changes",
+  "resource_policy": {
+    "cores": 2,
+    "jvm_heap_gib": 8,
+    "process_attempts": 1,
+    "sequential_workers": true
+  },
+  "diagnostic_targets": {
+    "frequency_change_pct_max": 0.1,
+    "normalized_interior_field_rms_max": 0.00075,
+    "rationale": "approximately one tenth of frozen aggregate surrogate median errors; diagnostic targets, not campaign-wide physical-error guarantees"
+  },
+  "identity_policy": "reuse p1_pairing Hungarian MAC assignment to campaign HF anchors; global complex phase alignment; accepted target rows only; flag MAC<0.8, margin<0.05 and relative frequency gap<0.005",
+  "commands": {
+    "3": [
+      "C:\\Python314\\python.exe",
+      "run_hf_batches.py",
+      "--samples",
+      "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\lhs_five.csv",
+      "--runs",
+      "2209,4352",
+      "--output",
+      "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\mesh3",
+      "--mesh-size",
+      "3",
+      "--cores",
+      "2",
+      "--attempts",
+      "1",
+      "--java-heap-gb",
+      "8"
+    ],
+    "2": [
+      "C:\\Python314\\python.exe",
+      "run_hf_batches.py",
+      "--samples",
+      "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\lhs_five.csv",
+      "--runs",
+      "2209,4352",
+      "--output",
+      "C:\\Users\\LEGION\\Documents\\GitHub\\mechanics\\plate_main\\p1_data_five\\hf_followup_20261003\\mesh2",
+      "--mesh-size",
+      "2",
+      "--cores",
+      "2",
+      "--attempts",
+      "1",
+      "--java-heap-gb",
+      "8"
+    ]
+  },
+  "frozen_input_sha256": {
+    "lhs_five.csv": "5dd4eb7f5e6bd75d86e7eb55be61f917a1befd6a57f501563909092a3c2fe10c",
+    "hf_plan/hf_plan.csv": "887eed56704e1740f324ded7adc14fff55590b7adad51dfec03f80df82c1b042",
+    "corrections_five/training.npz": "818ec9601afe2a565d0ceac65b373ef947f275329cc66b4ec1566e712b75b151",
+    "holdout_corrected/holdout_metrics.json": "714ec7be9da3b69e839b07d78ecb4ab19902401f7cb4781e80124e43f93635fc"
+  },
+  "resource_check": {
+    "available_ram_gib": 15.526969909667969,
+    "free_disk_gib": 41.754119873046875
+  },
+  "geometry_preflight": {
+    "exit": 0,
+    "output": "Geometry preflight passed for 2 samples. No COMSOL execution.\n"
+  }
+}
