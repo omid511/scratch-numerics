@@ -932,3 +932,691 @@ and multiplicity correction. Previously scored TRAIN acquisitions and repeated
 exploration: **research evidence, not blind confirmation**. Current production
 default and reserved splits remain unchanged; GRU remains live.
 
+
+## 20. Journal-guided reading on remaining tails and warning tradeoffs
+
+2026-10-03. Literature research only; no fitting, objective/default change,
+reserved-split scoring or new model-performance claim.
+
+### Gaps established by the journal
+
+- The optimistic-failure audit (journal3069–3179) found accurate encoded
+  critical poles in the tight-boundary severe cohort, but optimistic tails
+  on held designs absent from proper-fit predictions. This supports a
+  cross-design mapping/coverage hypothesis, not proof of feature sufficiency.
+- Local weighting (1534–1617) improved near-stable optimism but worsened
+  far-stable pessimism. It was a useful bounded result, not an outright failure.
+- Temporal screening interpretation (3622–3658) records real first-fold
+  warning gains alongside clean-accuracy/pessimism costs. Zero optimism>.03
+  events in that screening do not negate its warning improvements.
+- Neighborhood and consistency additions were already evaluated (Section19).
+  Another generic neighbor correction, noise-consistency penalty or single-pole
+  uncertainty model is not the missing experiment identified by these readings.
+
+### Recommended model-development reading order
+
+1. **Cotter et al., Training Well-Generalizing Classifiers for Fairness
+   Metrics and Other Data-Dependent Constraints (ICML2019).**
+   [Paper](https://proceedings.mlr.press/v97/cotter19b.html).
+   Sections1,3–5 develop constrained training with model updates on one
+   dataset and constraint enforcement on independent validation data;
+   differentiable proxies need not replace the original rate constraints.
+   [INFERENCE] For P4, investigate reducing boundary error or warning misses
+   subject to explicit far-stable-underestimation and accuracy limits, rather
+   than selecting another unrestricted penalty weight. Adaptation must retain
+   continuous margin estimation. Inner validation must use disjoint designs
+   within TRAIN; do not consume the reserved splits or outer evaluation data.
+   Practical nonconvex heuristics do not inherit every theorem, and guarantees
+   for stochastic mixtures do not automatically hold for one selected model.
+   Background formulation:
+   [Cotter et al., Two-Player Games (ALT2019)](https://proceedings.mlr.press/v98/cotter19a.html).
+
+2. **Sagawa et al., Distributionally Robust Neural Networks for Group Shifts:
+   On the Importance of Regularization for Worst-Case Generalization
+   (ICLR2020).** [Manuscript](https://arxiv.org/html/1911.08731).
+   Sections2–3 show why minimizing worst-group training loss can fail when
+   every group is already fit; stronger regularization/early stopping can
+   improve worst-group generalization in their classification experiments.
+   [INFERENCE] This is relevant to P4's seen-versus-held-design tail gap,
+   and differs from fixed near-margin weights. Any P4 regression adaptation
+   needs train-defined, sufficiently populated physical/acquisition groups
+   and a matched regularized average-risk control. It cannot supply missing
+   physical design coverage, guarantee arbitrary unseen-design robustness,
+   or justify treating repeated noise views as independent support.
+
+3. **Zhu et al., When AUC meets DRO: Optimizing Partial AUC for Deep Learning
+   with Non-Convex Convergence Guarantee (ICML2022).**
+   [Paper](https://proceedings.mlr.press/v162/zhu22g.html).
+   Sections3–4 formulate low-false-positive ranking with CVaR-based and
+   KL-regularized objectives over difficult negative examples.
+   [INFERENCE] This offers a warning-focused training direction for the
+   existing measured representations/temporal models, not another global
+   regression reweighting. A warning objective must not silently replace the
+   continuous-margin task. Partial AUC neither fixes numerical margin bias
+   nor guarantees performance at a particular calibrated threshold. P4's
+   unstable-last1% recall and full stable false-warning population also require
+   an explicit adaptation, not an unqualified binary-AUC substitution.
+
+### Supporting calibration readings, not point-model repairs
+
+- **Tong, Feng and Li, Neyman-Pearson classification algorithms and NP
+  receiver operating characteristics (Science Advances2018).**
+  [Full paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC5804623/).
+  An order-statistic threshold controls the probability that population
+  type-I error exceeds a chosen bound. Distinguishes an empirical calibration
+  budget from population error control. Independent calibration observations
+  are required; P4 clips/noise copies from the same design do not qualify as
+  independent design-generalization evidence. Thresholding alone cannot
+  improve ranking or repair optimistic point predictions.
+- **Angelopoulos et al., Learn then Test: Calibrating Predictive Algorithms
+  to Achieve Risk Control.**
+  [Manuscript](https://arxiv.org/html/2110.01052).
+  Sections1–2 frame post-processing selection as multiple testing and allow
+  simultaneous risk constraints without refitting the underlying model.
+  Useful for a later, prospectively specified calibration protocol; does not
+  retroactively correct repeated exploratory selection. The i.i.d. calibration
+  assumption requires a design-level treatment with an explicitly defined
+  risk estimand, not direct application to pooled dependent clip rates.
+
+These are candidate mechanisms and methodological limits, not evidence that
+any will improve P4. Read constrained training and worst-group generalization
+first; low-FPR ranking next. Keep both GRU and TCN live and evaluate margin
+tails, warning tradeoffs and guardrails together before adopting any change.
+
+
+## 21. Physical stability coordinates for the remaining mapping failures
+
+2026-10-03. Retain Section20's ML readings. User requested physical literature,
+controlled experiments, primary boundary/warning objectives and side-effect
+reporting; explicitly exclude TCN/GRU from these new experiments.
+
+### Physical sources and what they change
+
+- **Bennett1982, NASA-TM-84545, Application of Zimmerman flutter-margin
+  criterion to a wind tunnel model.**
+  [Report](https://ntrs.nasa.gov/api/citations/19830003800/downloads/19830003800.pdf),
+  [NASA record](https://ntrs.nasa.gov/citations/19830003800).
+  Read rendered report pp1–5,9–10: quartic characteristic equation, Routh
+  discriminant, normalization, derivatives, limited measured-data application
+  and conclusions. Its nearly linear dynamic-pressure trend is conditional,
+  not a universal growth-to-speed law. Frequency-only simplification can give
+  highly nonconservative onset; both modes' damping and frequency matter.
+  The measured-data example mixes some calculated modal values, explicitly
+  questioned for general use. Wind-off normalization requires a target
+  reference unavailable under our single-clip contract.
+- **Matsuzaki2011, An Overview of Flutter Prediction in Tests Based on
+  Stability Criteria in Discrete-Time Domain.**
+  [Publisher abstract/references](https://koreascience.kr/article/JAKO201108040012048.page),
+  [DOI](https://doi.org/10.5139/IJASS.2011.12.4.305).
+  Publisher abstract describes Jury-based two/three/multimode stability
+  parameters and wind-tunnel applications. Full PDF retrieval failed from
+  both .kr and .or.kr endpoints; no formula/result claim from unread full text.
+  This motivates retaining more than an arbitrarily chosen critical pair,
+  not claiming our pairwise features reproduce its multimode criterion.
+- **Chajjed et al., Probabilistic Prediction of Coalescence Flutter Using
+  Measurements: Application to the Flutter Margin Method.**
+  [Manuscript](https://arxiv.org/html/2210.15667), Introduction/Eq1–3 and
+  Sections3–5; already reviewed in Sections12/14. The physical intermediate
+  is a nonlinear joint frequency/decay function, not P4's normalized speed
+  distance. Its multi-speed posterior is already covered by the earlier
+  joint-prior experiment; do not launch that rejected route again.
+- **Global Description of Flutter Dynamics via Koopman Theory.**
+  [Manuscript](https://arxiv.org/html/2505.14697v1), Introduction and
+  Section2.1. Read for applicability: predictive parameterized bilinear models
+  use the flutter parameter as input and address nonlinear dynamics. P4's
+  current linear, single-clip, unknown-design contract supplies neither that
+  parameter nor a target sweep. No Koopman architecture selected.
+
+### Controlled adaptation, not a paper reproduction
+
+[INFERENCE] The remaining mapping failure may respond to a better numerical
+organization of already measured dynamics. Test dimensionless quartic
+coefficients and Hurwitz determinants for all three pairs among the three
+least-stable visible measured modes. This adds no physical information;
+any improvement is an inductive-bias/optimization result, not newly recovered
+critical dynamics or identification uncertainty.
+
+For `p(s)=s^4+c1*s^3+c2*s^2+c3*s+c4`, retain
+`Delta2=c1*c2-c3` and `Delta3=Delta2*c3-c1^2*c4`. Where `c1!=0`,
+`Delta3/c1^2` equals the published two-mode flutter-margin function.
+Do not divide by `c1`: summed decay can vanish, and `Delta3=0` alone does
+not certify neutral stability. Preserve all coefficients and explicit pair
+availability, measured growth/frequency, and the successful spatial context.
+Pair poles share an RMS-natural-frequency scale; no unmeasured wind-off
+reference, airspeed, solver modes or forced margin sign enters inference.
+
+Frozen protocol: `p4_groups/stability_coordinates_20261003/protocol.json`.
+Same-width21-column generic symmetric modal products control feature count,
+scaling, network size and seed. Refit only the174-feature blend member with
+each addition; the107-feature member and50/50 rule remain unchanged.
+Five existing design folds, seed42, ten new small MLP fits, all37 acquisitions.
+Primary: unstable-last1% optimism>.03 and warning misses at nominal5% stable
+calibration false-warning budget;1% remains prespecified secondary.
+Report actual held false warnings, stable-boundary errors, clean accuracy
+and far-stable pessimism. No outer-result tuning, reserved split, production
+cutover, TCN or GRU. Existing negative experiments remain evidence.
+
+
+## 22. Experiment-ready proposals for the remaining gaps — 2026-10-03
+
+Scope: read the P4 proposal first, then the complete journal through its
+2026-10-03 advisory-target discussion, supporting research, current ranking
+code and transient/identification contracts. This is a recommendation set,
+not an approved protocol, new trained-model result or production cutover.
+No reserved designs were scored and no model was fitted. Promise rankings
+below are [INFERENCE], based on existing mechanisms and failure evidence.
+
+### Current state and an additional read-only diagnostic
+
+The working reference remains the frozen 50/50 blend of the107/174-feature
+spatial MLPs. The retained local-observability late-fusion route is an
+accuracy challenger, not an established warning improvement. Products,
+Hurwitz and seven-column warning-ranking heads change warning scores only.
+Keep these references distinct from the one-fold GRU/TCN screening.
+
+The latest journal reports stable-last1% severe optimism `prediction-truth
+> .03` of2.616% under iid5 and7.558% under correlated5, versus0.309% and
+0.926% on unstable-last1%. These are seed42, five-fold, paired-draw clip
+rates, not operational events or risk guarantees. Latest ranking candidates
+improve warning decisions without changing any of these point errors.
+Sources: [journal](../../../p4_journal/JOURNAL.md), entries3821–4025;
+[ranking protocol](../../../p4_groups/physical_warning_rank_20261003/protocol.json).
+
+An additional diagnostic directly loaded the saved
+`physical_warning_rank_20261003/predictions.npz`, using its arm, condition,
+field, budget and row-fold identities. It did not retune thresholds.
+For each949/951 noise family, flag a row when
+`-warning_score <= thresholds[arm,row_fold,nominal1%]`.
+
+- **Precursor flags:** products/iid1 flags64 stable acquisition exposures;
+  63/64 are in `0<m<.01`. Products/correlated5 flags18 stable exposures;
+  all18 are in `0<m<.05`,16 in `0<m<.01`. Each family contains two views
+  of the same physical clips; exposures are not independent events.
+- **Misses versus severe optimism:** Hurwitz/correlated5 misses80 of324
+  near-unstable acquisition exposures at nominal1%; only3 of those80
+  also have the frozen point error>.03. Products misses81, only2 with
+  that severe point error. Thus the severe-error endpoint alone cannot
+  explain most tight-budget misses.
+- **Noise persistence:** among172 stable-last1% physical clips, correlated5
+  produces severe optimism on19 distinct clips/15 designs in either draw;
+  seven clips fail in both. iid5 produces six distinct clips/five designs,
+  three failing in both. Neither one isolated design nor completely
+  independent per-window noise explains all observed stress failures.
+- **Two-draw decomposition:** correlated5 stable-last1% mean squared error
+  equals squared two-draw mean error `.0003179546` plus two-draw dispersion
+  `.0000543716`. This is an exact empirical decomposition, NOT population
+  bias/variance or evidence that real overlapping-window averaging would
+  provide independent measurements.
+
+**Decision-contract issue:** existing all-stable false-warning rates are
+valid instability-classification metrics. They also penalize genuine
+pre-flutter warnings. Preserve that benchmark unchanged, but define a
+separate operational advisory event before claiming early warning.
+Do not reclassify these observed flags as successful operational warnings:
+no trajectories establish that they precede a hazardous approach.
+
+### Ranked proposal map
+
+| ID | Candidate | Primary gap | Promise / limitation |
+| --- | --- | --- | --- |
+| W1 | Boundary-specific nonlinear warning head with explicit false-warning constraints | Warning misses | High; strongest extension of the demonstrated ranking gain |
+| S1 | Regularized, design-balanced worst-group positive-error-tail training | Stable-side optimism | Medium-high; changes nonlinear mapping/generalization, not just an affine offset |
+| N1 | Noise-covariance-weighted modal identification, preserving original spatial coefficients | Noisy boundary errors and misses | Medium-high under correlated noise; cannot repair clean mapping failures |
+| S2 | New structural coverage and modal-excitation coverage, with a volume-matched control | Cross-design optimism | High root-cause relevance; larger data acquisition requirement |
+| W2 | Jointly calibrated warning union of learned ranking and measured modal-growth evidence | Warning misses | Medium-high; a distinct decision integration, not another margin fusion |
+| N2 | Multichannel variable-projection pole refinement | Noisy stable-side optimism | Medium; physical observation model matches free decay, but near-coalescence and runtime are risks |
+| O1 | Continuous, state-propagated operational benchmark with acquisition-level noise | Unmeasured operational performance | Required evidence infrastructure, not a proposed accuracy win |
+| O2 | Causal modal tracking plus trajectory-calibrated accumulation/hysteresis | Noisy operational misses/chatter | Medium-high; benefit and delay must be measured on O1 |
+| O3 | Uncertainty-triggered extra observation or same-speed re-excitation | Unreliable noisy decisions | Medium; changes observation/actuation contract and may reduce availability |
+
+These are alternatives and controlled stages, not a nine-method bundle.
+
+### W1 — Align warning fitting with the boundary and operating budget
+
+**Problem:** current `run_ranking.py::objective` is affine, averages positives
+over `-.05<m<=0`, and compares against the top5% stable scores. The strict
+secondary benchmark instead evaluates `-.01<m<0` at a1% budget. Good partial
+AUC over the broader cohort need not optimize either exact operating point.
+
+**Change:** keep continuous margins/intervals frozen. Fit a warning-only
+score from existing measured inputs, using a small two-hidden-layer network
+and equal total weight per physical design. Use the last1% unsafe cohort
+explicitly; evaluate broader instability as a guardrail. Fit separate,
+prospectively declared1% and5% policies rather than selecting an operating
+point after observing held results.
+
+One concrete formulation minimizes
+`mean_design softplus(threshold-score)` on the near-unsafe cohort,
+subject to a smooth stable false-warning surrogate at the declared budget
+in each TRAIN acquisition group. Validate the ACTUAL indicator rates on
+inner design-held data; the surrogate is not a rate guarantee. Keep score
+scale/regularization fixed in advance to avoid a degenerate temperature
+rescaling. Recalibrate the final score only on separate calibration designs.
+
+**Controls:** existing frozen/products ranking; affine28-input head with
+the new objective; nonlinear28-input head with the same objective; then
+nonlinear174-input head if the capacity-only stage survives. A matched
+ordinary classification objective separates objective benefit from capacity.
+All use the same training views, scaling and design partitions. This is
+not a broad architecture or penalty sweep.
+
+**Pass:** fewer last1% misses at comparable actual held false-warning rates,
+not only higher AUC; report both nominal budgets and the full paired
+tradeoff. A held-data ROC frontier may diagnose ranking, but its thresholds
+must never become deployment thresholds. Point optimism remains unchanged.
+
+Primary-source mechanism: [Zhu et al.2022](https://proceedings.mlr.press/v162/zhu22g.html)
+develop exact CVaR-based and soft KL-based partial-AUC objectives. This
+proposal is a P4-specific operating-point adaptation, not an inherited
+guarantee or a claim that partial AUC itself is untested here.
+
+### S1 — Repair nonlinear point mapping using group/tail risk
+
+**Problem:** audits find some accurately encoded critical poles with severe
+held-design errors absent from in-fit predictions. Fixed local weights
+improved the older42-feature model but worsened far-stable pessimism.
+The latest constrained affine correction also failed warning endpoints.
+
+**Change:** preserve the successful spatial representation and optimize
+the actual nonlinear blend output. A bounded first arm keeps107 frozen and
+fine-tunes174 from its saved proper-fit model. Match it with identical
+warm-start/custom-optimizer average-MSE training.
+
+Use TRAIN-defined groups: acquisition family crossed with stable/unstable
+boundary bins, with adequate distinct-design counts. Within each group,
+designs contribute equal total weight; noise copies do not add support.
+A concrete objective is normalized mean MSE plus the maximum group
+`CVaR_.90(max(prediction-truth,0))` on boundary groups. Normalize margin
+errors by a fixed `.01` unit. Include a matched average-tail penalty to
+separate worst-group protection from generic asymmetry.
+
+Select regularization/early stopping on disjoint inner designs using the
+tail endpoint and guardrails, not aggregate-MAE stopping alone. Every base
+learner used to assess those inner designs must exclude them. Training
+constraints or zero in-fit failures do not certify held risk.
+
+**Pass:** reduce `P(e>.03 | 0<m<.01)` and `0<m<.05`, including correlated5,
+while retaining unstable-side tails, calibrated warning performance, clean
+MAE and far-stable underestimation>.05. Report bias and the full exceedance
+curve so a uniform downward shift cannot masquerade as localized repair.
+
+Primary source: [Sagawa et al.2020](https://arxiv.org/html/1911.08731)
+show that unregularized group DRO can fit training groups yet fail on held
+groups. Their classification results motivate the regularization control;
+they are not evidence that this P4 regression adaptation will succeed.
+
+### S2 — Add independent structural and excitation coverage
+
+**Problem:** repeated noise views still represent77 designs. Thin feature
+support and seen-versus-held failures remain plausible mapping mechanisms;
+no loss can manufacture missing structural examples.
+
+**Change:** freeze the current models/representation and add a bounded
+TRAIN-only acquisition batch. An initial proposed batch is32 new designs:
+half space-filling within the supported physical envelope, half allocated
+to underrepresented physical/modal strata defined from proper-fit data.
+Do not choose them from named outer-held failures. Acquire stable last1/2/5%
+examples plus unstable/far-stable guardrails and multiple independent modal
+initial conditions; include deliberately weak critical-mode excitation as
+an explicit, separately reported stress family.
+
+**Controls:** equal numbers of extra physical clips/initial conditions on
+existing proper-fit designs versus new designs, with identical noise views,
+loss, architecture, scaling and fitting schedule. Keep acquisition count
+and design count separate. Include space-filling-only versus enriched
+acquisition if the first batch shows promise, not as an automatic matrix.
+
+**Pass:** point-tail improvement on unchanged held designs beyond the
+extra-clip control, followed by independent new-design confirmation.
+Record generation exclusions and population coverage rather than silently
+replacing failed designs. No structural parameters or solver poles become
+predictor inputs. If operating speed is later admitted, avoid the already
+exposed `V=ratio*ucrit` sampler shortcut.
+
+### W2 — Integrate physical evidence at the decision layer, not the margin layer
+
+**Problem:** the standalone growth-only physical-prior experiment had a real
+warning signal. Its residual/distribution integration into the blend did
+not preserve that benefit. Existing rank controls already include growth,
+but an unrestricted fitted score can still discount growth evidence.
+
+**Change:** compare a learned ranking decision with a separate monotone
+measured-growth warning channel. Start with the archived growth-only score
+as a decision comparator; also test a simpler measured-growth score to
+determine whether the expensive population prior is necessary.
+Use a union `ranking_score>t_rank OR growth_score>t_growth`.
+
+**Calibration:** select a small predefined threshold-pair family on inner
+proper-fit designs, then calibrate the JOINT rule on disjoint calibration
+designs. Two independently calibrated1% channels do not constitute one1%
+policy. A fixed `.5%+.5%` allocation is a conservative comparator, not the
+preferred automatic choice. Check the union's actual false-warning rate.
+
+**Pass:** recover near-unsafe misses beyond the strongest rank-only head at
+the same risk/availability tradeoff. Retain standalone growth/ranking and
+joint-rule controls. No solver identity, hard true-margin sign override or
+claim of point-error repair. Positive growth principally helps instability
+detection; it does not by itself anticipate a stable-side approach.
+
+### N1 — Use noise covariance in identification without erasing modal patterns
+
+**Problem:** rho.8 correlated noise is a demonstrated stress failure.
+Current `estimate_modes` forms an unweighted temporal covariance from all
+calibrated channels and fits an LS shift. More noise copies and stronger
+consistency have not uniformly solved the boundary problem.
+
+**Change:** estimate a shrinkage-regularized sensor-noise covariance from
+an actual quiet calibration record or a separately validated noise model.
+For per-channel calibration scale matrix `D`, transform raw noise covariance
+to `Sigma_cal=D^-1 Sigma_raw D^-1`. Use its inverse square root to weight
+channels in pole identification. Use the ORIGINAL calibrated channels to
+refit modal coefficients at the resulting poles, preserving the existing
+spatial-feature meaning. Never subtract the common sensor mean: a real
+critical mode may itself have a common spatial component.
+
+Determine the usable pre-cap prefix on original measured channels BEFORE
+whitening; do not interpret transformed amplitudes as new ADC cap hits.
+Retain existing calibration and sensor saturation. Do not estimate noise
+covariance from a response-containing leading51-sample block and call it
+a signal-free noise measurement.
+
+**Controls:** unweighted extraction, diagonal noise weighting, full covariance
+weighting, and known injected covariance as a clearly labeled diagnostic
+oracle. Separate fixed-predictor replay from refits using each extractor's
+own TRAIN features. New spatial/pole feature semantics require refitting.
+
+**Pass:** improve stable-side optimism and calibrated warning decisions,
+not only mode-recovery proxies; retain weak critical modes and report
+availability/runtime. This cannot explain or repair the accurate-pole
+clean mapping failures. Unknown or misspecified covariance is a real risk.
+
+### N2 — Refine poles with a multichannel physical observation likelihood
+
+**Change:** initialize with LS-ESPRIT, then refine poles over the same
+unsaturated measured prefix by variable projection:
+`min_poles min_coefficients ||X - Phi(poles) coefficients||^2`.
+Use shared conjugate pole pairs, channel-specific coefficients and offsets;
+solve linear coefficients exactly for each pole iterate. Preserve the
+initial mode budget for the first comparison. Do not force negative
+growth or infer critical identity from solver truth.
+
+**Controls:** original LS-ESPRIT, refinement alone, and later covariance-
+weighted refinement if N1 independently qualifies. Keep lag64 and aperture
+fixed. Test close pole pairs and weak excitation explicitly; nearly
+coalescent exponential bases can be ill-conditioned. Record failed fits
+and deadline misses rather than dropping them or hiding a fallback.
+
+**Pass:** improvement in held stable-side tails and warning risk, with an
+acceptable full-pipeline runtime. Initially use this as an offline
+identification reference; an online refinement claim needs timing evidence.
+Lower residual or better poles alone is insufficient, as lag128 showed.
+
+Primary source: [Askham and Kutz, author manuscript](https://askhamwhat.github.io/assets/postprints/2018-optimized-dmd.pdf),
+Sections2.2–3, gives shared-pole/multiple-channel variable projection;
+Section2.2.3 also identifies near-confluent eigenvalues as a failure case.
+Reported DMD noise-bias reductions are not a demonstrated LS-ESPRIT/P4 gain.
+
+### O1 — Measure the operational question with propagated state
+
+**Required foundation:** existing `generate_clip_from_eigendecomposition`
+draws fresh modal initial conditions and propagates fixed poles at one
+speed. It cannot establish lead time from a speed ramp. Use the existing
+`solver.assemble_aeroelastic_system(V,rho,c_sound,zeta)` matrices to integrate
+`M qddot + C(V(t)) qdot + K(V(t)) q = forcing(t)` with continuous state.
+Use a fixed physical acquisition rate/bandwidth independent of test truth.
+Validate a fixed ROM against the full system if reduction is needed;
+never concatenate clips or reset modal coefficients between windows.
+This is quasi-steady piston-theory simulation, not full unsteady-aero validation.
+
+Predefine: slow/fast approaches and sustained crossings; never-crossing
+safe dwells; near-boundary dwells; approach-and-retreat cases; intermittent
+and weak excitation. Preserve dynamic response as well as the frozen-time
+boundary label. A frozen-time margin-zero crossing and a harmful amplitude
+event are distinct endpoints; the latter needs a physical intervention limit.
+
+Inject one continuous acquisition noise process BEFORE causal normalization:
+original iid and rho.8 controls, colored/common-mode interference,
+gain/drift, impulses and dropout as separately identified sensitivity
+families. Overlapping windows must share the same underlying noise samples.
+Keep uncalibrated1/5% studies, but also report per-sensor SNR/physical units
+and later use measured sensor PSD/bandwidth rather than calling5% realistic.
+
+Define an advisory region and intervention horizon prospectively. Report
+warning coverage during stable approaches separately from nuisance alarms
+on benign operation. A warning during a dangerous approach is not
+automatically a false alarm merely because instantaneous `m>0`.
+Also retain the legacy all-stable clip benchmark unchanged.
+
+For every frozen candidate measure:
+timely event misses; crossing-relative and usable lead-time distributions;
+alarm episodes per operating hour with explicit clear/rearm rules; chatter;
+unavailable duration and false-safe declarations; stable/unstable signed
+tails; p95/p99/max sensor-to-output compute, deadline misses and acquisition
+duration/update interval. Timestamp warning DELIVERY, not just window start.
+Include acquisition, processing, communication and intervention delay.
+Simulator generation/I/O stays outside the inference benchmark.
+
+Fit, policy-select, calibrate and evaluate on disjoint DESIGN groups, keeping
+all trajectories/forcing/noise views together. Bootstrap designs with their
+trajectories, not overlapping windows. Add unseen-structure and model-form
+stress tracks; simulated noise robustness is not real-world validation.
+O1 closes a measurement gap; it does not itself promise fewer failures.
+
+### O2/O3 — Two distinct operational improvement alternatives
+
+**O2: causal tracking and sequential decisions.** Track multiple measured
+pole hypotheses across windows using complex-pole distance and spatial
+pattern agreement; preserve ambiguous associations and weak-mode flags.
+Use a causal state estimator whose process uncertainty permits changing
+growth, rather than always averaging the selected leading mode.
+Compare immediate ranking thresholds, two-of-three persistence, and a
+one-sided CUSUM with clear/rearm hysteresis. Calibrate each policy on whole
+benign trajectories for the SAME alarm-episode rate. Never multiply
+overlapping-window probabilities as independent evidence. Judge timely
+misses and usable lead time: a smoother that lowers chatter but warns too
+late fails. Check abrupt ramps, mode exchanges and persistent correlated
+interference. This is not the already tested within-clip GRU/TCN mapping.
+
+**O3: adaptive observation instead of forced confidence.** Fit an observable
+error-risk/one-sided residual-bound model from proper-fit design-cross-fitted
+errors, retaining multi-mode/spatial context and support/quality information.
+Compare its selective decisions against the old constant/group interval
+policy at matched availability; calibrate a declared design-level risk,
+not an assumed conditional guarantee. A low residual alone is not confidence.
+
+When the bound straddles the advisory decision, compare a causal extension
+of the current observation with always-fixed/always-extended acquisition.
+If weak modes are dying into noise, extending a free decay is not a cure:
+same-speed controlled re-excitation is a separate actuation-enabled arm.
+Never average unrelated clips or require a target speed sweep. Count the
+extra observation/actuation delay and unavailable time in event metrics.
+This manages unreliable decisions; it does not repair the original point
+estimate, and abstaining everywhere fails the availability objective.
+
+### Recommended execution and stopping rules
+
+1. **First screens:** W1 for misses and S1 for point tails; N1 as the
+   orthogonal noisy-identification alternative. O1 should be specified
+   alongside these, before investing further in an early-warning claim.
+2. Use one predefined fold/seed for a fully trained promise screen, then a
+   predefined second fold/seed before expanding survivors. A screen is not
+   qualification, and stopping at it does not justify a lucky-fold claim.
+   Cheap warning heads can receive five-fold confirmation earlier than
+   expensive temporal/identification models.
+3. Keep existing nominal5% co-primary reporting and1% secondary reporting.
+   Prospectively add stable-last1% optimism as an explicit endpoint for
+   these stable-side proposals; do not rewrite earlier primary endpoints.
+   Report all condition families and actual held false warnings.
+4. Compare each new mechanism alone with its matched control; combine only
+   independently useful survivors and then measure the whole combination.
+   Do not claim one model using several arms' per-condition minima.
+5. Operational success is lower TIMELY event misses at comparable nuisance
+   episodes/hour and useful availability/latency, not clip recall alone.
+   Point-model success also requires stable-side tail repair without merely
+   moving error to far-stable pessimism or the unstable side.
+6. Retain old guardrails unless an explicit new tradeoff is agreed.
+   Prespecify noninferiority tolerances and minimum useful gains before
+   confirmation; CI crossing zero is not noninferiority proof. Without
+   application costs, report the frontier rather than invent certification.
+7. Before final claims, freeze the selected model/policy/input/noise contract
+   and use reserved splits for their intended purposes plus truly new
+   structures/trajectories. Existing repeated TRAIN CV is discovery only.
+
+Do not prioritize another longer-Hankel run, global downward shift, unchanged
+local-weight/consistency sweep, generic nearest-neighbor correction, single-
+pole margin posterior or more Hurwitz columns. Their relevant failure modes
+have already been measured. Retain frozen GRU/TCN warning screening as a live
+confirmation candidate, not an automatically required new architecture run.
+
+Calibration reference: [Tong, Feng and Li2018](https://pmc.ncbi.nlm.nih.gov/articles/PMC5804623/)
+distinguish empirical false-positive thresholds from population type-I
+control. Their independent calibration assumptions do not turn13 calibration
+designs and many dependent clips into a1% cross-design guarantee.
+
+Additional decision-contract arithmetic, computed from the saved labels:
+172/2614 stable physical clips lie in the last1%. Even allocating EVERY
+permitted flag to that region, an all-stable1% window budget caps its
+average warning coverage at15.20%. Warning on95% of those precursor
+windows would alone flag6.25% of all stable clips. This is a window-level
+counting bound, not an event-level impossibility result: one timely warning
+can cover an entire trajectory. It explains why precursor warning coverage
+and all-stable instability-classification specificity need separate reporting.
+The two-draw MSE identity above was numerically exercised on the actual
+saved correlated5 errors; decomposition discrepancy was exactly0.
+
+
+## 23. Independent W1/S1/N1 screens — 2026-10-03
+
+Section22 is now followed by executed TRAIN-only screens, not a production
+cutover. Frozen protocols, model artifacts, complete37-condition results,
+paired design bootstraps and raw-waveform verification:
+[independent screens](../../../p4_groups/independent_gap_screens_20261003/).
+Heldfold0/seed42 and heldfold1/seed43 cover1808 clips/32 designs, including
+66 stable-last1% clips/24 designs and58 unstable-last1% clips/18 designs.
+Archived references and S1 warm starts remain seed42; this is not independent
+two-seed confirmation of the entire system. Reserved designs and temporal
+models remain untouched; existing nominal5% primary/1% secondary unchanged.
+
+**W1 — capacity helped; constraint feasibility failed.** At nominal5%,
+the ordinary nonlinear28-input classification control reduces fresh
+correlated5 near-unstable misses8.621%->0%, with actual false flags
+2.815%->2.624% versus frozen. Replication gives9.483%->1.724% misses
+and2.767%->2.433% false flags. This is observed dominance versus frozen,
+not versus products ranking, which has fewer false flags. Neither boundary-
+objective fold has an inner checkpoint satisfying every per-view actual
+indicator budget; some final smooth constraints also remain violated.
+The nonlinear1% boundary arm gives1.724% misses with1.145% actual false
+flags, not a passing1% policy. Keep the ordinary nonlinear score as a
+confirmation candidate; do not attribute its gain to constrained fitting.
+All point/interval fields remain exactly frozen.
+
+**S1 — reject this fixed tail-training screen.** Fresh correlated5
+stable-last1% severe optimism8.333%->7.576% for worst-group CVaR training
+is fold-sensitive and accompanied by unstable optimism0%->0.862%,
+primary false flags2.815%->4.008%, and new iid5 stable severe optimism.
+Clean accuracy and warning guardrails also regress. Average-tail fitting
+does not reduce pooled correlated5 severe optimism. Honest inner designs
+and matched warm-start MSE control are retained in the artifacts.
+
+**N1 — strongest observed correlated-noise point-tail candidate.**
+Full-covariance identification with own-feature refits reduces fresh
+correlated5 stable severe optimism8.333%->0% versus frozen, and
+7.576%->0% versus matched-seed unweighted. Replication is6.818%->0.758%
+versus matched unweighted. Original calibrated channels retain coefficient/
+shape semantics, cap prefix precedes whitening, and no common-mode signal
+is subtracted. Independent synthetic quiet calibration is used, NOT measured
+hardware noise. Warning tradeoffs remain: fresh primary misses
+8.621%->3.448% versus frozen while actual false flags2.815%->3.340%;
+replication raises false flags versus matched unweighted with a positive
+paired interval. IID5 introduces stable severe optimism0%->0.758%.
+Retain for fixed-protocol confirmation, not a general-purpose cutover.
+
+**Check:** all12 new N1 spatial refits converged;18 actual waveforms
+reproduce saved outputs within1.42e-14,32 calibration threshold replays
+exact; acquisition/cap/covariance/warm-start/CVaR invariants exercised.
+Dependent clips/noise views, repeated TRAIN exploration and fixed-prediction
+bootstraps do not qualify these observed rates as population guarantees.
+
+**O1:** [trajectory protocol](../../../p4_groups/independent_gap_screens_20261003/trajectory_protocol.json)
+defines continuous-state ramps/dwells/retreats, shared overlapping noise,
+delivered warning lead, clear/rearm episodes, availability and latency.
+It is specified only: no trajectory generator or operational result yet.
+Physical intervention/harmful-response thresholds and hardware PSD remain
+missing application inputs. Implement and validate O1, and confirm warning
+capacity and covariance independently before combining candidates.
+
+
+### Benchmark-contract correction agreed with user
+
+Preserve the existing clip benchmark as a versioned instability-detection
+comparison track, not as the sole acceptance criterion for early warning.
+Keep stable/unstable regression tails and far-stable pessimism guardrails.
+Make a separately defined and exercised trajectory advisory benchmark
+decisive for that claim: timely event misses, delivered/usable lead,
+prospective nuisance episodes and availability. Stable flags retain their
+legacy false-positive label; useful anticipation requires trajectory evidence.
+Near dwells and approach-retreat cases prevent automatic success labeling.
+The proposed1% misses/1% all-stable clip flags gate is NOT an advisory
+deployment gate. Retest affected implementations after changes, rerun legacy
+comparisons, and exercise propagated-state and alarm-transition scenarios
+when implementing O1. No operational claim follows from this specification.
+
+
+## 24. Independent five-fold continuation and O1 implementation — 2026-10-03
+
+**Decision:** both surviving mechanisms generalize beyond the original two
+screens. Retain them independently; no combined-system or deployment claim.
+The tested S1 tail objective remains rejected. No temporal model or production
+default changed; reserved project designs remain unscored.
+
+Evidence: [confirmation results](../../../p4_groups/operational_confirmation_20261003/confirmation_results.json),
+[new folds only](../../../p4_groups/operational_confirmation_20261003/new_folds_only_results.json),
+[protocol](../../../p4_groups/operational_confirmation_20261003/protocol.json).
+All4454 TRAIN clips/77 designs; original folds0/1 reused exactly, remaining
+folds2/3/4 with prescribed seeds44/42/43. This is continuation under mixed
+fold seeds, not full repeated-seed or blind confirmation.
+
+Nominal5% calibration, correlated5 noise: near-unstable miss/actual stable
+false-flag percentages are11.728/2.735 frozen,7.407/2.525 products,
+2.160/3.022 ordinary nonlinear warning,12.037/2.774 matched unweighted,
+and7.099/3.424 full-covariance identification. Nonlinear warning-minus-products
+misses -5.247pp (paired95%[-8.544,-2.238]), but false flags +0.497pp
+([+0.203,+0.794]). Capacity helps; no constrained-learning claim.
+
+Stable-last1 severe optimism at error>0.03: correlated5 matched6.395%
+versus covariance0.872%, difference -5.523pp ([-9.122,-2.247]).
+Replicated correlated5:7.849%->0.872%, -6.977pp ([-11.389,-3.205]).
+Its warning false flags increase versus matched unweighted: +0.650pp
+([+0.114,+1.178]), replication +1.148pp ([+0.511,+1.838]).
+The IID5 point-tail rate improves2.326%->0.581%, but that severe-tail
+interval includes zero. Acquisition repair is useful, not a free policy repair.
+
+Only the three NEW folds:2646 clips/45 designs. Correlated5 nonlinear
+warning misses3.365% versus frozen13.462%; replicated7.212% versus14.423%.
+Covariance stable severe optimism1.415% versus matched5.660%; replicated
+0.943% versus8.491%. Tight nominal1% policies still miss many near-unstable
+clips: full-five-fold correlated5 nonlinear16.975%, covariance29.012%.
+Those clip criteria remain regression evidence, not advisory deployment gates.
+
+**Check:**60 measured-waveform replays across all folds,15 exact calibration
+replays, maximum output error1.07e-14; nonlinear-warning margin/interval fields
+remain exactly frozen.2000 fixed-prediction whole-design bootstraps exclude
+refit/multiplicity/selection uncertainty and cannot qualify population risks.
+
+**O1 is now implemented, not yet fully evaluated.**
+The [runner](../../../p4_groups/operational_confirmation_20261003/trajectory_runner.py)
+uses a separate46/7/8/16 fit/policy/calibration/trajectory-held design
+partition. Continuous assembled-matrix state, fixed1kHz observations,
+causal overlapping windows and noise, physical forcing, delivered alarm
+latch/clear/rearm, deadline/missing-data accounting; no stitched clips or
+state resets. Fixed/ramp/forced-ramp full-order and integration-step audits
+qualify the32-coordinate ROM. Failed bandwidth/reduction/Mach coverage
+remains explicit acquisition unavailability, never a fabricated safe output.
+Numerical identification availability is not calibrated correctness confidence.
+Corrected evaluation outputs go under `o1_validated/`; first partial execution
+was cancelled without a scorecard to repair forced-response validation and
+false-safe accounting. Actual D000053 forced-response audit and eight
+operational regressions pass. Await the full held scorecard and waveform replay
+before any operational performance statement. Harmful-amplitude, intervention/
+communication and hardware-noise requirements remain missing application inputs.
+

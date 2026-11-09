@@ -1,0 +1,55 @@
+{
+  "direction": {
+    "verdict": "CONCERNS",
+    "research_direction": {
+      "responsibility": "I will own scientific prioritization and acceptance decisions within this review role; you own implementation, execution and verification. Return preregistration facts and results to me rather than asking the user to choose routine experiments.",
+      "immediate_choice": "Prioritize the omitted controlled single-versus-multiple-operating-point acquisition experiment. Defer gate-erasure training and physical-model inversion pending its feasibility checkpoint.",
+      "rationale": "Existing history experiments changed how previously acquired ramps were summarized; they did not manipulate operating-point diversity. The user's requested intervention remains untested. Physical-model inversion currently lacks a specified admissible family, noise likelihood and search-completeness evidence: a wide fitted-margin set would not establish structural ambiguity, nor a narrow set establish accuracy under model misspecification."
+    },
+    "experiment": {
+      "question": "Does deliberately acquiring responses at distinct, unknown-to-the-predictor operating points within the same causal aperture improve final signed margin compared with spending that aperture at one operating point?",
+      "acquisition": "Use three128-sample plateau windows separated by two32-sample smooth velocity transitions: samples0\u2013127,160\u2013287,320\u2013447 at1kHz. Total first-to-last span447ms. Maintain continuous mechanical state; no resetting or separately initialized clips between plateaus. Transition samples consume aperture even if not encoded. Preserve16 sensors, existing calibration, saturation handling and excitation law; no extra pulse or re-excitation.",
+      "arms": [
+        "S: Uend throughout the aperture.",
+        "M: Uend\u2212delta, Uend+delta, Uend across the three plateau windows.",
+        "R: Uend+delta, Uend\u2212delta, Uend, controlling acquisition order while retaining the same operating-point set and endpoint."
+      ],
+      "schedule_safeguard": "Choose one fixed absolute-unit endpoint grid and delta from proper-training information and the validated physical operating domain before evaluation acquisition. Apply the identical grid, amplitudes, timing and replicate excitation law to every design. Never choose delta, endpoints or ramp rates using each evaluated design's ucrit or margin. Neither velocities, schedule identity, commanded future inputs nor true modal quantities enter the predictor. Label final margin offline only. No posthoc removal of unsuccessful or quiet acquisitions.",
+      "paired_controls": "Match duration, endpoint velocity, sensor/noise realization and initial-condition/excitation distribution across S/M/R. Pair the same physical initial displacement/velocity where the acquisition model permits this without new actuation; otherwise document the common preparation and resulting initial-state differences. Do not describe differently initialized clips as a continuous multi-point observation.",
+      "estimator": "Retain174 features and original measured qualification gate on each plateau window. Use the same fixed three-slot GRU32\u219216, reset at every decision, with actual measured slot times/ages. No hidden state before sample0. Native gap outputs remain unqualified; do not freeze them to the previous predictor. Full fits, if authorized, use one shared predictor trained on balanced S/M/R acquisitions without arm labels, rather than oracle-routed specialists. This tests exploitation by a fixed method, not an optimal-information bound.",
+      "splits": "Retain original four fitting designs, the12 additional TRAIN designs and their three grouped folds, and original two checkpoint-validation designs. All acquisition/noise copies remain grouped. Reserved designs stay untouched. Keep clean/IID1 training, three seeds, fixed optimizer/regularization/checkpoint rule and independent paired primary/stress noise views. Select checkpoints by the same preregistered all-arm validation criterion, never evaluated-design outcomes."
+    },
+    "pretraining_checkpoint": {
+      "authorization": "Authorize feasibility acquisition and accounting only now\u2014not a full fitting campaign.",
+      "required_checks": [
+        "On proper-training designs, verify continuous-state replay, constant physical matrices within each plateau, admissible transitions, unchanged calibration/excitation and total447ms support. A velocity plateau need not imply stationary response amplitude.",
+        "Supply endpoint/rate/domain bounds in physical units and show that a nontrivial delta with two32ms transitions is supported by the physical model. If not, do not silently use discontinuous jumps, longer acquisition or target-dependent schedules.",
+        "Demonstrate actual operating-point contrast using offline physical matrices/poles and measured waveform/extractor changes. A vanishingly small permitted delta is not a meaningful multi-point experiment.",
+        "Tabulate original-gate acceptance, histories with no valid slot, saturation and all target-region counts for S/M/R under primary noises. Calculate any exact error floors imposed by indistinguishable all-missing representations or fixed outputs, using the same equal-design weights. Do not substitute a heuristic SNR threshold for such a floor.",
+        "Confirm that the frozen endpoint grid can cover boundary, both sign-exclusion sides and farther-stable regions within the admissible family domain. Report uncovered regions explicitly; do not obtain coverage by evaluated-design ucrit-dependent acquisition."
+      ]
+    },
+    "decisions": {
+      "proceed_to_fits": "Proceed only after the physical contrast, coverage and aperture checks pass and no imposed floor already rules out the relevant accuracy targets. Record what remains unresolved; passing preflight is not evidence that the targets are achievable.",
+      "scientific_success": "M and R should improve held-design final-margin overall and exact-boundary error versus S, not merely benefit one order or one profile. Report paired design-level effects and seed heterogeneity. Success under one order alone supports a path/state-history effect, not a general operating-point-diversity claim.",
+      "accuracy_acceptance": "Use unchanged overall MAE\u2264.010 clean/\u2264.015 each1% family; boundary\u2264.005/\u2264.010; boundary optimism\u22645%; each eligible sign-side error\u226410%; farther-stable noninferiority\u2264.005. Preserve all denominators. A target-crossing result remains developmental, not endpoint qualification.",
+      "if_multiple_points_help_but_miss_targets": "Use effect size and remaining error populations to decide whether this acquisition deserves one targeted estimator correction. Do not automatically launch more models.",
+      "if_no_gain_despite_valid_contrast": "Reject this acquisition-plus-fixed-estimator intervention, not multiple velocities universally. Reconsider inversion only with a specified observable likelihood and validated parameterization.",
+      "if_preflight_fails": "Stop before training. If gate erasure dominates despite demonstrable measured response, return to the diagnostic-only retention ablation. If admissible transitions cannot produce useful contrast or all histories lack useful excitation, acquisition-envelope feasibility becomes the governing issue; no unauthorized actuation, aperture extension or retrospective denominator restriction."
+    },
+    "implementation_evidence_needed": [
+      "Exact velocity units, validated aeroelastic domain, permitted transition dynamics/rates, and the numerical endpoint/delta proposal derived exclusively from proper-training information.",
+      "Source-level acquisition chronology: initial state/excitation, calibration support, command/free-observation classification and whether the proposed transitions are valid under it.",
+      "Preflight counts/floors, physical-contrast evidence and fold membership; projected acquisition/extraction cost before full fits."
+    ],
+    "reporting_and_limits": "Report at preflight, after verified fitting, and whenever an acceptance condition fails\u2014not after an automatic sequence of increasingly marginal corrections. I will decide continuation or direction change from those checkpoints. Qualified availability, independent95% run-risk calibration, delivered lead/nuisance performance, full-path latency/replay, blind transfer and independent physical validation remain unearned. The latter must precede a credibility claim, but is not a substitute for finally testing the requested acquisition intervention."
+  },
+  "subsequent_checkpoint": {
+    "verdict": "CONCERNS",
+    "corrections": [
+      "Use7.874015748031496Hz and eigenbasis-condition ceiling1e10 for the completed counterfactual. Scores and replacement counts remain unchanged. The permissive ceiling weakens any blanket reliability claim; supply actual condition numbers for replaced slots and conditioning-sensitive reconstruction evidence before attributing its null result to physical information.",
+      "The existing ratio-based schedule cannot implement the new experiment: replace its schedule input with preregistered absolute velocities independent of each evaluated design's ucrit. Computing true margin afterward remains scoring-only."
+    ],
+    "next_checkpoint": "The acquisition decision stands, but full fits remain unauthorized. Continuous exponential-midpoint propagation establishes state continuity, not adequate integration of32ms transitions with10ms coefficient steps. Supply transition-boundary handling and a targeted step-refinement convergence check for the proposed schedule before acquiring the campaign. Keep plateau sample locations and447ms aperture fixed. If validated transition dynamics cannot support the proposed contrast, return that feasibility failure rather than relabeling the existing ramp experiment."
+  }
+}

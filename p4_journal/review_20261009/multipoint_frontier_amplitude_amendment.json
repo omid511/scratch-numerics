@@ -1,0 +1,7 @@
+{
+  "verdict": "CONCERNS",
+  "decision": "Keep the campaign stopped.",
+  "interpretation_change": "The extreme-grid failure is not merely saturation-induced representation loss: the supplied displacements invalidate a small-disturbance physical interpretation of those trajectories. Their collision floor remains mathematically correct for the synthetic dataset, but cannot establish a physical accuracy limitation—even for severely supercritical operation. Preserve the cases as documented acquisition/model-domain failures, not valid physical examples.",
+  "checkpoint_amendment": "Before any independent aerodynamic comparison, establish displacement, rotation/slope and applicable structural/aerodynamic small-disturbance validity for the proposed1240m/s checkpoint itself. Do not infer those conditions from its lower speed or from sensor displacement alone. Failure requires a prospectively revised physical acquisition, not retrospective filtering.",
+  "missing_prerequisite": "No justified accelerated-flow evaluator or error bound is presently available. The reviewed abstracts do not supply one; the source search establishes local unavailability, not universal absence. No further predictor fits are authorized."
+}

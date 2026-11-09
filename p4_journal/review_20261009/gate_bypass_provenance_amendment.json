@@ -1,0 +1,12 @@
+{
+  "verdict": "SUPPORTED",
+  "direction": "Continue the authorized provenance/eligibility checkpoint; no fits yet.",
+  "correction": "Call this forecast-gate bypass for auxiliary extraction, not recovery of discarded computed features. The intervention adds full-window extraction on eligible rejected records while preserving qualification. Its eventual runtime must include that additional work; accepted-path timing alone would be insufficient.",
+  "requirements": [
+    "Determine eligibility from command, finite, cap and forecast checks before running the full extractor. Count extraction failures separately; do not equate forecast rejection with usable174 content.",
+    "Preserve cached accepted rows. Compare replayed accepted features against them and disclose numerical/implementation differences before training.",
+    "Keep all20-design inventory counts separate from12-design grouped-evaluation counts. Compute collision bounds and error contributions with the appropriate original populations and weights.",
+    "Continue using measured waveform/timebase/calibration only; keep truth isolated to scoring."
+  ],
+  "authorization_limit": "Return the complete eligibility, reproduction, collision-floor and leverage receipt for a fitting decision."
+}

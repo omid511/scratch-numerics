@@ -1,0 +1,6 @@
+{
+  "verdict": "SUPPORTED",
+  "finding": "No material scope violation. The smoke establishes that one forecast-rejected window yields finite estimates under the existing extractor, not that those estimates are accurate or useful. Retaining its false observation flag and preserving cached accepted rows is appropriate.",
+  "reproduction_caution": "The1.47e-12 maximum absolute discrepancy alone neither establishes material error nor certifies equivalence. Identify affected coordinates and assess standardized-input effects, mode ordering/availability, and gate classifications under the existing criteria. Do not demand bit identity as a scientific requirement or widen tolerances to obtain a pass.",
+  "authorization": "Continue the population-wide eligibility, reproduction, collision-floor and leverage receipt. Keep extraction-failure and runtime accounting explicit. Full fits remain unauthorized pending that receipt."
+}

@@ -1,0 +1,106 @@
+{
+  "dataset_rows": 2094,
+  "frames_per_row": 124,
+  "designs": [
+    "D000007",
+    "D000008",
+    "D000020",
+    "D000029",
+    "D000033",
+    "D000042",
+    "D000045",
+    "D000053",
+    "D000062",
+    "D000068",
+    "D000087",
+    "D000114",
+    "D000115",
+    "D000120",
+    "D000126",
+    "D000129",
+    "D000144",
+    "D000146",
+    "D000152",
+    "D000158"
+  ],
+  "primary_all_development_partitions": {
+    "clean": {
+      "rows": 198,
+      "frames": 24552,
+      "observed": 12171,
+      "rejected": 12381
+    },
+    "iid1": {
+      "rows": 198,
+      "frames": 24552,
+      "observed": 2991,
+      "rejected": 21561
+    },
+    "correlated1": {
+      "rows": 198,
+      "frames": 24552,
+      "observed": 2804,
+      "rejected": 21748
+    }
+  },
+  "cached_keys": [
+    "features",
+    "oracle_features",
+    "truth",
+    "observed",
+    "age",
+    "times",
+    "records",
+    "mode_count",
+    "measured_alpha",
+    "measured_frequency",
+    "measured_energy_fraction",
+    "measured_mode_shapes",
+    "measured_fit_error",
+    "measured_usable_fraction",
+    "matched_branch",
+    "match_scores",
+    "replacement_reason",
+    "eigenbasis_condition",
+    "reconstruction_error",
+    "replacement_diagnostics",
+    "replacement_coverage",
+    "protocol_sha256",
+    "implementation_sha256",
+    "input_fingerprint"
+  ],
+  "raw_cache_exists": true,
+  "local_shard_directory_exists": false,
+  "local_available_raw_shards": [],
+  "waveform_source": "/home/omid5/mechanics/p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/raw_signals.npz",
+  "source_order": "Original rows reuse canonical features; additional rows apply command/nonfinite/cap checks, prefix forecast qualification, THEN full128 modal extraction/174 feature assembly. Rejected174 rows were not stored as pre-gate estimates; replay must compute them from their own measured window.",
+  "normalization": "Unchanged measured first51 samples, original offset/RMS floor1e-8 and cap50; float32 signal",
+  "history_lags": [
+    4,
+    2,
+    0
+  ],
+  "fitting_started": false,
+  "raw_cache_summary": {
+    "shape": [
+      48,
+      16,
+      8001
+    ],
+    "command_shape": [
+      48,
+      8001
+    ],
+    "physical_rows": 48,
+    "designs": [
+      "D000007",
+      "D000033",
+      "D000042",
+      "D000045",
+      "D000053",
+      "D000068",
+      "D000087",
+      "D000126"
+    ]
+  }
+}

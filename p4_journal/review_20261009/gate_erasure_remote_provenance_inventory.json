@@ -1,0 +1,81 @@
+{
+  "expected_designs": [
+    "D000007",
+    "D000008",
+    "D000020",
+    "D000029",
+    "D000033",
+    "D000042",
+    "D000045",
+    "D000053",
+    "D000062",
+    "D000068",
+    "D000087",
+    "D000114",
+    "D000115",
+    "D000120",
+    "D000126",
+    "D000129",
+    "D000144",
+    "D000146",
+    "D000152",
+    "D000158"
+  ],
+  "available_shards": [
+    "D000007",
+    "D000008",
+    "D000020",
+    "D000029",
+    "D000033",
+    "D000042",
+    "D000045",
+    "D000053",
+    "D000062",
+    "D000068",
+    "D000087",
+    "D000114",
+    "D000115",
+    "D000120",
+    "D000126",
+    "D000129",
+    "D000144",
+    "D000146",
+    "D000152",
+    "D000158"
+  ],
+  "missing_shards": [],
+  "sample": {
+    "design": "D000033",
+    "keys": [
+      "design",
+      "split",
+      "source_kind",
+      "raw",
+      "command",
+      "states",
+      "records",
+      "identity",
+      "base",
+      "stiffness",
+      "damping",
+      "projection",
+      "physical_basis",
+      "structural_dofs",
+      "replay_errors",
+      "validation",
+      "audit",
+      "protocol_sha256",
+      "input_fingerprint"
+    ],
+    "raw_shape": [
+      10,
+      16,
+      8001
+    ],
+    "command_shape": [
+      10,
+      8001
+    ],
+    "physical_records": 10
+  }
+}

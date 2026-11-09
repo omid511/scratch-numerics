@@ -1,0 +1,12 @@
+{
+  "verdict": "CONCERNS",
+  "decision": "STOP gate-bypass fitting. The clean exact-input floor .0129424 exceeds .010 in every evaluation fold, triggering the preregistered stop rule. Lower noisy floors do not rescue a method that necessarily fails the clean target. This is a limitation of the retained modal representation, not proof of raw-waveform insufficiency.",
+  "source_caution": "The batching evidence establishes a real implementation-dependent feature effect in the triggered example, not global equivalence. Preserve the disclosed discrepancies and cached accepted rows; do not spend another campaign repairing this foreclosed arm.",
+  "next_authorization": {
+    "name": "Partition the remaining collision floor by raw-response eligibility.",
+    "execute": "Using existing collision groups and rejection metadata only, compute the floor contributed by histories with NO permitted command-free, finite, cap-free raw segment within383ms. Separately report histories containing permitted raw response but no usable modal content. Supply their equal-design weights, target/profile ranges and current comparator error contributions. No new acquisition, extraction-family comparison or fits.",
+    "decision_rule": "If the immutable no-permitted-response floor already exceeds a target, stop predictor changes and resolve acquisition/physical-envelope feasibility. If permitted raw response accounts for the excess, prioritize one bounded raw-response-versus-modal representation experiment using the existing raw-GRU route—not another modal feature correction.",
+    "missing_context": "The referenced receipt's contents were not supplied here. Paste its collision/rejection decomposition and original-denominator leverage sections, if they already contain these facts; do not recompute existing results merely to confirm them."
+  },
+  "qualification": "No adoption, progress credit or gate relaxation. A raw-response experiment requires this decomposition before authorization."
+}

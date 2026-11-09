@@ -128,6 +128,23 @@ scores and verifies the complete comparison. Any failed stage stops subsequent s
 Required private frozen feature/model/raw artifacts must already be present.
 Do not start another supervisor while this pipeline is running.
 
+The user-approved GPU run stopped after seed42/outer-fold0: eight fully trained
+temporal fits, not the planned 120-fit confirmation matrix. Score this screening
+without retraining or modifying its original training fingerprints:
+
+```bash
+P4_DEVICE=cuda .venv/bin/python p4_groups/temporal_comparison_20261002/score_first_fold.py
+```
+
+Outputs use `screening_` names, separate from smoke and complete-matrix results.
+The evaluators also accept `--first-fold` to score/replay these outputs.
+`screening_stop_receipt.json` identifies the intentional SIGTERM; the original
+supervisor reports exit -15/failed because it was interrupted, not because of a
+model/runtime error. `screening_status.json` records scoring/replay completion.
+Local GPU artifacts are archived under `gpu_first_fold_screening/`.
+One seed and one held-design group support screening only; do not restart the
+full matrix or promote a model from this result without a new decision.
+
 
 ### Online W&B artifacts for saturation runs
 

@@ -1,0 +1,11 @@
+{
+  "verdict": "SUPPORTED",
+  "decision": "Both categories are eligible for this diagnostic auxiliary extraction, provided the waveform is command-free, finite and cap-free and the full128-sample extractor returns genuine nonempty, finite estimates.",
+  "rationale": "Failure to identify modes from64 samples does not establish failure from128 samples. Likewise, an undefined forecast score is not evidence that all full-window information is absent. Neither case establishes reliable margin information.",
+  "conditions": [
+    "Separate finite skill<.5, prefix-no-mode, and undefined suffix-variance cases. Unexpected numerical/solver failures must remain explicit failures, not be silently reclassified as ordinary undefined scores.",
+    "Keep original observed/age values and qualification unchanged; preserve cached accepted rows.",
+    "Use finite-skill-only versus combined accounting as a sensitivity analysis, not a label-informed choice of predictor eligibility or an additional fitting sweep. Freeze combined eligibility before scoring its leverage."
+  ],
+  "authorization": "Continue the receipt with both categories. Fits remain unauthorized until the population-level provenance, floor and leverage evidence is reviewed."
+}

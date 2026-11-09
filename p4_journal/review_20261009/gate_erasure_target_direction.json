@@ -1,0 +1,45 @@
+{
+  "verdict": "SUPPORTED",
+  "direction": {
+    "ranked": [
+      {
+        "rank": 1,
+        "choice": "Test whether forecast-gate zeroing discards useful measured content.",
+        "basis": "Observed acceptance is49.10% clean and approximately12% at1%; gap errors dominate. Useful content in rejected windows remains a hypothesis, but this intervention directly addresses the largest error population without new acquisition or a larger model."
+      },
+      {
+        "rank": 2,
+        "choice": "Preserve, but pause, controlled multipoint acquisition.",
+        "basis": "The requested contrast is not disproven. Its current physical-validation and population-design dependencies do not justify a CFD-development detour now. Do not repeat geometry checks or acquire more multipoint episodes."
+      }
+    ],
+    "selected": "Gate-erasure ablation, preceded by an executable provenance-and-leverage checkpoint."
+  },
+  "scientific_question": "Can the existing estimator extract transferable signed-margin information from finite, unsaturated windows rejected specifically by the forecast-skill gate, or does retaining those estimates merely introduce noise and dangerous bias?",
+  "execute_now": {
+    "scope": "Recover pre-gate174-coordinate rows using the identical extractor and calibrated cached waveforms from the completed expanded-support campaign. First establish rejection reasons and feature provenance; no fitting yet.",
+    "eligibility": "Only command-free, finite, cap-free windows with genuine finite modal estimates that fail forecast qualification. Do not use saturated prefixes, invalid estimates, true branches, substituted physical parameters or invented fallback values. Preserve genuine per-feature availability indicators.",
+    "required_receipt": [
+      "Source-level ordering of extraction, forecast gating and zeroing; show that retained estimates use only their own128 measured samples and unchanged calibration.",
+      "Exact reproduction of accepted-window features; explicit rejection-reason counts and eligible rejected-slot counts by design, profile and noise.",
+      "Within each383ms history, distinguish eligible rejected content, genuinely absent estimates, and prohibited/invalid content. Preserve all original frames.",
+      "Compute exact weighted-median MAE lower bounds for histories that still have bit-identical permitted inputs after retention. Report overall and exact-boundary bounds with original equal-design weights. Do not approximate continuous-valued inputs into artificial collisions.",
+      "Report comparator error contributions from histories whose inputs can change versus those that cannot. A perfect-correction calculation on affected histories is a leverage estimate, not a bound on a globally refitted model."
+    ]
+  },
+  "fitting_authorization": {
+    "status": "Conditional only; return the preflight receipt before launching fits.",
+    "stop_before_fitting": "If an exact remaining-input collision bound exceeds any corresponding primary accuracy target, stop this representation experiment. Do not train a foreclosed endpoint candidate. If retained content is absent or contributes too little error mass to address the observed shortfall, also stop and return that evidence.",
+    "arms": "Use the existing expanded-support folds and383ms-reset GRU32→16: original zeroing, real retained rejected content, and one matched shuffled-rejected-content control. Freeze all other settings. Permute physical-source content within partitions, consistently across paired noise views; never cross design partitions.",
+    "fixed": "Original four plus eight fitting designs per fold, four evaluation designs per fold, original checkpoint-validation designs, seeds42/43/44, clean/IID1 training, existing normalized loss/regularization and checkpoint policy. Same174 features,16 sensors, three slots and physical times. No width, loss, penalty or support search.",
+    "qualification": "Original observation flags, age, saturation decisions and qualification remain unchanged. Retained estimates are auxiliary measured inputs for unqualified predictions—not newly accepted current observations. No hidden history beyond383ms, speed, schedule identity, truth or simulator quantities."
+  },
+  "acceptance_and_next_decisions": {
+    "required_comparisons": "Real content must improve original-denominator all-frame and exact-boundary errors over both zeroing and shuffled controls across primary families. Preserve current-boundary, dangerous-optimism, both sign-side, retreat and farther-stable safeguards; report design/seed heterogeneity and5% stress.",
+    "targets": "Keep overall≤.010 clean/≤.015 each1%; boundary≤.005/≤.010; optimism≤5%; eligible sign-side errors≤10%; farther-stable noninferiority≤.005. No denominator or qualification credit for merely exposing more inputs.",
+    "if_success": "A controlled gain supports information erasure as a correctable bottleneck. Retain the point-prediction correction only if guardrails pass. Address qualification separately; failed-gate data do not become reliable by showing lower average error.",
+    "if_partial": "Record genuine improvement without endpoint credit. Do not tune this arm repeatedly. Return the residual error budget and unchanged missing-input populations for the next mechanism decision.",
+    "if_failure": "Stop gate-retention work. Failure would implicate this extractor/representation on rejected records, not absence of waveform information. The next scientific fork becomes raw-response extraction versus acquisition-envelope inadequacy—not another tabular feature or loss sweep."
+  },
+  "remaining_limits": "This experiment cannot itself raise qualified availability, establish calibrated run risk, deliver warning lead/nuisance guarantees, repair recorded runtime/replay failures, or supply independent physical validity. It is prioritized because an actual signed-margin correction is reachable for testing with existing observations; the multipoint route currently is not."
+}

@@ -1,0 +1,41 @@
+{
+  "status": "missing_configured_independent_accelerated_flow_evaluator",
+  "scope": "src/mechanics and root Python experiments; local executable PATH",
+  "searched_terms": [
+    "OpenFOAM",
+    "SU2",
+    "linearized potential",
+    "Euler flow",
+    "aerodynamic memory",
+    "accelerating flow"
+  ],
+  "installed_commands": {
+    "SU2_CFD": null,
+    "rhoPimpleFoam": null,
+    "rhoCentralFoam": null,
+    "simpleFoam": null
+  },
+  "existing_reference_limit": "Same aerodynamic equations; structural-order/integration comparisons are not independent aerodynamic treatment",
+  "verified_primary_sources": [
+    {
+      "url": "https://ntrs.nasa.gov/api/citations/19710015225",
+      "title": "Performance and Dynamics of Aerospace Vehicles",
+      "limit": "Collected lectures; no acceleration bound verified"
+    },
+    {
+      "url": "https://ntrs.nasa.gov/api/citations/19720010339",
+      "title": "Application of a one-strip integral method to the unsteady supersonic aerodynamics of an inclined flat surface",
+      "limit": "Verified abstract describes small motions about mean steady supersonic flow; no applicable accelerated-flow error bound verified"
+    }
+  ],
+  "pdf_limit": "First PDF fetch aborted; second was scanned with incomplete extraction. No search-summary equations adopted.",
+  "frontier_requirement": {
+    "name": "Independent accelerated-flow admissibility test\u2014no predictor fitting",
+    "scope": "Use the already specified S/M/R trajectories at1240m/s on proper-fitting D000033 and D000068, which show respectively strong and weak response contrasts. Keep identical initial states, calibration,448 samples and continuous structural dynamics. Compare instantaneous-piston forcing/response with an independently justified aerodynamic treatment that explicitly addresses the imposed freestream acceleration or its neglected flow-memory terms. Do not repeat the completed integrator-convergence exercise.",
+    "prerequisite": "Before execution, supply the independent treatment's governing assumptions, applicable rate/timescale bounds and numerical uncertainty. If no defensible evaluator or analytical error bound is available, report that missing physical prerequisite and keep the campaign stopped; do not invent a rate limit.",
+    "falsifiable_rule": "Require the independent treatment's uncertainty and model discrepancy to be smaller than the S-versus-M/R response contrast used to motivate acquisition. Check each order separately and whether distinct plateau dynamics remain distinguishable. Failure means the present32ms transition intervention is not scientifically interpretable as proposed. Passing authorizes acquisition redesign only\u2014not full fits or a headroom-accuracy claim.",
+    "outcome_dependent_direction": "If rate validity fails, seek a slower admissible schedule only within the same .5s budget and then recompute its information contrast; otherwise this intervention requires an explicitly authorized contract change. If validity passes, prospectively design an original-task-population comparison and an excitation-preparation control before training. Preserve the broad-grid results as a separate negative control; do not retrospectively remove their saturated cases or claim its all-frame gates passed."
+  },
+  "no_full_fits": true,
+  "no_claim_of_global_solver_absence": true
+}

@@ -1,0 +1,6 @@
+{
+  "verdict": "CONCERNS",
+  "finding": "Preserving cached accepted rows protects the baseline, but does not by itself exclude a batching-dependent feature artifact in the new rejected rows. Exact agreement of ordered poles/energies does not establish agreement of spatial coordinates or derived summaries.",
+  "required_receipt_delta": "Identify which coordinates account for the0.0087635455 raw and0.0014807480 standardized discrepancies. On a small prespecified paired sample of accepted and newly eligible rejected windows, compare canonical versus proposed batching with identical samples and calibration. Separate within-mode coefficient changes from ordering, availability and feature-assembly differences. Treat batching as a hypothesis until that comparison supports it.",
+  "decision": "Continue the authorized receipt; no fitting or tolerance changes. The standardized discrepancy is not automatically disqualifying, but a systematic representation shift must be characterized before interpreting a retention benefit as added measured information."
+}

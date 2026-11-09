@@ -1,0 +1,46 @@
+{
+  "scope": "Two-window measured-only execution smoke; not the complete provenance/leverage receipt",
+  "device": "NVIDIA GeForce GTX 1660 SUPER",
+  "fitting_started": false,
+  "accepted_replay": {
+    "noise": "iid1",
+    "frame": 0,
+    "forecast_skill": 0.9225093339387271,
+    "coordinates": 174,
+    "numerically_equal": false,
+    "bit_identical": false,
+    "maximum_absolute_difference": 1.4743761767022079e-12,
+    "reference_dtype": "float64",
+    "replay_dtype": "float64"
+  },
+  "eligible_rejected_example": {
+    "noise": "iid1",
+    "frame": 1,
+    "window_start_sample": 64,
+    "window_end_exclusive": 192,
+    "forecast_skill": 0.24313794502010966,
+    "estimated_mode_count": 8,
+    "coordinates": 174,
+    "all_coordinates_finite": true,
+    "nonzero_coordinates": 174,
+    "qualification_unchanged": true,
+    "full_extraction_trials": 1,
+    "full_extraction_failures_before_example": 0
+  },
+  "examined_rows": [
+    {
+      "noise": "iid1",
+      "candidate_windows": 83,
+      "prohibited_by_precedence": {
+        "command": 13,
+        "nonfinite": 0,
+        "cap": 28
+      },
+      "cached_accepted": 36,
+      "finite_forecast_rejections": 47,
+      "rejected_full_extraction_trials": 1,
+      "rejected_full_extraction_failures": 0
+    }
+  ],
+  "feature_engine": "Original CUDA feature engine with its unchanged PhysicsFeatureRidge descriptor; no neural inference or model loading is needed for feature assembly."
+}

@@ -1,0 +1,25 @@
+{
+  "verdict": "CONCERNS",
+  "acceptance_by_experiment": {
+    "experiment1": "Reject all three corrections. This is a narrow elimination result, not evidence against gap-task interference or an information limit.",
+    "experiment2": "No adoption. Expanded measured fitting improves aggregate/current accuracy, but heterogeneity and new2-profile deterioration prevent a general support-adequacy conclusion. The physical-description arm does not consistently improve predictions.",
+    "experiment3": "Reject this implementation for promotion, retain bounded recurrence as research. Content improves on flags/age and framewise predictions, including distinct regimes. It does not uniformly beat same-span controls and fails stable-sign, optimism, retreat and farther-stable safeguards."
+  },
+  "experiment1_leverage": "The user's criticism is substantially right. Frozen gaps alone forced all-frame AND boundary errors above their targets, even with perfect current predictions. I should have required that floor calculation before prioritizing the experiment and explicitly excluded endpoint attainment from its acceptance possibilities. It was not useless—it rejected specific current-head corrections—but its scientific leverage was limited, and it should not be repeated.",
+  "supported_diagnosis": [
+    "Observation erasure/extrapolation is now an evidenced major system bottleneck: only49.10% clean and approximately12% of1% frames pass the measured gate, while gap errors dominate. This does not establish absence of useful information in rejected waveforms.",
+    "Expanded fitting population matters, but does not solve conversion. Its benefit cannot be attributed solely to structural diversity because fitting contributions also change.",
+    "The physical counterfactual is especially incomplete under noise: replacement covers approximately84.4% of clean evaluation slots but only26–27% at1%. Aggregate38.402% coverage obscures that distinction. Even the stronger clean intervention mixes instantaneous physical and finite-window effective descriptions; its failure cannot exonerate extraction or prove conversion is the sole problem.",
+    "GRU results support useful bounded measured content, not specifically temporal ordering: same-span pooling frequently matches or beats it. The new distinct-regime gains revise the earlier four-design conclusion, without establishing recurrence-specific superiority."
+  ],
+  "next_mechanism_test": {
+    "priority": 1,
+    "name": "Diagnostic-only gate-erasure ablation",
+    "hypotheses": "Useful measured modal content is discarded by the forecast gate versus rejected windows yielding no transferable information through the existing extractor.",
+    "intervention": "Keep the expanded-support folds, existing383ms-reset GRU,174-feature dictionary, calibration, optimizer/checkpoint policy and seeds fixed. Compare current feature-zeroing with retaining genuinely finite pre-forecast-gate174 estimates in forecast-rejected slots. Keep original observation flags/age and every qualification decision unchanged. Commanded, saturated, invalid and genuinely unavailable estimates remain excluded/masked. Add one same-width shuffled-rejected-content control, with physical-source permutations consistent across paired noise views and confined to partitions.",
+    "boundary": "This is an offline representation test, not permission to call failed-gate observations current or reliable. Rejected-slot predictions remain unqualified. Do not change denominators, expiry, aperture or gates. Prerequisite: pre-gate feature extraction must distinguish real finite estimates from manufactured fallback values.",
+    "success": "Require real retained content to beat both zeroing and shuffled controls on original-denominator gap and boundary errors across primary families, without current-boundary, sign, optimism, retreat or farther-stable regressions. Report progress toward the unchanged .010/.015 overall and .005/.010 boundary targets; partial improvement is not qualification.",
+    "outcomes": "Success prioritizes measured information retention/extraction and subsequent independent qualification—not another converter sweep. Failure rejects this retention mechanism; it does not prove raw-waveform nonidentifiability. Examine clean versus noisy and no-valid-slot histories separately, preserving totals. This has greater leverage than another marginal feature because it addresses the majority population currently deprived of response features."
+  },
+  "campaign_limits": "No arm earns promotion or endpoint credit; measured improvements remain legitimate experimental findings. The acquisition envelope should govern the next mechanism decision, not be retrospectively narrowed to improve scores. Independent physical/model-form validation remains prerequisite to credibility and eventual qualification, but its absence does not itself explain these within-simulator errors."
+}

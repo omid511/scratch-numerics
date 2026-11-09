@@ -1,0 +1,7 @@
+{
+  "verdict": "SUPPORTED",
+  "decision": "Report both three-slot and five-window partitions, but label their floors as full128-window representation bounds—not immutable information limits. My earlier 'no-permitted-response' wording was too broad.",
+  "authorization": "Extend this audit to existing per-sample command, finite and calibrated-cap masks within the same383ms span. No new acquisition or modal extraction. Identify permissible contiguous pre-cap snippets under existing physical handling; do not resurrect prohibited post-cap samples or alter qualification. Any shorter admissible snippet prevents a claim of complete raw-response absence, but does not establish useful estimability.",
+  "required_output": "Separate: full128 raw window available; only shorter admissible snippets; no admissible raw samples. Report weighted collision-floor contributions, profiles and margin ranges for each. State exactly which flags, ages and mask information define identical inputs; absence of waveform values alone need not imply identical permitted inputs.",
+  "limits": "Do not generalize these empirical representation bounds to every causal predictor. No raw model fit is authorized. QuantileGRUModel is a source candidate whose input/output and aperture compatibility must be established, not an already validated same-span comparator."
+}

@@ -1,0 +1,11 @@
+{
+  "verdict": "CONCERNS",
+  "evidence": "p4_groups/operational_confirmation_20261003/raw_modal_20261010/comparison_summary.json",
+  "findings": [
+    "Real partial accuracy progress: R lowers overall MAE versus the strongest frozen references by approximately25.6% clean,21.5% IID1 and22.6% correlated1; clean boundary MAE falls approximately45.0%. This is not zero progress.",
+    "Raw-specific benefit is smaller: R−M overall gains are .000299–.000626. Clean aggregate confidence intervals include zero, but raw-present/no-modal subsets show supported gains. This supports recoverable waveform information beyond modal extraction, not uniform raw-model superiority.",
+    "Most improvement is shared with M: the clean no-sample boundary contribution drops from .010221 to approximately .00172 in both arms. Capacity, mask information and refitting remain inseparable explanations; do not attribute that reduction to raw content.",
+    "No promotion: every primary accuracy target remains missed; boundary optimism is12.88% clean and41.82–44.46% noisy versus5%. Retreat worsens against every reference; correlated current-boundary and unstable-sign regressions also violate safeguards despite aggregate sign rates staying below10%.",
+    "Close this fixed experiment without variants. Preserve R and M as improved development references, not operational replacements. No endpoint, qualified-warning or ledger credit; retain the measured accuracy gains and their limitations."
+  ]
+}

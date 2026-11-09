@@ -1,0 +1,898 @@
+{
+  "definition": "Continuous evidence-backed attainment of all ten research criteria, weighted across criteria and equally across explicit metric components within each criterion. Qualification pass/fail remains separate. This is not effort, safety, publication probability or confidence. Unknown measurements earn no evidenced credit, not a measured performance value of zero; disclose their weight. Scores can decrease; never pool different candidates to manufacture progress.",
+  "reporting": {
+    "primary_metric": "endpoint.percentage",
+    "primary_label": "Weighted overall research-criteria attainment",
+    "diagnostic_metric": "current_stage.percentage",
+    "rule": "Headline progress is the weighted average of ten continuous criterion percentages, with unknown-evidence weight disclosed. Default criterion weights are equal at10% each. Qualification status and estimator-stage checks are separate diagnostics, never substitutes for the overall score. Use one declared development candidate and population; missing measurements remain null."
+  },
+  "endpoint": {
+    "percentage": 20.761439839803376,
+    "passed_gates": 0,
+    "total_gates": 10,
+    "criteria_source": "P4_RESEARCH_TARGET.md",
+    "gates": [
+      {
+        "id": "signed_headroom",
+        "criterion": "Mean per-design MAE<=.010 clean and<=.015 each1% family; near-boundary MAE<=.005 clean and<=.010 each1% family",
+        "passed": false,
+        "status": "partial_development_evidence",
+        "evidence_note": "Fresh-observation framewise MAE is promising, but noisy all-frame/gap accuracy and the complete per-design near-boundary criteria are not established by the two-design exploratory comparison.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json",
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/gap_policy_control.json"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "clean/all_frame_mae",
+            "value": 0.016488084776381542,
+            "target": 0.01,
+            "direction": "lower",
+            "population_frames": 1488,
+            "per_design": {
+              "D000053": 0.014974398796469453,
+              "D000126": 0.018001770756293632
+            },
+            "percentage": 60.64985797698325
+          },
+          {
+            "name": "clean/boundary_mae",
+            "value": 0.016079908732843005,
+            "target": 0.005,
+            "direction": "lower",
+            "population_frames": 893,
+            "per_design": {
+              "D000053": 0.01532010447180544,
+              "D000126": 0.016839712993880568
+            },
+            "percentage": 31.094703851070776
+          },
+          {
+            "name": "iid1/all_frame_mae",
+            "value": 0.024728853980285792,
+            "target": 0.015,
+            "direction": "lower",
+            "population_frames": 1488,
+            "per_design": {
+              "D000053": 0.0214759976147404,
+              "D000126": 0.02798171034583118
+            },
+            "percentage": 60.65788577165048
+          },
+          {
+            "name": "iid1/boundary_mae",
+            "value": 0.020930392147566854,
+            "target": 0.01,
+            "direction": "lower",
+            "population_frames": 893,
+            "per_design": {
+              "D000053": 0.0191018053892762,
+              "D000126": 0.022758978905857506
+            },
+            "percentage": 47.777413483208406
+          },
+          {
+            "name": "correlated1/all_frame_mae",
+            "value": 0.025225417665110012,
+            "target": 0.015,
+            "direction": "lower",
+            "population_frames": 1488,
+            "per_design": {
+              "D000053": 0.02204637601869585,
+              "D000126": 0.028404459311524174
+            },
+            "percentage": 59.463832072627774
+          },
+          {
+            "name": "correlated1/boundary_mae",
+            "value": 0.021112319155795194,
+            "target": 0.01,
+            "direction": "lower",
+            "population_frames": 893,
+            "per_design": {
+              "D000053": 0.019622241533544967,
+              "D000126": 0.02260239677804542
+            },
+            "percentage": 47.36571063655537
+          }
+        ],
+        "percentage": 51.168233965349344,
+        "measured_component_fraction": 1.0,
+        "score_status": "measured"
+      },
+      {
+        "id": "dangerous_point_errors",
+        "criterion": "Near-boundary overestimation>.02<=5%; wrong-sign fraction<=10% outside declared near-zero exclusion",
+        "passed": false,
+        "status": "unqualified_with_observed_sign_risk",
+        "evidence_note": "Latest exploratory held comparison has positive point margins on100% of unstable frames for fitter6 and77-80% for native framewise across noise conditions. These are descriptive sign-risk diagnostics, not the exact prescribed exclusion-slice wrong-sign statistic or a clearance decision. The complete dangerous-error criterion remains unmet/unqualified.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json",
+          "P4_RESEARCH_TARGET.md"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "clean/boundary_optimism_rate",
+            "value": 0.2206047032474804,
+            "target": 0.05,
+            "direction": "lower",
+            "population_frames": 893,
+            "percentage": 22.664974619289342
+          },
+          {
+            "name": "clean/stable_wrong_sign_rate",
+            "value": 0.0,
+            "target": 0.1,
+            "direction": "lower",
+            "population_frames": 483,
+            "missing_reason": null,
+            "percentage": 100
+          },
+          {
+            "name": "clean/unstable_wrong_sign_rate",
+            "value": null,
+            "target": 0.1,
+            "direction": "lower",
+            "population_frames": 0,
+            "missing_reason": "No eligible current points on this sign side",
+            "percentage": null
+          },
+          {
+            "name": "iid1/boundary_optimism_rate",
+            "value": 0.3784994400895857,
+            "target": 0.05,
+            "direction": "lower",
+            "population_frames": 893,
+            "percentage": 13.210059171597631
+          },
+          {
+            "name": "iid1/stable_wrong_sign_rate",
+            "value": 0.016666666666666666,
+            "target": 0.1,
+            "direction": "lower",
+            "population_frames": 180,
+            "missing_reason": null,
+            "percentage": 100
+          },
+          {
+            "name": "iid1/unstable_wrong_sign_rate",
+            "value": null,
+            "target": 0.1,
+            "direction": "lower",
+            "population_frames": 0,
+            "missing_reason": "No eligible current points on this sign side",
+            "percentage": null
+          },
+          {
+            "name": "correlated1/boundary_optimism_rate",
+            "value": 0.3997760358342665,
+            "target": 0.05,
+            "direction": "lower",
+            "population_frames": 893,
+            "percentage": 12.507002801120448
+          },
+          {
+            "name": "correlated1/stable_wrong_sign_rate",
+            "value": 0.012121212121212121,
+            "target": 0.1,
+            "direction": "lower",
+            "population_frames": 165,
+            "missing_reason": null,
+            "percentage": 100
+          },
+          {
+            "name": "correlated1/unstable_wrong_sign_rate",
+            "value": null,
+            "target": 0.1,
+            "direction": "lower",
+            "population_frames": 0,
+            "missing_reason": "No eligible current points on this sign side",
+            "percentage": null
+          }
+        ],
+        "percentage": 38.70911517688971,
+        "measured_component_fraction": 0.6666666666666666,
+        "score_status": "partial"
+      },
+      {
+        "id": "useful_clearance",
+        "criterion": "Independent calibration and one-sided95% upper bound<=5% on declared design-run false-clearance criterion",
+        "passed": false,
+        "status": "not_validated",
+        "evidence_note": "No current frozen candidate has independently calibrated95% lower bounds and sufficient independent design-run evidence for the<=5% false-clearance upper bound. Historical interval results do not qualify the current candidate.",
+        "evidence_sources": [
+          "P4_RESEARCH_TARGET.md",
+          "src/mechanics/p4_margin_estimation/RESEARCH_REVIEW.md"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "independent_lower_bound_coverage",
+            "value": null,
+            "target": 0.95,
+            "direction": "higher",
+            "missing_reason": "Current framewise predictor has no independently calibrated lower-bound output",
+            "percentage": null
+          },
+          {
+            "name": "false_clearance_design_run_upper95",
+            "value": null,
+            "target": 0.05,
+            "direction": "lower",
+            "missing_reason": "No independently evaluated clearance policy for this predictor",
+            "percentage": null
+          }
+        ],
+        "percentage": 0.0,
+        "measured_component_fraction": 0.0,
+        "score_status": "unmeasured"
+      },
+      {
+        "id": "nonvacuous_usefulness",
+        "criterion": "Current qualified estimates on>=80% final2s before crossing; useful positive bound on>=80% farther-stable decisions",
+        "passed": false,
+        "status": "not_validated_current_qualified_usefulness",
+        "evidence_note": "Fresh fitter observation availability falls under noise and held estimates become stale. Accepted-window fractions or finite neural outputs do not establish qualified current estimates on>=80% of final2s or useful farther-stable bounds.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json",
+          "P4_RESEARCH_TARGET.md"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "clean/final2s_qualified_current_fraction",
+            "value": null,
+            "target": 0.8,
+            "direction": "higher",
+            "missing_reason": "Accepted input or a finite point prediction is not a qualified advisory",
+            "percentage": null
+          },
+          {
+            "name": "clean/farther_stable_usable_bound_fraction",
+            "value": null,
+            "target": 0.8,
+            "direction": "higher",
+            "missing_reason": "Accepted input or a finite point prediction is not a qualified advisory",
+            "percentage": null
+          },
+          {
+            "name": "iid1/final2s_qualified_current_fraction",
+            "value": null,
+            "target": 0.8,
+            "direction": "higher",
+            "missing_reason": "Accepted input or a finite point prediction is not a qualified advisory",
+            "percentage": null
+          },
+          {
+            "name": "iid1/farther_stable_usable_bound_fraction",
+            "value": null,
+            "target": 0.8,
+            "direction": "higher",
+            "missing_reason": "Accepted input or a finite point prediction is not a qualified advisory",
+            "percentage": null
+          },
+          {
+            "name": "correlated1/final2s_qualified_current_fraction",
+            "value": null,
+            "target": 0.8,
+            "direction": "higher",
+            "missing_reason": "Accepted input or a finite point prediction is not a qualified advisory",
+            "percentage": null
+          },
+          {
+            "name": "correlated1/farther_stable_usable_bound_fraction",
+            "value": null,
+            "target": 0.8,
+            "direction": "higher",
+            "missing_reason": "Accepted input or a finite point prediction is not a qualified advisory",
+            "percentage": null
+          }
+        ],
+        "percentage": 0.0,
+        "measured_component_fraction": 0.0,
+        "score_status": "unmeasured"
+      },
+      {
+        "id": "timely_warning",
+        "criterion": "Delivered usable lead>=1s on>=90% crossings, with one-sided95% bounds supporting<=10% timely misses",
+        "passed": false,
+        "status": "below_target_in_exploratory_comparison",
+        "evidence_note": "At the frozen5% frame calibration budget, fitter6 has0/4 held crossings with>=1s lead in each tested noise family; clean best lead.896s and noisy best.576s. This is descriptive on two inspected designs, not final inference. No candidate establishes>=90% timely warning with the required confidence bound.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "clean/timely_crossing_fraction",
+            "value": 0.0,
+            "target": 0.9,
+            "direction": "higher",
+            "crossing_count": 4,
+            "timely_count": 0,
+            "lead_seconds": [
+              0.19199999999999973,
+              null,
+              0.0,
+              0.44799999999999995
+            ],
+            "limitation": "Exploratory frame-budget policy, not qualified episode-burden policy",
+            "percentage": 0
+          },
+          {
+            "name": "clean/timely_miss_upper95",
+            "value": null,
+            "target": 0.1,
+            "direction": "lower",
+            "missing_reason": "No independent design-run bound under the final warning contract",
+            "percentage": null
+          },
+          {
+            "name": "iid1/timely_crossing_fraction",
+            "value": 0.0,
+            "target": 0.9,
+            "direction": "higher",
+            "crossing_count": 4,
+            "timely_count": 0,
+            "lead_seconds": [
+              0.512,
+              -1.2799999999999994,
+              -0.7680000000000002,
+              0.7679999999999998
+            ],
+            "limitation": "Exploratory frame-budget policy, not qualified episode-burden policy",
+            "percentage": 0
+          },
+          {
+            "name": "iid1/timely_miss_upper95",
+            "value": null,
+            "target": 0.1,
+            "direction": "lower",
+            "missing_reason": "No independent design-run bound under the final warning contract",
+            "percentage": null
+          },
+          {
+            "name": "correlated1/timely_crossing_fraction",
+            "value": 0.0,
+            "target": 0.9,
+            "direction": "higher",
+            "crossing_count": 4,
+            "timely_count": 0,
+            "lead_seconds": [
+              0.512,
+              -1.2160000000000002,
+              -0.7680000000000002,
+              0.8319999999999999
+            ],
+            "limitation": "Exploratory frame-budget policy, not qualified episode-burden policy",
+            "percentage": 0
+          },
+          {
+            "name": "correlated1/timely_miss_upper95",
+            "value": null,
+            "target": 0.1,
+            "direction": "lower",
+            "missing_reason": "No independent design-run bound under the final warning contract",
+            "percentage": null
+          }
+        ],
+        "percentage": 0.0,
+        "measured_component_fraction": 0.5,
+        "score_status": "partial"
+      },
+      {
+        "id": "nuisance_burden",
+        "criterion": "<=1 nuisance episode/hour with sufficient independent benign exposure and an upper confidence bound",
+        "passed": false,
+        "status": "not_measured_under_episode_contract",
+        "evidence_note": "Framewise false-warning budgets were evaluated, but they do not establish<=1 nuisance episode/hour with declared episode rules, benign dwell/retreat exposure and an upper confidence bound.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json",
+          "P4_RESEARCH_TARGET.md"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "independent_nuisance_episodes_per_hour_upper95",
+            "value": null,
+            "target": 1,
+            "direction": "lower",
+            "missing_reason": "No independent episode-contract exposure/bound for this policy",
+            "percentage": null
+          }
+        ],
+        "percentage": 0.0,
+        "measured_component_fraction": 0.0,
+        "score_status": "unmeasured"
+      },
+      {
+        "id": "comparative_impact",
+        "criterion": ">=25% relative reduction in timely misses versus strongest same-information competitor, paired design-level CI excluding no improvement",
+        "passed": false,
+        "status": "not_demonstrated",
+        "evidence_note": "Matched-input and gap-policy comparisons exist, but no>=25% reduction in timely misses at the same nuisance burden with a paired design-level confidence interval is established. Better fresh MAE or post-flutter recall is insufficient.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json",
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/gap_policy_control.json"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "matched_nuisance_timely_miss_reduction",
+            "value": null,
+            "target": 0.25,
+            "direction": "higher",
+            "missing_reason": "Existing frame budgets are not matched held episode/hour nuisance rates",
+            "percentage": null
+          },
+          {
+            "name": "paired_design_improvement_evidence",
+            "value": null,
+            "target": 1,
+            "direction": "higher",
+            "missing_reason": "No prespecified paired interval excluding no improvement",
+            "percentage": null
+          }
+        ],
+        "percentage": 0.0,
+        "measured_component_fraction": 0.0,
+        "score_status": "unmeasured"
+      },
+      {
+        "id": "stress_behavior",
+        "criterion": "5% noise retains gates and declared<=5% design-run failure bound; no hidden abstention/stale-hold success",
+        "passed": false,
+        "status": "stress_tested_not_qualified",
+        "evidence_note": "IID5 and correlated5 evaluations exist; signed errors, stale estimates and late warning remain. No frozen candidate establishes the specified5% design-run clearance bound or maintained useful lead under stress.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json",
+          "P4_RESEARCH_TARGET.md"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "iid5/false_clearance_design_run_upper95",
+            "value": null,
+            "target": 0.05,
+            "direction": "lower",
+            "missing_reason": "Stress evaluation has no independently calibrated clearance-risk bound",
+            "percentage": null
+          },
+          {
+            "name": "correlated5/false_clearance_design_run_upper95",
+            "value": null,
+            "target": 0.05,
+            "direction": "lower",
+            "missing_reason": "Stress evaluation has no independently calibrated clearance-risk bound",
+            "percentage": null
+          },
+          {
+            "name": "stress_conditions_with_coverage_and_lead_disclosure",
+            "value": 2,
+            "target": 2,
+            "direction": "higher",
+            "condition_metrics": {
+              "clean": {
+                "accepted_input_fraction": 0.6969086021505376,
+                "lead_seconds": [
+                  0.19199999999999973,
+                  null,
+                  0.0,
+                  0.44799999999999995
+                ]
+              },
+              "iid1": {
+                "accepted_input_fraction": 0.2600806451612903,
+                "lead_seconds": [
+                  0.512,
+                  -1.2799999999999994,
+                  -0.7680000000000002,
+                  0.7679999999999998
+                ]
+              },
+              "correlated1": {
+                "accepted_input_fraction": 0.24059139784946237,
+                "lead_seconds": [
+                  0.512,
+                  -1.2160000000000002,
+                  -0.7680000000000002,
+                  0.8319999999999999
+                ]
+              },
+              "iid5": {
+                "accepted_input_fraction": 0.1821236559139785,
+                "lead_seconds": [
+                  0.512,
+                  -0.8319999999999999,
+                  -0.7680000000000002,
+                  -0.2560000000000002
+                ]
+              },
+              "correlated5": {
+                "accepted_input_fraction": 0.17204301075268819,
+                "lead_seconds": [
+                  0.5759999999999996,
+                  -1.2799999999999994,
+                  -0.7680000000000002,
+                  -0.5760000000000001
+                ]
+              }
+            },
+            "limitation": "Accepted-input availability is reported, not qualified-advisory availability",
+            "percentage": 100
+          }
+        ],
+        "percentage": 33.333333333333336,
+        "measured_component_fraction": 0.3333333333333333,
+        "score_status": "partial"
+      },
+      {
+        "id": "online_feasibility",
+        "criterion": "Full sensor-to-output p95<=10ms on named hardware; report deadline misses; aperture<=.5s",
+        "passed": false,
+        "status": "measured_not_qualified",
+        "evidence_note": "Warm serialized GTX1660SUPER/i5-9400F full-path worst-condition accepted p95=18.793055ms versus10ms target; 2309/2309 accepted decisions miss10ms. 8/7440 margin outputs exceed frozen replay tolerance; availability, age and warning decisions match. Timing/reporting receives partial metric credit, not passed replay or qualified deployment. Physical sampling, initialization and sensor transport separate.",
+        "evidence_sources": [
+          "p4_groups/operational_confirmation_20261003/framewise_latency_20261008/results.json",
+          "p4_groups/operational_confirmation_20261003/framewise_latency_20261008/verification.json",
+          "p4_groups/operational_confirmation_20261003/framewise_latency_20261008/protocol.json"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "acquisition_seconds",
+            "value": 0.1280000000000001,
+            "target": 0.5,
+            "direction": "lower",
+            "percentage": 100
+          },
+          {
+            "name": "full_path_p95_ms",
+            "value": 18.7930545,
+            "target": 10,
+            "direction": "lower",
+            "hardware": {
+              "host": "cachyos",
+              "platform": "Linux-7.2.8-2-cachyos-x86_64-with-glibc2.44",
+              "processor": "Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz",
+              "gpu": "NVIDIA GeForce GTX 1660 SUPER",
+              "torch": "2.12.1+cu130",
+              "cuda": "13.0",
+              "numpy": "2.4.4",
+              "torch_cpu_threads": 1
+            },
+            "definition": "Worst noise-condition accepted-path p95",
+            "replay_valid": false,
+            "replay": {
+              "frames": 7440,
+              "accepted_frames": 2309,
+              "maximum_feature_error": 0.02180853559465845,
+              "maximum_prediction_error": 1.2837350368499756e-05,
+              "maximum_normalized_feature_error": 0.005582571029663086,
+              "maximum_age_error": 8.881784197001252e-16,
+              "availability_exact": true,
+              "availability_mismatches": 0,
+              "prediction_mismatches": 8,
+              "age_mismatches": 0,
+              "warning_mismatches": 0
+            },
+            "source": "p4_groups/operational_confirmation_20261003/framewise_latency_20261008/results.json",
+            "accepted": {
+              "count": 2309,
+              "median_ms": 17.061411,
+              "p95_ms": 18.485304,
+              "p99_ms": 19.21600648,
+              "max_ms": 21.421561,
+              "deadline_misses": 2309,
+              "deadline_miss_fraction": 1.0
+            },
+            "limitation": "Measured computation receives partial credit, not passed replay or qualified deployment; initialization and sensor transport separate",
+            "percentage": 53.21114776738396
+          },
+          {
+            "name": "p99_max_deadline_fields_reported",
+            "value": 3,
+            "target": 3,
+            "direction": "higher",
+            "condition_metrics": {
+              "clean": {
+                "all_frames": {
+                  "count": 1488,
+                  "median_ms": 12.799292000000001,
+                  "p95_ms": 18.192084,
+                  "p99_ms": 18.69393293999999,
+                  "max_ms": 20.963869,
+                  "deadline_misses": 1037,
+                  "deadline_miss_fraction": 0.6969086021505376
+                },
+                "accepted": {
+                  "count": 1037,
+                  "median_ms": 14.252146,
+                  "p95_ms": 18.3481754,
+                  "p99_ms": 18.94990448,
+                  "max_ms": 20.963869,
+                  "deadline_misses": 1037,
+                  "deadline_miss_fraction": 1.0
+                },
+                "rejected": {
+                  "count": 451,
+                  "median_ms": 0.329394,
+                  "p95_ms": 1.887824,
+                  "p99_ms": 7.4398135,
+                  "max_ms": 8.926828,
+                  "deadline_misses": 0,
+                  "deadline_miss_fraction": 0.0
+                }
+              },
+              "iid1": {
+                "all_frames": {
+                  "count": 1488,
+                  "median_ms": 8.439417500000001,
+                  "p95_ms": 17.9110478,
+                  "p99_ms": 18.62272899,
+                  "max_ms": 20.649026,
+                  "deadline_misses": 390,
+                  "deadline_miss_fraction": 0.2620967741935484
+                },
+                "accepted": {
+                  "count": 387,
+                  "median_ms": 17.346136,
+                  "p95_ms": 18.4870045,
+                  "p99_ms": 19.20469018,
+                  "max_ms": 20.649026,
+                  "deadline_misses": 387,
+                  "deadline_miss_fraction": 1.0
+                },
+                "rejected": {
+                  "count": 1101,
+                  "median_ms": 8.11861,
+                  "p95_ms": 9.179086,
+                  "p99_ms": 9.675957,
+                  "max_ms": 10.896706,
+                  "deadline_misses": 3,
+                  "deadline_miss_fraction": 0.0027247956403269754
+                }
+              },
+              "correlated1": {
+                "all_frames": {
+                  "count": 1488,
+                  "median_ms": 8.402486,
+                  "p95_ms": 17.888712549999997,
+                  "p99_ms": 18.66695899,
+                  "max_ms": 20.972537,
+                  "deadline_misses": 360,
+                  "deadline_miss_fraction": 0.24193548387096775
+                },
+                "accepted": {
+                  "count": 358,
+                  "median_ms": 17.415264999999998,
+                  "p95_ms": 18.572499999999998,
+                  "p99_ms": 19.13595361,
+                  "max_ms": 20.972537,
+                  "deadline_misses": 358,
+                  "deadline_miss_fraction": 1.0
+                },
+                "rejected": {
+                  "count": 1130,
+                  "median_ms": 8.163565,
+                  "p95_ms": 9.2229942,
+                  "p99_ms": 9.797512120000002,
+                  "max_ms": 12.05757,
+                  "deadline_misses": 2,
+                  "deadline_miss_fraction": 0.0017699115044247787
+                }
+              },
+              "iid5": {
+                "all_frames": {
+                  "count": 1488,
+                  "median_ms": 8.341522000000001,
+                  "p95_ms": 17.83090545,
+                  "p99_ms": 18.535060239999996,
+                  "max_ms": 20.142312,
+                  "deadline_misses": 277,
+                  "deadline_miss_fraction": 0.18615591397849462
+                },
+                "accepted": {
+                  "count": 271,
+                  "median_ms": 17.336605,
+                  "p95_ms": 18.5567285,
+                  "p99_ms": 19.8373096,
+                  "max_ms": 20.142312,
+                  "deadline_misses": 271,
+                  "deadline_miss_fraction": 1.0
+                },
+                "rejected": {
+                  "count": 1217,
+                  "median_ms": 8.180577,
+                  "p95_ms": 9.2795618,
+                  "p99_ms": 9.844074359999999,
+                  "max_ms": 10.231925,
+                  "deadline_misses": 6,
+                  "deadline_miss_fraction": 0.0049301561216105174
+                }
+              },
+              "correlated5": {
+                "all_frames": {
+                  "count": 1488,
+                  "median_ms": 8.401976,
+                  "p95_ms": 17.78871895,
+                  "p99_ms": 18.692269699999994,
+                  "max_ms": 21.421561,
+                  "deadline_misses": 263,
+                  "deadline_miss_fraction": 0.176747311827957
+                },
+                "accepted": {
+                  "count": 256,
+                  "median_ms": 17.503334000000002,
+                  "p95_ms": 18.7930545,
+                  "p99_ms": 19.464794199999996,
+                  "max_ms": 21.421561,
+                  "deadline_misses": 256,
+                  "deadline_miss_fraction": 1.0
+                },
+                "rejected": {
+                  "count": 1232,
+                  "median_ms": 8.2481385,
+                  "p95_ms": 9.3734028,
+                  "p99_ms": 9.88083119,
+                  "max_ms": 10.668345,
+                  "deadline_misses": 7,
+                  "deadline_miss_fraction": 0.005681818181818182
+                }
+              }
+            },
+            "all_frames": {
+              "count": 7440,
+              "median_ms": 8.5157895,
+              "p95_ms": 17.943835349999997,
+              "p99_ms": 18.64858636,
+              "max_ms": 21.421561,
+              "deadline_misses": 2327,
+              "deadline_miss_fraction": 0.31276881720430105
+            },
+            "percentage": 100
+          }
+        ],
+        "percentage": 84.40371592246133,
+        "measured_component_fraction": 1.0,
+        "score_status": "measured"
+      },
+      {
+        "id": "independent_credibility",
+        "criterion": "Blind disjoint designs plus independently validated response/label source with distinct discretization and model-form assumptions",
+        "passed": false,
+        "status": "not_completed",
+        "evidence_note": "Blind final-design confirmation and a compatible independently validated plate response/label source with distinct model-form assumptions have not been completed. CPU replay/analytic verification of the same equations is numerical verification, not independent physical validation.",
+        "evidence_sources": [
+          "P4_RESEARCH_TARGET.md",
+          "p4_groups/operational_confirmation_20261003/noise_aware_carrier_20261008/verification.json"
+        ],
+        "weight": 0.1,
+        "components": [
+          {
+            "name": "fresh_blind_designs_evaluated",
+            "value": 0,
+            "target": 120,
+            "direction": "higher",
+            "limitation": "These two inspected held designs are development data, not fresh blind designs",
+            "percentage": 0
+          },
+          {
+            "name": "independently_validated_response_label_sources",
+            "value": 0,
+            "target": 1,
+            "direction": "higher",
+            "limitation": "Same-equation replay is not an independent physical validation source",
+            "percentage": 0
+          }
+        ],
+        "percentage": 0.0,
+        "measured_component_fraction": 1.0,
+        "score_status": "measured"
+      }
+    ],
+    "measured_weight_percentage": 45.0,
+    "unknown_weight_percentage": 55.0,
+    "possible_upper_percentage": 75.76143983980337,
+    "qualification_percentage": 0.0,
+    "scoring": {
+      "version": 2,
+      "evidence": {
+        "candidate": "frozen_framewise_temporal_probe",
+        "population": "Two previously inspected held TRAIN designs",
+        "primary_conditions": [
+          "clean",
+          "iid1",
+          "correlated1"
+        ],
+        "warning_frame_budget": 0.05,
+        "source_sha256": {
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/predictions.npz": "04a534a3ec589ccb46e63d9a6c7778f97f12fa2a081d064601ccd052d42c2471",
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/results.json": "dc7c1d9ce8b2eebd16884eb09db717561d1c92607498fa26e06823301612fb17",
+          "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/verification.json": "06f99d8036d399834da2cdc0e019fb1db8ee994b77a10adcb3927dda72ab2140",
+          "p4_groups/operational_confirmation_20261003/temporal_probe_20261007/protocol.json": "ddea8fd693b74f53ae2dff1ef0af5b211975e7e459960075da43e384f66dc998",
+          "p4_groups/operational_confirmation_20261003/framewise_latency_20261008/results.json": "15a3e472c22cfb11014e0e149b2ede8c0544b52d0b459183605f5ea98bec4c22",
+          "p4_groups/operational_confirmation_20261003/framewise_latency_20261008/verification.json": "3d2275a2e3e6c1bab10f0200f511a506f014ea12924d833ec9db4c1b3d9eddf3"
+        },
+        "limitation": "Development attainment; not blind validation, qualification or safety confidence"
+      },
+      "metric_rule": "lower:100*min(1,target/value), zero error=100; higher:100*clip(value/target,0,1)",
+      "component_rule": "Equal weight within each criterion; unknown receives no evidenced credit, not a performance value of zero",
+      "overall_rule": "sum(criterion_weight*criterion_percentage)/sum(criterion_weight)",
+      "missing_rule": "Headline is documented-attainment lower bound; disclose unknown weight and possible score upper bound"
+    }
+  },
+  "current_stage": {
+    "name": "Cached critical-mode estimator qualification",
+    "percentage": 83.33333333333333,
+    "passed_checks": 5,
+    "total_checks": 6,
+    "current_candidate": "noise_aware_selection",
+    "history": [
+      {
+        "name": "linear_carrier",
+        "source": "p4_groups/operational_confirmation_20261003/time_varying_fit_20261007/results.json",
+        "source_sha256": "196ceb8d45eb1f7d3ea0b2a9e0cb6c65d74f9c3ac31360914853a908d8e4d9c3",
+        "passed_checks": 5,
+        "total_checks": 6,
+        "percentage": 83.33333333333333,
+        "checks": {
+          "all48_critical_fits_successful_and_interior": true,
+          "all48_end_poles_match": false,
+          "all48_end_growth_signs_correct": true,
+          "clean_stationary_max_alpha_error_per_second": true,
+          "noisy_stationary_median_alpha_error_allowance_over_esprit_per_second": true,
+          "ramping_alpha_mae": true
+        },
+        "poles_recovered": 40,
+        "pole_denominator": 48,
+        "pole_recovery_percentage": 83.33333333333333
+      },
+      {
+        "name": "free_curvature",
+        "source": "p4_groups/operational_confirmation_20261003/modal_transport_20261008/curvature_analysis.json",
+        "source_sha256": "3445828bb7c13060bbfc2ad6ac4cb8b21b0a7206598c701a9e0dabed064cdb87",
+        "passed_checks": 4,
+        "total_checks": 6,
+        "percentage": 66.66666666666667,
+        "checks": {
+          "all48_interior": true,
+          "all48_poles_match": false,
+          "all48_growth_signs_correct": true,
+          "clean_stationary_max_error": true,
+          "noisy_stationary_median_error": false,
+          "ramping_improves_over_both": true
+        },
+        "poles_recovered": 45,
+        "pole_denominator": 48,
+        "pole_recovery_percentage": 93.75
+      },
+      {
+        "name": "noise_aware_selection",
+        "source": "p4_groups/operational_confirmation_20261003/noise_aware_carrier_20261008/results.json",
+        "source_sha256": "abb2d9dbad8bdee5c94ed1c1d8f3f3c91915fd0507f0add4dc5967c436e9c7cc",
+        "passed_checks": 5,
+        "total_checks": 6,
+        "percentage": 83.33333333333333,
+        "checks": {
+          "all48_critical_fits_successful_and_interior": true,
+          "all48_end_poles_match": false,
+          "all48_end_growth_signs_correct": true,
+          "clean_stationary_max_alpha_error_per_second": true,
+          "noisy_stationary_median_alpha_error_allowance_over_esprit_per_second": true,
+          "ramping_alpha_mae": true
+        },
+        "poles_recovered": 40,
+        "pole_denominator": 48,
+        "pole_recovery_percentage": 83.33333333333333
+      }
+    ],
+    "decision": "Not promoted: noisy guardrail restored but recovery falls45->40/48; physical transport mismatch remains.",
+    "independent_verification": "p4_groups/operational_confirmation_20261003/noise_aware_carrier_20261008/verification.json",
+    "verification_sha256": "20ad8269704efdf9376f51a3e95f5e5e21fa16595414d8e670cdcf43e70c2227"
+  },
+  "note": "Overall0% means none of the ten complete research endpoint gates is established; it does not mean no scientific or engineering work has been completed.",
+  "updater_sha256": "304a4894bd1ac8e19bfff67690d87a9df8b40f2cac212e4f1445aef6d6aa1ee8"
+}
