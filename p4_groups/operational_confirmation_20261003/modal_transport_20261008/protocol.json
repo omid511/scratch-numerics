@@ -1,0 +1,31 @@
+{
+  "scope": "Goal-directed TRAIN-only analysis of pinned cached128ms controls; no neural training, policy change, reserved designs or new physical case draws",
+  "inputs": "Verify the existing time_varying_fit_20261007 provenance and pinned short_window_timing_20261007 inputs before processing; pin this protocol, implementation and identities in results",
+  "selection": "All24 unique critical_only_oracle128ms waveforms and their clean/iid1 views; archived48 fits remain the baseline, not refitted for reassurance",
+  "physical_estimand": "Instantaneous critical eigenvalue real part, distinguished from sensor-visible modal envelope growth in a varying eigenbasis",
+  "hypotheses": [
+    "Carrier curvature: exact integrated physical poles with a frozen spatial vector retain the quantitative error when fitted with the existing linear-trend model",
+    "Spatial transport: moving sensor projections and biorthogonal diagonal connection account for errors absent from frozen-shape carrier controls",
+    "Mode coupling: full physical replay differs materially from diagonal-transport reconstruction despite critical-only initialization",
+    "Observation ambiguity: a good waveform fit can estimate sensor-envelope growth rather than physical eigenvalue growth; arbitrary channel drift cannot identify the latter"
+  ],
+  "analysis": "Reconstruct original plate matrices and continuous critical branch on the128 timestamps using CPU linear algebra. Replay ONLY the original zero-input trajectory using the identical2ms midpoint-held matrices and1ms steps; solve its two initial critical-pair coefficients against the stored physical waveform. Require raw relative RMS<=1e-7. This is independent numerical replay of cached CUDA controls, not a production CPU fallback or new trajectory dataset.",
+  "counterfactuals": [
+    "Frozen initial spatial vector with exact integrated lambda(t)",
+    "Parallel-phase-aligned unit state eigenvector v(t) with exact integrated lambda(t)",
+    "Moving v(t) with diagonal connection: coefficient derivative=(lambda-w^T v_dot)*coefficient; w^T v=1; omitted off-diagonal coupling explicitly diagnostic"
+  ],
+  "measurement": "Same recorded noise draw and absolute noise floor; ORIGINAL measured leading51 offset/scale applied to counterfactuals to isolate transport rather than recalibrating each mechanism. Float32/cap50 retained; cap failures explicit. Counterfactuals use oracle physics and are NEVER deployable inputs.",
+  "fit": "Existing unchanged waveform-only fitter, same settings and measured FFT initialization. Fit stationary warm start then linear varying model on each counterfactual; no labels passed into fitter. Reuse saved baseline physical fits.",
+  "checks": {
+    "reference_alpha_error_per_second": 0.00001,
+    "reference_frequency_error_hz": 0.000001,
+    "cached_replay_relative_rms": 0.0000001,
+    "physical_eigen_residual_relative": 0.000000001,
+    "branch_continuity": "Nearest-pole tracked branch must match physically least-stable transverse branch at all timestamps; record any violation, do not silently substitute",
+    "physical_recovery": "Keep original frequency<=5% and alpha<=max(1/s,10% abs(reference)) criteria and stationary/noisy guardrails",
+    "mechanism_evidence": "Require paired waveform/growth contrasts across stationary, slow and fast rates and BOTH end ratios; fitted SSE alone is not evidence. Report full denominators and explicit unresolved contributions. No novel identifiability/impossibility theorem from four designs."
+  },
+  "decision": "Select the next physically justified correction and observable acceptance checks. Iterate on evidenced corrections at progress checkpoints; a failed first correction does not abandon the goal. No unconstrained channel-amplitude drift or relaxed physical scoring.",
+  "limitations": ["Four previously inspected TRAIN designs", "One paired noise draw", "Oracle eigenbasis counterfactuals diagnose mechanisms, not deployable performance", "No margin/warning improvement claim"]
+}

@@ -1,0 +1,63 @@
+{
+  "created_utc": "2026-11-03",
+  "phase": "one controlled D000152 canonical-entrypoint replay; no scaling",
+  "design": "D000152",
+  "independent_unit": "one additional support design only",
+  "hypothesis": "The prior non-exact D000152 output may be explained by omitted original CLI entrypoint context, including its threadpool_limits wrapper and single acquisition-process execution.",
+  "context_change": "Grouped CLI-context restoration; this does not isolate threadpool causality from other entrypoint/process differences.",
+  "prior_mismatch": {
+    "status": "immutable_mismatch",
+    "output_path": "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/shards/D000152.npz",
+    "bytes": 41270304,
+    "sha256": "d28379d0fd00d712e817cea7db4b846e4a5cc62f452ae184620064209450f7d2",
+    "receipt_path": "recovery_control/additional_attempt_receipt.json",
+    "receipt_sha256": "568d75b928f9a69de72af171092386684bdbe32dea1555b62ab568df0fbf0b01",
+    "preserved_path": "recovery_control/preserved_mismatch_D000152_attempt1.npz",
+    "provenance_path": "recovery_control/preserved_mismatch_D000152_attempt1_provenance.json",
+    "provenance_sha256": "b79c9e1a20dc6ad85cd6368bd8a59614cf7c08675665c9b2722103b226d23c50"
+  },
+  "frozen_source": {
+    "context_path": "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000152.npz",
+    "context_bytes": 3468164,
+    "context_sha256": "699679e72bac7f78bce8e71715a69d6d601f1e23ebf1a75954a3b08c33f97033",
+    "support_protocol_path": "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/protocol.json",
+    "support_protocol_sha256": "786f301fd82c64e9541365efb28c771b549f0272be13eaa16f4330801b4a4129",
+    "implementation_path": "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py",
+    "implementation_sha256": "721a83d35bf68c9fb1011046e87b342d0e8170d4fd0f926e5ecabaf059ce5c6b",
+    "additional_protocol_path": "recovery_control/additional_pilot_protocol.json",
+    "additional_protocol_sha256": "2f12dd0a034c12912d3b18261bcf356fe70a588bb8c2fcb6a404dd997c93ca5b",
+    "supplemental_manifest_path": "recovery_control/supplemental_manifest_v5.json",
+    "supplemental_manifest_sha256": "4b1c9f2b3ddb5d7cb71db0c82b94dbd0c97dd8cb37dc3cc55fd738db0b7e9d17",
+    "progress_sha256": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f"
+  },
+  "original_acceptance": {
+    "output_path": "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/shards/D000152.npz",
+    "bytes": 41270392,
+    "sha256": "ca8594d4b5d13349a9d7e7edfd0218808884eecdd9687f1e593c607c2fdd3fdf",
+    "criterion": "exact original bytes and SHA256; numerical similarity is insufficient"
+  },
+  "cli": {
+    "parser_source": "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py:1207-1217",
+    "argv": [
+      "<recovered-python3.11>",
+      "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py",
+      "--phase",
+      "acquire",
+      "--design",
+      "D000152"
+    ],
+    "entrypoint_context": "experiment_support_modal_v2.main() wraps contract/acquire_phase in threadpool_limits(limits=1); child imports scientific modules itself and acquire_phase writes acquisition.json after the requested design.",
+    "child_cwd": "/home/omid5/mechanics-recovery-20261102",
+    "parent_guard": "Controller imports stdlib only and must not construct a CUDA plate or preimport scientific modules."
+  },
+  "execution": {
+    "acquisition_timeout_seconds": 600,
+    "total_timeout_seconds": 900,
+    "one_design_only": true,
+    "no_training": true,
+    "same_environment": true,
+    "prelaunch_acquisition_json": "absent on the new remote root; any prelaunch presence is a conflict and must stop",
+    "on_second_mismatch": "Preserve the new canonical output and receipt/log, stop scaling, do not retag, recompress, overwrite, or claim restoration."
+  },
+  "acceptance": "A fresh canonical CLI output passes only if it matches the unchanged original D000152 size and SHA256. A second mismatch remains a mismatch and does not promote any gate."
+}

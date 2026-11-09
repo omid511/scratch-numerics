@@ -1,0 +1,40 @@
+{
+  "scope": "Cached current-objective \u00d7 second-mode context diagnostic",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/dataset.npz": "5e97ebc6c1dd11319c2d719110daf1a70f88d49c70464a067a8fb69c0b0c8e2d",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/predictions.npz": "6f93a02dbff1b5816966a87c599eebf75ce9b823438d0f1bbb172459e084d859",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/training.json": "781d59d1ac66ab5a4e83c78bef2bd74cbecd95c784961b75dd7e59d25c5ec296",
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f",
+    "p4_groups/operational_confirmation_20261003/experiment_current_context.py": "462d095de085f2dcc728bb30dcd564645eeb2e0978a60428cea0dbea9bd4520c",
+    "p4_groups/operational_confirmation_20261003/experiment_bounded_gru.py": "57515b943b0fa865ffd389797867645f130bc88ee1485dd8f2a8130952b013c4",
+    "p4_groups/operational_confirmation_20261003/score_additive_spectral.py": "9baa0cb46fe558d1757e5245e132b18e3e4307bc22cbc80de22db5946330a19e",
+    "src/mechanics/p4_margin_estimation/baselines.py": "ae36a3e7be77cbe104b48a1ccb7b3ff9a6a968afc673d67983576ccb77a6db89",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/baseline174_seed42.pt": "39f3a16a3811a7e1b5125ea10bcfcfdbdbb7a46e4afd0c83c142f255983eb8aa",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/baseline174_seed43.pt": "4d2221593b0f391ec9bf2236a42102ce9554bac4dcbfaf199269e12e1b2302f1",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/baseline174_seed44.pt": "e10e3800eba0a629262a989e90bdcc6bc0b21927ac87799e30700619e5bae2e6"
+  },
+  "arms": [
+    "full_all",
+    "full_current",
+    "first107_all",
+    "first107_current"
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "training": {
+    "maximum_epochs": 2000,
+    "patience": 100,
+    "lr": 0.003,
+    "weight_decay": 0.0001
+  },
+  "content": "176 fixed width; first107 ablation zeros normalized174 content columns107:174 only",
+  "scaling": "Common proper-training accepted clean/IID1 scaling across all four arms",
+  "selection": "Original clean/IID1 validation all-frame MAE with same frozen baseline native gaps",
+  "loss": "Mean square over all frames or accepted current frames; loss normalized by participating rows",
+  "gap_policy": "Per-seed frozen baseline gap outputs; never stale/current qualification",
+  "reproduction": "Archived checkpoint replay and full/all original-checkpoint-epoch training prefix checked. Composite selection may select another epoch.",
+  "endpoint": "Diagnostic2 inspected held designs, missing farther-stable/unstable-exclusion guardrails remain unknown"
+}

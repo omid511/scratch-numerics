@@ -1,0 +1,127 @@
+{
+  "created_utc": "2026-11-03T12:58:58.229946+00:00",
+  "phase": "one-design additional immutable-input restoration feasibility; not predictor efficacy",
+  "hypothesis": "The retained frozen D000152 source context and original physical-state archive reproduce the D000152 additional support shard byte-for-byte under the recovered CUDA runtime.",
+  "design": "D000152",
+  "independent_unit": "one additional TRAIN-only support design; no generalization, performance, or gate-promotion inference",
+  "source_protocol_sha256": "786f301fd82c64e9541365efb28c771b549f0272be13eaa16f4330801b4a4129",
+  "source_inputs": {
+    "p4_groups/operational_confirmation_20261003/remote_input.npz": "e374781c698b624283f1a00f9ffc16b4e6a2e3882c4f855d53ca6d346bca59f2",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/dataset.npz": "5e97ebc6c1dd11319c2d719110daf1a70f88d49c70464a067a8fb69c0b0c8e2d",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/raw_signals.npz": "1d99bdfea53b930206be2872e50d0664ac2ae59aa3ea267ddde6df94e93881c1",
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f",
+    "p4_dataset_saturation/metadata.json": "8886c5a6de5986fc55d73ffb17371c5b62484aedf4937a29d6cd450d8cb42ddb",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000062.json": "dd6dc097b6fa8da0be453ba23439f40b415fa0f135737e591c358c2eeba200b1",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000152.json": "ca3196a9a9a8253bef1587217a8de6cad2cdebecfbdc728d83bb50c38086c821",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000008.json": "0bc5b0c0c552c9ca1d02d2b6e9f49b1d8180349ad271179b151c785836cb95a6",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000146.json": "cc6d52daa3ed630023945ed5ebae47873bc3a726af8a964fc7ca19e89f3ec775",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000144.json": "a9704ba246d21fedf421edde2f16f3553d325419f18a40baa65a4d2a28d8c13a",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000029.json": "e8955ad28b1b7f44c31468a3987313c4e11c256e548a1966db4972a31f1f87b4",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000020.json": "690dc0b706485fd797b96de73b1b0472b9f2ce4b22d6cfa8d09e5ee43f7e09bd",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000120.json": "5811f0b8d2bd809c2211209bae11b1f10f9e746fe634b68c55fd029377c95f40",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000129.json": "81b6c27990d96f6f37c9d9136bea39c8f086781d3ef267005598df730918d4be",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000114.json": "c288de324af5c934b919c57169170ffdf9d82f2a637ba5c83106798c92b7087f",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000158.json": "8e9fd3722ccede84df45bc790e0fd78d4956be0529fc33cb23fd2e6a620fd717",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000115.json": "f72b207ebbfc8ef890ac0611d2459ea77f0c994ae832093375fa1044826f5291",
+    "src/mechanics/p4_margin_estimation/modal_features.py": "ba42ab8191d6ecd9feebb40b8c65ec1613c218ca49f3f5090d468c2abac28df3",
+    "src/mechanics/p4_margin_estimation/baselines.py": "ae36a3e7be77cbe104b48a1ccb7b3ff9a6a968afc673d67983576ccb77a6db89",
+    "src/mechanics/p4_margin_estimation/operational.py": "ca11f876be9594d7d0e9b0fd36bcac0f548c4340744c0a76944c097aa9097af7",
+    "p4_groups/two_mode_spatial_20260930/prepare_features.py": "dae1c2d34821c4d4085e2eea286fb33aee259dbdc01d2183a9f3a5007697da1e"
+  },
+  "source_implementation": {
+    "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py": "721a83d35bf68c9fb1011046e87b342d0e8170d4fd0f926e5ecabaf059ce5c6b",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/gpu_execution.py": "1190dbe05c1413a426711dec805119387fd239775669ff14f18b10993603dcf3",
+    "p4_groups/operational_confirmation_20261003/temporal_probe.py": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+    "p4_groups/operational_confirmation_20261003/trajectory_physics.py": "ac588d37979ac6e489b17f5d43cd529db86e4b8e879f8ea95967efffa767d90d",
+    "p4_groups/operational_confirmation_20261003/cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331",
+    "p4_groups/operational_confirmation_20261003/pulse_aware_probe.py": "2ece34e0fd4a0cfe9950def5b23cd01e0cec4f71a551e4ebe736747ddb4b66f8",
+    "p4_groups/operational_confirmation_20261003/experiment_headroom_oracle.py": "2db171c3436a2d454125e257e5b38185557c633776998a9f41fd16724e15e5bf",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/train_support_modal.py": "c66681cfe4ffbbf6a3a083cf081aea5e2ada19a5388455aa63397c211c670403",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/score_support_modal.py": "5d2aea3d7feaa22cd1e5e0b66f7d27434c2442bf7cbb22fe57b5919e5e5103ab",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/verify_support_modal.py": "6dc00bbbe64d669bddd81f464404083ff345afb4cfeff905564e89ba04af7a13",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/verify_support_acquisition.py": "128bdcb91aa91fa6f7d12f02d4e303d1a5b13c5f651ea6e6d616a5d2f160c913"
+  },
+  "context_source": {
+    "path": "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000152.npz",
+    "bytes": 3468164,
+    "sha256": "699679e72bac7f78bce8e71715a69d6d601f1e23ebf1a75954a3b08c33f97033",
+    "role": "frozen O1 trajectory context; exact source bytes/hash required before any fresh generation"
+  },
+  "frozen_support_membership": {
+    "eligible_design": true,
+    "additional_design": true,
+    "split": "additional_train",
+    "evaluation_fold": 0,
+    "profiles": [
+      "cross",
+      "stable",
+      "retreat",
+      "farther_stable",
+      "unstable_exclusion"
+    ],
+    "profile_count": 5,
+    "protocol_path": "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/protocol.json"
+  },
+  "original_sha_criterion": {
+    "source_metadata_path": "p4_groups/operational_confirmation_20261003/raw_modal_20261010/acquisition.json",
+    "source_shard_path": "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/shards/D000152.npz",
+    "bytes": 41270392,
+    "sha256": "ca8594d4b5d13349a9d7e7edfd0218808884eecdd9687f1e593c607c2fdd3fdf",
+    "criterion": "fresh D000152 output must match these original bytes and SHA256 exactly"
+  },
+  "expected_shard": {
+    "path": "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/shards/D000152.npz",
+    "bytes": 41270392,
+    "sha256": "ca8594d4b5d13349a9d7e7edfd0218808884eecdd9687f1e593c607c2fdd3fdf"
+  },
+  "runtime": {
+    "python": "3.11.15 (restored standalone; original recorded3.11.16)",
+    "numpy": "2.4.4",
+    "scipy": "1.17.1",
+    "torch": "2.12.1+cu130",
+    "device": "original GTX1660SUPER host"
+  },
+  "protected": [
+    "read-only mounted old checkout",
+    "all original local artifacts",
+    "reserved designs and labels",
+    "P4_PROGRESS.json",
+    "frozen hashes and numerical/physical gates"
+  ],
+  "execution": {
+    "new_remote_root": "/home/omid5/mechanics-recovery-20261102",
+    "max_acquisition_seconds": 600,
+    "total_timeout_seconds": 900,
+    "gpu_concurrency": 1,
+    "preflight_now": "readonly contract(); inputs(); _load_o1_context(D000152); validate_plate(); no T.acquire, no acquire_design, no unit launch",
+    "future_only_call": "existing acquire_design(D000152,p,d,fp) after parent-owned launch authorization; no other design acquisition",
+    "no_other_design_acquisition": true,
+    "no_training": true
+  },
+  "staged_manifest": {
+    "path": "recovery_control/supplemental_manifest_v5.json",
+    "entries": 100,
+    "sha256": "4b1c9f2b3ddb5d7cb71db0c82b94dbd0c97dd8cb37dc3cc55fd738db0b7e9d17"
+  },
+  "workload_projection": {
+    "additional_design_total": 12,
+    "remaining_additional_after_d000152": 11,
+    "original_reference": {
+      "design": "D000007",
+      "receipt": "recovery_control/attempt4_receipt.json",
+      "acquisition_seconds": 18.651346814993303,
+      "total_seconds": 23.37110951601062
+    },
+    "d000152_reference": {
+      "design": "D000152",
+      "acquisition_seconds": null,
+      "total_seconds": null,
+      "status": "pending fresh generation; preflight passed only"
+    },
+    "method": "After a successful D000152 fresh generation, project remaining additional-design workload from its measured acquisition and total seconds; retain D000007 as the original-design reference and do not extrapolate before both units are measured."
+  },
+  "acceptance": "Preflight must pass without source or fingerprint override. A later authorized fresh D000152 generation is accepted only when output size and SHA256 equal the original source_shards criterion; numerical similarity alone is insufficient.",
+  "on_mismatch": "Preserve the new D000152 output and mismatch receipt separately; stop scaling to the remaining additional designs and do not rewrite frozen hashes or source files.",
+  "on_pass": "Freeze D000152 receipt and measured timings, then project remaining additional-design workload; no training or gate promotion."
+}

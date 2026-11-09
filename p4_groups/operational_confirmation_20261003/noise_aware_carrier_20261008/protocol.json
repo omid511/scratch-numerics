@@ -1,0 +1,30 @@
+{
+  "scope": "TRAIN-only noise-aware selection between the existing linear and quadratic physical carrier fits; no supervised residual correction, new physical case draws, neural training, policy change or reserved designs",
+  "inputs": "Pin the existing48 critical-only128-sample measured windows and archived linear/curved results before scoring; preserve leading51 calibration, float32/cap50, physical frequency bounds and all original accuracy gates",
+  "selection": "Waveform-only curvature signal-to-noise. Reconstruct the profiled constant-channel-coefficient residual at the curved optimum. Compute its six-parameter dimensionless central-difference Jacobian, per-channel residual variances with shared nuisance degrees of freedom, and heteroscedastic sandwich covariance. Retain curvature only when the joint two-curvature Wald statistic exceeds2*log(channels*samples); otherwise choose the measured linear fit. No physical references, noise labels, design, velocity or margin enter selection.",
+  "numerics": "Centered difference step=cbrt(machine epsilon)*max(1,abs(parameter)); require full six-column Jacobian rank and positive curvature covariance. Residual variance floor is machine-epsilon-squared times channel mean-square signal, not a tuned noise floor. Record unavailable curvature evidence and failed fits explicitly; a valid linear candidate remains an explicit model choice, not an invented estimate.",
+  "threshold": "Fixed BIC-scale complexity penalty for two extra parameters; no threshold/strength search on these repeatedly inspected designs. This is an approximate model-selection statistic, NOT calibrated confidence or a true heteroscedastic maximum-likelihood BIC.",
+  "assumptions": "Approximately independent residual samples with channel-specific variances. Leading-prefix calibration and unmodeled physical response can violate these assumptions; physical scoring, not the statistic, determines qualification. Correlated noise remains a later required stress evaluation.",
+  "hypotheses": [
+    "Unsupported curvature fitting noise causes stationary degradation: rejecting unsupported curvature should restore the frozen noisy-stationary guardrail",
+    "Real within-window pole curvature is observable above noise: the selection should retain useful ramp recovery rather than revert wholesale to the linear baseline",
+    "Transport/coupling is not corrected by order selection: quantitative native failures can persist even if noise guardrails recover"
+  ],
+  "controls": "All48 native measured views and all48 oracle frozen-carrier views; oracle controls diagnose mechanism only and never become deployable inputs. Reuse archived fits instead of refitting old failures for reassurance; separately exercise the complete fitter on known waveforms and pinned native windows.",
+  "qualification": "All six original critical-stage checks unchanged. Report case recovery, signs, interior/failure counts, clean/noisy stationary error and ramp MAE versus both archived comparators. Ordinary mixtures remain gated on all critical checks; this correction does not qualify headroom or warnings.",
+  "progress": "Current-stage progress=100*passed original critical checks/6, equal weight, failures or missing evidence receive0. Report pole recovery separately; score may fall. Overall endpoint progress=100*fully demonstrated research gates/10 from P4_RESEARCH_TARGET.md; development controls cannot qualify blind end-to-end gates. Percentages measure criteria attainment, not effort, confidence, safety or publication probability. Freeze denominator; version any future criterion changes explicitly.",
+  "limitations": [
+    "Four previously inspected TRAIN designs",
+    "One paired iid1 noise draw",
+    "Unmodeled transport can contaminate residual variance estimates",
+    "No ordinary-mixture, structural headroom, warning or real-time qualification"
+  ],
+  "input_sha256": {
+    "p4_groups/operational_confirmation_20261003/time_varying_fit_20261007/results.json": "196ceb8d45eb1f7d3ea0b2a9e0cb6c65d74f9c3ac31360914853a908d8e4d9c3",
+    "p4_groups/operational_confirmation_20261003/modal_transport_20261008/results.json": "297a080fcb3a43a4bd8fa3afb167446f34f80037e6ce03c25bc562bd16537e83",
+    "p4_groups/operational_confirmation_20261003/modal_transport_20261008/traces.npz": "cc417cadd135351505ca04d2c41aefc9606b27b84ea14b6076bc5f61419c32c1",
+    "p4_groups/operational_confirmation_20261003/modal_transport_20261008/curvature_results.json": "a64b878e0f828b117aecb9187f99bc85d8c1c3fcb42d65ff9a8b4a864cf5d32b",
+    "p4_groups/operational_confirmation_20261003/evaluate_carrier_curvature.py": "0fc3ca719f48174f6ab76c55af246317ccb0ad2b0e5c8b1364aa82dac96c56cc",
+    "p4_groups/operational_confirmation_20261003/noise_aware_carrier.py": "c305b6c9b713d4936579b2ca17fa35c523a0ddf848255532d74e27c1e88eb4ce"
+  }
+}

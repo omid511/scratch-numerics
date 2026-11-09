@@ -1,0 +1,82 @@
+{
+  "scope": "Offline extraction/branch-choice/headroom-conversion diagnostic on existing ordinary-mixture development trajectories; no operational predictor or warning change",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/dataset.npz": "764d23be333c9de07d05e9e9dcc4eabd37327aeaf6c626f69d6a7888e202ec58",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/predictions.npz": "04a534a3ec589ccb46e63d9a6c7778f97f12fa2a081d064601ccd052d42c2471",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/raw_signals.npz": "1d99bdfea53b930206be2872e50d0664ac2ae59aa3ea267ddde6df94e93881c1",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/verification.json": "06f99d8036d399834da2cdc0e019fb1db8ee994b77a10adcb3927dda72ab2140",
+    "p4_groups/operational_confirmation_20261003/temporal_probe.py": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+    "p4_groups/operational_confirmation_20261003/trajectory_physics.py": "ac588d37979ac6e489b17f5d43cd529db86e4b8e879f8ea95967efffa767d90d",
+    "p4_groups/operational_confirmation_20261003/cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331",
+    "p4_groups/operational_confirmation_20261003/gpu_execution.py": "1190dbe05c1413a426711dec805119387fd239775669ff14f18b10993603dcf3",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/fitter_comparison_score.py": "154eebb4175cbb3d7b2d8a88262e3778a61e16b15d804e337b0788002626fccc",
+    "p4_groups/operational_confirmation_20261003/remote_input.npz": "e374781c698b624283f1a00f9ffc16b4e6a2e3882c4f855d53ca6d346bca59f2",
+    "experiment_p4_ridge_cv.py": "aa781f7fa29064663c7054371f83b7133e2be1ac3474d4f061a3f4498d3853d2",
+    "p4_sensor_candidates/manifest.json": "1a147f69254efe2bc39edf7b0b33eede50a5e41dd0dcc2f852d6dd26e352982a",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000007.npz": "0bf791c2bf9f63181b672bd1f651b825ff3e5e1f096f7c17e0855e13b4fffbef",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000033.npz": "223dfb7ac29e39f0ea99e227ff4943d049aa7813c0aa87ebf49ee5854481b27d",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000068.npz": "ac4465f989efe8e04ec3fbb54cfe80f6ea6bda8cbf959ce81b6a7dc30255ee8c",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000087.npz": "104588db0bc1bd91202411fd93f16491b161a2b84d53abeacb0357ed2ee13d44",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000042.npz": "d698a024923f914a001549283319f129ee5fc0e0c01206caf5ab9be098450dbe",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000045.npz": "a0e507001cdad798dee1a4d45aab6ecb08069e8e3fb0e3120866155821e9a5d3",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000053.npz": "6361216ab9d5e62e7617186886d4f2f5ab5d41b7dd4172169ce5a48ed21a8a69",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/trajectories_D000126.npz": "d6252a9ae652a08fbc3abecb439c8d23f006b99f3cf9f4062fa96ee566e83d77"
+  },
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "samples": 128,
+  "stride": 64,
+  "dt": 0.001,
+  "noise": [
+    "clean",
+    "iid1",
+    "iid5",
+    "correlated1",
+    "correlated5"
+  ],
+  "gate": "Exactly original observed AND fitter_observed; no new truth-based gate, residual threshold, stale extension or extra history. Unknowns remain in original populations.",
+  "replay": "Unchanged temporal_probe.acquire and cuda_backend.advance, FP64 CUDA only; append identity to sensor projection to record existing state, not change equations/initial conditions/forcing. Compare all physical sensor samples to archived raw waveforms.",
+  "replay_relative_rms_tolerance": 1e-09,
+  "critical_definition": "Instantaneous maximum-real-part positive-frequency physically transverse mode at END of each window, follow that endpoint branch across the same 128 samples for slope summaries. This is not a fixed flutter-onset branch. Record within-window dominance switches separately from tracking ambiguity.",
+  "tracking": {
+    "ordering": "All positive-frequency eigenpairs, initial frequency order; Hungarian cost normalized eigenvalue displacement plus one minus normalized eigenvector overlap",
+    "max_ratio_step": 5e-05,
+    "minimum_overlap": 0.8,
+    "maximum_displacement_in_previous_nearest_pole_separation": 0.25,
+    "minimum_assignment_runner_up_margin": 0.1,
+    "maximum_relative_eigen_residual": 1e-10,
+    "uncertainty": "A window is unresolved when its branch has any failed tracking edge within its ratio interval; unresolved contrasts not interpreted, counts retained."
+  },
+  "correspondence": {
+    "temporal": "RMS frequency distance to fitted linear frequency trend <=1/(127*dt) Hz across exactly same samples; no growth-rate matching gate",
+    "spatial": "Phase-invariant complex coefficient overlap from measured fitted offset/cos/sin basis versus physical projected eigenvector at sample63, using that noise view causal calibration scale",
+    "minimum_squared_overlap": 0.8,
+    "minimum_best_minus_second_squared_overlap": 0.1,
+    "ambiguity": "No unique match -> B unavailable, never choose branch by margin/error/critical identity."
+  },
+  "oracle_features": "Endpoint physical alpha, endpoint physical f, unweighted OLS alpha/f slopes over exactly128 samples, alpha/(2*pi*f), SAME measured residual column. No oracle value routes a real predictor.",
+  "visibility": "Instantaneous physical pair contribution from replay state using full eigensystem decomposition. Report centered critical sensor energy relative to rest and injected noise; coherence/strength is not proof of recoverability.",
+  "paired_training": "Two paired-support contrasts: A/C on critical-valid source rows, and A/B/C on common matched+critical-valid rows. Identical training rows within each contrast, proper train clean/iid1 only, existing degree1/2 and ALPHAS LODO selection. Separate frozen source ridge6 and framewise comparators; never mix populations to claim a gain.",
+  "scoring": "Per split/noise/design: all original frames, source fresh, common contrast fresh, boundary(-.02<m<.05), unstable(m<0), farther stable(m>=.10), optimism>.02 in boundary, wrong signs by side on .01<=abs(m)<=.05; unknown counts explicit. Equal-design paired errors, no significance from two held designs.",
+  "decision": "Conditional oracle improvement on both held designs with primary accuracy targets, reduced dangerous errors and farther-stable MAE noninferiority .005 supports targeted extraction under measured mode support, not transport automatically. Oracle failure leaves calibration/support/map capacity unresolved; no impossibility or all-frame success claim.",
+  "limits": [
+    "Four fitting designs, two repeatedly inspected held designs, no blind confirmation",
+    "No new physical cases, neural training, warning calibration, reserved-design scoring or progress increase from oracle/reporting results"
+  ],
+  "implementation_sha256": "2db171c3436a2d454125e257e5b38185557c633776998a9f41fd16724e15e5bf"
+}

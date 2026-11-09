@@ -1,0 +1,114 @@
+{
+  "scope": "User-authorized single-operating-point relaxation: bounded multi-regime measured history only",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/dataset.npz": "5e97ebc6c1dd11319c2d719110daf1a70f88d49c70464a067a8fb69c0b0c8e2d",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/predictions.npz": "6f93a02dbff1b5816966a87c599eebf75ce9b823438d0f1bbb172459e084d859",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/training.json": "781d59d1ac66ab5a4e83c78bef2bd74cbecd95c784961b75dd7e59d25c5ec296",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/verification.json": "08260f961db1dd71313277e41577e7d85e18a2f5c4833a8f812aec2e5827469a",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/baseline174_seed42.pt": "39f3a16a3811a7e1b5125ea10bcfcfdbdbb7a46e4afd0c83c142f255983eb8aa",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/baseline174_seed43.pt": "4d2221593b0f391ec9bf2236a42102ce9554bac4dcbfaf199269e12e1b2302f1",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/baseline174_seed44.pt": "e10e3800eba0a629262a989e90bdcc6bc0b21927ac87799e30700619e5bae2e6"
+  },
+  "helpers": {
+    "p4_groups/operational_confirmation_20261003/experiment_additive_spectral.py": "5e74a72ea7a321e0ea755206a7c9cb75558d360381d9d456d89ecd3db034501f",
+    "p4_groups/operational_confirmation_20261003/score_additive_spectral.py": "9baa0cb46fe558d1757e5245e132b18e3e4307bc22cbc80de22db5946330a19e",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence.py": "85f3947a790ab3199fd71157220cf527fbb0574b7daa8c5e60e210f581818d2f"
+  },
+  "implementation": {
+    "p4_groups/operational_confirmation_20261003/experiment_multivel_history.py": "9487232cb45784ab717fc9e2828ab4726673e1f655e6247106d98af17307e8ac"
+  },
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "arms": [
+    "single128",
+    "repeated_current",
+    "ordered_history",
+    "unordered_history",
+    "shuffled_past"
+  ],
+  "sampling": {
+    "fs": 1000,
+    "window_samples": 128,
+    "stride_samples": 64,
+    "history_lags_frames": [
+      4,
+      2,
+      0
+    ],
+    "nonoverlapping_windows": 3,
+    "union_samples": 384,
+    "union_physical_span_seconds": 0.383,
+    "total_acquired_samples_seconds": 0.384,
+    "maximum_allowed_aperture_seconds": 0.5,
+    "warmup": "Before all slots exist, zero absent slots; retain every original decision in denominators"
+  },
+  "inputs_description": "Each176-vector is unchanged standardized174 measured features + observation flag + original gap age. Three slots retain multiple operating regimes during ramps. No U, ucrit, margin, simulator poles, design identity, commanded schedule, future data or extra sensors enters predictor. Regime-span labels are scoring-only. Current causal calibration/timebase conventions retained.",
+  "normalization": "Use original proper clean/IID1 train-only feature scaling; missing feature values zero after scaling; observation and age unchanged. No per-target velocity normalization or pooling of V.",
+  "controls": {
+    "repeated_current": "Three copies of current176-vector; identical528 input width and32->16 model. Controls capacity/init/regularization changes.",
+    "unordered_history": "Repeat average of three causal176-vectors; same528 width/aperture, suppresses slot ordering.",
+    "shuffled_past": "Keep current176-vector; two past slots from another physical trajectory within same split/noise condition via fixed permutation20261011, consistent across noise views. Counterfactual control, not deployable; no donor future used."
+  },
+  "training": {
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "learner": "framewise32->16 ReLU; only input columns differ",
+    "optimizer": "Adam",
+    "lr": 0.003,
+    "weight_decay": 0.0001,
+    "maximum_epochs": 2000,
+    "patience": 100,
+    "loss": "Existing all-frame mean squared error on proper clean/IID1 trajectories, including original gap behavior",
+    "selection": "Original clean/IID1 validation all-frame MAE only; no fresh-noise/held selection"
+  },
+  "evaluation": {
+    "original_views": [
+      "clean",
+      "iid1",
+      "correlated1",
+      "iid5",
+      "correlated5"
+    ],
+    "fresh_draw_seeds": [
+      20261020,
+      20261021
+    ],
+    "fresh_views": [
+      "iid1",
+      "correlated1",
+      "iid5",
+      "correlated5"
+    ],
+    "fresh_population": "Same held physical trajectories only, no new designs or fitting on fresh noise",
+    "noise": "Existing original-eight aggregate causal prefixRMS sigma; same white draw for paired IID/correlated, rho=.8 and realized per-channel marginal RMS matched; never percent of decaying response"
+  },
+  "regime_scoring": "Past/current label span >=.005 after384ms warmup marks distinct regimes; <=1e-10 marks dwell; remainder weak change. No truth-conditioned acquisition, fitting, masking or model selection.",
+  "acceptance": "Evidence for within-design history requires overall/boundary improvement relative to single128 AND capacity-matched repeated_current/shuffled_past across primary conditions, design/seed stability, no dangerous sign/optimism regressions, explicit dwell/ramp/gap behavior. Improvements versus pooled history can suggest ordering value. No qualification or safety claim from accuracy alone.",
+  "limits": [
+    "Ordinary128ms source windows already have within-window changing velocity; not a literal constant-speed vs variable-speed experiment",
+    "This is bounded waveform-only multi-regime history, NOT an independently scheduled known-speed sweep. Larger velocity-span/known-U calibration would require separately explicit information/acquisition choices",
+    "Same4 train,2 validation,2 repeatedly inspected held designs and same48 physical trajectories; fresh draws are not fresh structures",
+    "Cannot prove a structural growth-to-margin conversion or independent validation from this comparison",
+    "Original current observation qualification unchanged; extra past input does not become a newly measured current point",
+    "No supplied speed sampler artifact, but schedule/time/profile correlations remain possible; dwell/pooled/shuffled controls constrain interpretation",
+    "No further architecture/loss/feature or support expansion campaign folded into this test"
+  ],
+  "progress_ledger_sha256": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f"
+}

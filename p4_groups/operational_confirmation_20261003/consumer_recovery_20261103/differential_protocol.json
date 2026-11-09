@@ -1,0 +1,23 @@
+{
+  "protocol_id": "raw-consumer-two-design-differential-v1",
+  "scope": "D000007 and current D000152 raw and command byte equality, then native normalized subset equality; no full consumer or scientific gate claim",
+  "runner_sha256": "adb74000513c1040d057cc005c8c7064caf25f5b973b519af99b4c7600d11bb0",
+  "timeout_seconds": 180,
+  "external_dispatcher_cap_seconds": 240,
+  "scientific_gate_credit": false,
+  "files": {
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f",
+    "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py": "721a83d35bf68c9fb1011046e87b342d0e8170d4fd0f926e5ecabaf059ce5c6b",
+    "p4_groups/operational_confirmation_20261003/raw_modal_data.py": "82fff8c7b35a03827e6e5fe4a5320526848657feb2c73fcafa8f5cee802e5424",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/gpu_execution.py": "1190dbe05c1413a426711dec805119387fd239775669ff14f18b10993603dcf3",
+    "p4_groups/operational_confirmation_20261003/temporal_probe.py": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/protocol.json": "786f301fd82c64e9541365efb28c771b549f0272be13eaa16f4330801b4a4129",
+    "p4_groups/operational_confirmation_20261003/consumer_recovery_20261103/raw_only_acquisition.py": "8fba990b62bbfa244923c05cc85d01264a12f66aabb47fb7095efef98f4347e4",
+    "p4_groups/operational_confirmation_20261003/consumer_recovery_20261103/lossless_carriers/member_manifest.json": "dd6d0b2ecc1859353897f6dbc1e7f32c860c91f9f2c05dff25f58645d8427f14"
+  },
+  "references": {
+    "D000007": {"bytes": 42258789, "sha256": "cd203cee952cba0b64365780b0da3e47e632664b38fda8628ae1f4a8539921d7"},
+    "D000152": {"bytes": 41270304, "sha256": "d28379d0fd00d712e817cea7db4b846e4a5cc62f452ae184620064209450f7d2"}
+  }
+}

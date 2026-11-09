@@ -1,0 +1,32 @@
+{
+  "scope": "Prespecified paired batching diagnostic, no fits",
+  "samples": [
+    {
+      "row": 0,
+      "noise": "clean",
+      "kind": "accepted",
+      "frame": 42,
+      "trigger": "largest_raw_coordinate_discrepancy",
+      "coordinate": 16,
+      "observed_discrepancy": 0.008763545484999469
+    },
+    {
+      "row": 0,
+      "noise": "clean",
+      "kind": "accepted",
+      "frame": 42,
+      "trigger": "largest_standardized_coordinate_discrepancy",
+      "coordinate": 89,
+      "observed_discrepancy": 0.0014807480475259689
+    }
+  ],
+  "selection": "Two reproduction-error-triggered accepted windows: deterministic first maximum of raw coordinate error and train-standardized coordinate error in the fixed95 accepted-window smoke. No truth/prediction selection. Frozen BEFORE their paired comparison; distinct from earlier prespecified6-window panel.",
+  "canonical": "Per-frame original source-noise grouping clean+IID1 versus other three base noise views; accepted forecast-passing full extraction and separate failed-gate full extraction",
+  "proposed": "Per-noise row window batching as frozen population replay, separate accepted and failed-gate batches",
+  "source_sample_sha256": "65d9309d0c705a8d5eb4c64b530dac2263c79a24d752988451e4e2ead76d20c4",
+  "source_protocol_sha256": "3fdcba76310a95b4df6ef336b03ea609f4118eaae85f4242cb11d626c64e575a",
+  "standardized_coordinates": [
+    "all174 under original fold0 accepted training scaling"
+  ],
+  "qualification_unchanged": true
+}

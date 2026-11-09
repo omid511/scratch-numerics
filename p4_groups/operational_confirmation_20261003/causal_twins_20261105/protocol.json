@@ -1,0 +1,26 @@
+{
+  "purpose": "Mathematical and kinematic prerequisite only; not simulated response or independent physics validation",
+  "grid": {"samples_per_second": 1000, "end_seconds": "156/5", "crossing_seconds": "24", "lead_seconds": "1", "branch_seconds": "23"},
+  "profiles": {
+    "shared_and_crossing": "rho(t) = 9/10 + t/240",
+    "benign": "copy shared prefix through B; for 0 <= s = t-B <= 1, rho(B) + (s-s*s/2)/240; then rho(B)+1/480"
+  },
+  "exploratory_alpha": ["1", "1/2", "1/4", "1/10"],
+  "exploratory_benign_rearmed_opportunities_per_hour": ["1/4", "1/2", "1", "2", "4", "12", "60"],
+  "timely_success_target": "9/10",
+  "nuisance_episode_limit_per_hour": "1",
+  "assumptions": [
+    "Identical initial state, past inputs and prefix noise distribution under a causal plant and estimator imply identical observation and alarm distributions through the branch, including any computation and delivery delay; an earlier effective deadline only strengthens the bound.",
+    "q is the probability of an alarm by B on the common history; timely success on the ambiguous crossing is at most q and benign shared-prefix alarm probability is at least q.",
+    "The ambiguous pairs are fraction alpha of crossings; the remaining crossings are optimistically assumed perfectly detected.",
+    "The nuisance episode rate bound requires lambda_b benign opportunities per hour with common clear and rearm between them and no future-event credit or relabeling. Without these assumptions only a run-level alarm probability bound follows.",
+    "The exploratory alpha and lambda_b values are hypothetical, not measured and not a frozen prospective operating distribution."
+  ],
+  "derivation": "q_min = max(0, 1 - (1-target)/alpha); nuisance episodes/hour >= lambda_b*q_min; necessary compatibility with the episode limit requires lambda_b*q_min <= limit.",
+  "limitations": [
+    "Normalized ratio and rate bounds are kinematic facts only and do not validate a physical envelope.",
+    "No response simulation, actual critical speed, geometry, hidden inputs, native generation, features, estimator outputs or ground-truth datasets are used.",
+    "Always-on or merged alarms require duration and availability accounting and are not covered by the episode formula.",
+    "No empirical risk confidence interval or posterior is computed; no unconditional P4 impossibility is established."
+  ]
+}

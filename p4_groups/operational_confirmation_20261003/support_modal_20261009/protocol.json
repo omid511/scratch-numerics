@@ -1,0 +1,185 @@
+{
+  "scope": "Preregistered bounded TRAIN support \u00d7 richer matched-modal physical-description factorial",
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "eligible_designs": [
+    "D000008",
+    "D000020",
+    "D000029",
+    "D000054",
+    "D000062",
+    "D000069",
+    "D000070",
+    "D000086",
+    "D000114",
+    "D000115",
+    "D000120",
+    "D000129",
+    "D000143",
+    "D000144",
+    "D000146",
+    "D000152",
+    "D000156",
+    "D000158"
+  ],
+  "additional_designs": [
+    "D000062",
+    "D000152",
+    "D000008",
+    "D000146",
+    "D000144",
+    "D000029",
+    "D000020",
+    "D000120",
+    "D000129",
+    "D000114",
+    "D000158",
+    "D000115"
+  ],
+  "evaluation_folds": [
+    [
+      "D000062",
+      "D000152",
+      "D000008",
+      "D000146"
+    ],
+    [
+      "D000144",
+      "D000029",
+      "D000020",
+      "D000120"
+    ],
+    [
+      "D000129",
+      "D000114",
+      "D000158",
+      "D000115"
+    ]
+  ],
+  "selection_seed": 20261009,
+  "profiles": [
+    "cross",
+    "stable",
+    "retreat",
+    "farther_stable",
+    "unstable_exclusion"
+  ],
+  "schedule_replicates": 2,
+  "noise": [
+    "clean",
+    "iid1",
+    "correlated1",
+    "iid5",
+    "correlated5",
+    "iid1_fresh20261020",
+    "correlated1_fresh20261020",
+    "iid5_fresh20261020",
+    "correlated5_fresh20261020",
+    "iid1_fresh20261021",
+    "correlated1_fresh20261021",
+    "iid5_fresh20261021",
+    "correlated5_fresh20261021"
+  ],
+  "samples": 128,
+  "stride": 64,
+  "dt": 0.001,
+  "training": {
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "maximum_epochs": 2000,
+    "patience": 100,
+    "learning_rate": 0.003,
+    "weight_decay": 0.0001,
+    "fitting_noise": [
+      "clean",
+      "iid1"
+    ],
+    "objective": "Full-batch row-mean squared error, native all-frame outputs; normalized regularization unchanged"
+  },
+  "new_regimes": {
+    "farther_stable": "8s original pulse law; initial ratio .78-.84 then dwell .78-.84",
+    "unstable_exclusion": "8s original pulse law; initial ratio1.015-1.03 then dwell1.015-1.03"
+  },
+  "physical_validation": {
+    "minimum_mach": 2.0,
+    "maximum_retained8_hz": 400.0,
+    "maximum_critical_relative_pole_gap": 0.005,
+    "maximum_full_response_relative_rms": 0.02,
+    "maximum_step_halving_relative_rms": 0.005
+  },
+  "tracking": {
+    "ordering": "All positive-frequency eigenpairs, initial frequency order; Hungarian cost normalized eigenvalue displacement plus one minus normalized eigenvector overlap",
+    "max_ratio_step": 5e-05,
+    "minimum_overlap": 0.8,
+    "maximum_displacement_in_previous_nearest_pole_separation": 0.25,
+    "minimum_assignment_runner_up_margin": 0.1,
+    "maximum_relative_eigen_residual": 1e-10,
+    "uncertainty": "A window is unresolved when its branch has any failed tracking edge within its ratio interval; unresolved contrasts not interpreted, counts retained."
+  },
+  "correspondence": {
+    "minimum_squared_overlap": 0.8,
+    "minimum_best_minus_second_squared_overlap": 0.1,
+    "maximum_frequency_distance_hz": 7.874015748031496,
+    "maximum_eigenbasis_condition": 10000000000.0,
+    "maximum_reconstruction_relative_error": 1e-09
+  },
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/remote_input.npz": "e374781c698b624283f1a00f9ffc16b4e6a2e3882c4f855d53ca6d346bca59f2",
+    "p4_groups/operational_confirmation_20261003/additive_spectral_20261009/dataset.npz": "5e97ebc6c1dd11319c2d719110daf1a70f88d49c70464a067a8fb69c0b0c8e2d",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/raw_signals.npz": "1d99bdfea53b930206be2872e50d0664ac2ae59aa3ea267ddde6df94e93881c1",
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f",
+    "p4_dataset_saturation/metadata.json": "8886c5a6de5986fc55d73ffb17371c5b62484aedf4937a29d6cd450d8cb42ddb",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000062.json": "dd6dc097b6fa8da0be453ba23439f40b415fa0f135737e591c358c2eeba200b1",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000152.json": "ca3196a9a9a8253bef1587217a8de6cad2cdebecfbdc728d83bb50c38086c821",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000008.json": "0bc5b0c0c552c9ca1d02d2b6e9f49b1d8180349ad271179b151c785836cb95a6",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000146.json": "cc6d52daa3ed630023945ed5ebae47873bc3a726af8a964fc7ca19e89f3ec775",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000144.json": "a9704ba246d21fedf421edde2f16f3553d325419f18a40baa65a4d2a28d8c13a",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000029.json": "e8955ad28b1b7f44c31468a3987313c4e11c256e548a1966db4972a31f1f87b4",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000020.json": "690dc0b706485fd797b96de73b1b0472b9f2ce4b22d6cfa8d09e5ee43f7e09bd",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000120.json": "5811f0b8d2bd809c2211209bae11b1f10f9e746fe634b68c55fd029377c95f40",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000129.json": "81b6c27990d96f6f37c9d9136bea39c8f086781d3ef267005598df730918d4be",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000114.json": "c288de324af5c934b919c57169170ffdf9d82f2a637ba5c83106798c92b7087f",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000158.json": "8e9fd3722ccede84df45bc790e0fd78d4956be0529fc33cb23fd2e6a620fd717",
+    "p4_groups/operational_confirmation_20261003/o1_corrected/audit_D000115.json": "f72b207ebbfc8ef890ac0611d2459ea77f0c994ae832093375fa1044826f5291",
+    "src/mechanics/p4_margin_estimation/modal_features.py": "ba42ab8191d6ecd9feebb40b8c65ec1613c218ca49f3f5090d468c2abac28df3",
+    "src/mechanics/p4_margin_estimation/baselines.py": "ae36a3e7be77cbe104b48a1ccb7b3ff9a6a968afc673d67983576ccb77a6db89",
+    "src/mechanics/p4_margin_estimation/operational.py": "ca11f876be9594d7d0e9b0fd36bcac0f548c4340744c0a76944c097aa9097af7",
+    "p4_groups/two_mode_spatial_20260930/prepare_features.py": "dae1c2d34821c4d4085e2eea286fb33aee259dbdc01d2183a9f3a5007697da1e"
+  },
+  "implementation": {
+    "p4_groups/operational_confirmation_20261003/experiment_support_modal.py": "432cef90b338c9e45d286d3fd4d25e6d9fbe5f782bbc894515a96ab555283249",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/gpu_execution.py": "1190dbe05c1413a426711dec805119387fd239775669ff14f18b10993603dcf3",
+    "p4_groups/operational_confirmation_20261003/temporal_probe.py": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+    "p4_groups/operational_confirmation_20261003/trajectory_physics.py": "ac588d37979ac6e489b17f5d43cd529db86e4b8e879f8ea95967efffa767d90d",
+    "p4_groups/operational_confirmation_20261003/cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331",
+    "p4_groups/operational_confirmation_20261003/pulse_aware_probe.py": "2ece34e0fd4a0cfe9950def5b23cd01e0cec4f71a551e4ebe736747ddb4b66f8",
+    "p4_groups/operational_confirmation_20261003/experiment_headroom_oracle.py": "2db171c3436a2d454125e257e5b38185557c633776998a9f41fd16724e15e5bf",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009/train_support_modal.py": "c66681cfe4ffbbf6a3a083cf081aea5e2ada19a5388455aa63397c211c670403",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009/score_support_modal.py": "5d2aea3d7feaa22cd1e5e0b66f7d27434c2442bf7cbb22fe57b5919e5e5103ab",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009/verify_support_modal.py": "6dc00bbbe64d669bddd81f464404083ff345afb4cfeff905564e89ba04af7a13"
+  },
+  "interpretation": "Additional3 grouped TRAIN folds primary; inspected2held secondary; diagnostic oracle not estimation-only attribution or upper bound; no progress, reserved scoring or predictor promotion.",
+  "counterfactual": {
+    "correspondence": "Window-RMS frequency compatibility and calibrated complex-shape overlap at sample63; unique assignment. Per-branch tracking quality and full eigensystem conditioning over whole aperture.",
+    "coordinates": "Endpoint physical poles/shapes. Preserve measured modal strength/order, measured least-stable/spatial/neighbor routing, quality/availability, exact envelope summaries and signal correlation. Recompute dependent symmetric damping/stability/spacing/Gramian coordinates.",
+    "new_regime_population": "Both original8 and additional12 acquire farther-stable/sign-exclusion profiles. Original3-profile cache remains exact."
+  }
+}

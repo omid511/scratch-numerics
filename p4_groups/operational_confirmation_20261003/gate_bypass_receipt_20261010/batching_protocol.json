@@ -1,0 +1,50 @@
+{
+  "scope": "Prespecified paired batching diagnostic, no fits",
+  "samples": [
+    {
+      "row": 0,
+      "noise": "clean",
+      "kind": "accepted",
+      "frame": 0
+    },
+    {
+      "row": 0,
+      "noise": "clean",
+      "kind": "newly_eligible_rejected",
+      "frame": 9
+    },
+    {
+      "row": 1,
+      "noise": "iid1",
+      "kind": "accepted",
+      "frame": 0
+    },
+    {
+      "row": 1,
+      "noise": "iid1",
+      "kind": "newly_eligible_rejected",
+      "frame": 1
+    },
+    {
+      "row": 2,
+      "noise": "iid5",
+      "kind": "accepted",
+      "frame": 57
+    },
+    {
+      "row": 2,
+      "noise": "iid5",
+      "kind": "newly_eligible_rejected",
+      "frame": 0
+    }
+  ],
+  "selection": "For fixed D000007 cross replicate0 clean/IID1/IID5, first cached accepted and first genuinely eligible rejected frame; no truth or prediction-based selection",
+  "canonical": "Per-frame original source-noise grouping clean+IID1 versus other three base noise views; accepted forecast-passing full extraction and separate failed-gate full extraction",
+  "proposed": "Per-noise row window batching as frozen population replay, separate accepted and failed-gate batches",
+  "source_sample_sha256": "65d9309d0c705a8d5eb4c64b530dac2263c79a24d752988451e4e2ead76d20c4",
+  "source_protocol_sha256": "3fdcba76310a95b4df6ef336b03ea609f4118eaae85f4242cb11d626c64e575a",
+  "standardized_coordinates": [
+    "all174 under original fold0 accepted training scaling"
+  ],
+  "qualification_unchanged": true
+}

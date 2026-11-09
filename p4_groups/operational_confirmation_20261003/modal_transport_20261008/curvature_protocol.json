@@ -1,0 +1,10 @@
+{
+  "scope": "One evidence-backed correction for demonstrated physical pole curvature; experimental waveform-only shared carrier, not a production cutover",
+  "model": "Shared alpha(t)=alpha_mid+alpha_slope*tau+0.5*alpha_curvature*tau^2 and corresponding frequency polynomial; integrate into cubic log-envelope/phase, profile ONLY constant channel offsets/cos/sin coefficients",
+  "comparison": "All48 original measured critical-only controls and all48 frozen-shape exact-carrier controls from the completed transport diagnostic; compare to their saved linear fits",
+  "initialization": "Saved measured-waveform linear fit only; both curvatures start0. No physical poles, designs, speeds or true end growth in fitter inputs",
+  "bounds": "Reuse existing measured FFT frequency-mid, alpha-mid, slope and solver bounds. Curvature bounds are2*the existing slope bound/window span, equivalent to allowing at most the old maximum slope change across the window. Frequency slope and curvature each receive half the remaining physical-band slack. Keep both growth signs; explicit failure for unusable input/warm start/bounds",
+  "pass_checks": "UNCHANGED original48-control scoring: all48 interior successful, all end poles match, all signs correct, clean stationary max error<=.001/s, noisy stationary median error<=archived LS median+.05/s, ramp MAE lower than both stationary and LS separately clean/iid1. Report native linear comparison and frozen-carrier mechanism control; lower SSE alone is insufficient",
+  "decision": "Accept only a measured physical improvement with preserved guardrails; failed correction informs transport-aware iteration, not abandonment of P4 or relaxed thresholds",
+  "limitations": ["Four repeatedly inspected TRAIN designs", "No ordinary-mixture, headroom or warning qualification", "Higher derivatives can amplify noise", "Frozen-carrier controls use oracle physics only for diagnosis"]
+}

@@ -1,0 +1,120 @@
+{
+  "scope": "Conditional bounded response-GRU comparison; TRAIN-design folds, not blind or deployment qualification",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/dataset.npz": "170f5e783e2fbab6abefce7c4b0a18b54af4d36b345e546ab7c01dcb23154499",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/protocol.json": "786f301fd82c64e9541365efb28c771b549f0272be13eaa16f4330801b4a4129",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/results.json": "13ba34082d6bd5c6ecc97b51412ee411398438266089c9f76b42aae7f21fdda1",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/verification.json": "84290c23fc7787cbf38c115424304af2e978f89618a130fb8eb5574e64e0919f",
+    "p4_groups/operational_confirmation_20261003/current_context_20261009/results.json": "fa24e33c0fe208abce8cb64aaccab88936b49738b1524a10c2aa8dc5a0cbbc27",
+    "p4_groups/operational_confirmation_20261003/current_context_20261009/verification.json": "ae51a998f607723f0ea2e0f1f7902ab7234b1dde8724dbf7f19065e8a7d32fb9",
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f",
+    "src/mechanics/p4_margin_estimation/baselines.py": "ae36a3e7be77cbe104b48a1ccb7b3ff9a6a968afc673d67983576ccb77a6db89",
+    "p4_groups/operational_confirmation_20261003/score_additive_spectral.py": "9baa0cb46fe558d1757e5245e132b18e3e4307bc22cbc80de22db5946330a19e",
+    "p4_groups/operational_confirmation_20261003/experiment_multivel_history.py": "9487232cb45784ab717fc9e2828ab4726673e1f655e6247106d98af17307e8ac",
+    "p4_groups/operational_confirmation_20261003/experiment_bounded_gru_v2.py": "4d36482ecf17ab5a641645e944e33258824597a34c89713d4047c1e765e39ed8",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold0_measured_seed42.npz": "c338f001265c0b66ea1810829af8c4f65548734d08e9adbe31f7f97d3a85259a",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold0_measured_seed43.npz": "9ed39e0a9caf34c8bf14efe0f7103e98d7204a142688e4b244362c9a79d76a82",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold0_measured_seed44.npz": "1dbf682b4955fabfeba75b6f803599c9e252759877b6f1772cdb06f330f89cf8",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold1_measured_seed42.npz": "d1fe56ccc2f054040b3c2aecdef8dfa610e3f4b5c142db58d2b915047c1d3df5",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold1_measured_seed43.npz": "671e11624169b187e4cefd222d7a14112cc86ea5119ff2926027ab7d507bf80f",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold1_measured_seed44.npz": "64c4d746756ddf6f857a40c6feef8e173addc46551df62b4c152bc8bf95dd76a",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold2_measured_seed42.npz": "f6434fce37b28ac101f041e4a2821164a6b30e5543f5b12926dc81e2893bb98d",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold2_measured_seed43.npz": "cab3ba086c29de0e9d29e3ad9fcb4426a933e8e3afbd63b874e1645bc098b278",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/fold2_measured_seed44.npz": "f5779b1664241f319eba19220114c0dcf01971156474191ebcfd28a4d3660858"
+  },
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "additional_designs": [
+    "D000062",
+    "D000152",
+    "D000008",
+    "D000146",
+    "D000144",
+    "D000029",
+    "D000020",
+    "D000120",
+    "D000129",
+    "D000114",
+    "D000158",
+    "D000115"
+  ],
+  "evaluation_folds": [
+    [
+      "D000062",
+      "D000152",
+      "D000008",
+      "D000146"
+    ],
+    [
+      "D000144",
+      "D000029",
+      "D000020",
+      "D000120"
+    ],
+    [
+      "D000129",
+      "D000114",
+      "D000158",
+      "D000115"
+    ]
+  ],
+  "arms": [
+    "content_gru",
+    "ordered_concat",
+    "unordered_pool",
+    "flags_age_gru"
+  ],
+  "lags": [
+    4,
+    2,
+    0
+  ],
+  "samples": 128,
+  "stride": 64,
+  "dt": 0.001,
+  "reference": "Expanded TRAIN support, unchanged measured174 all-frame row-mean objective and original validation checkpoint designs. No result-based head/loss retuning.",
+  "training": {
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "maximum_epochs": 2000,
+    "patience": 100,
+    "learning_rate": 0.003,
+    "weight_decay": 0.0001,
+    "fitting_noise": [
+      "clean",
+      "iid1"
+    ],
+    "loss": "Row-mean squared error on every native frame",
+    "selection": "Original clean/IID1 checkpoint-validation native all-frame MAE"
+  },
+  "gap_policy": "Native outputs at every decision; missing-current outputs are explicitly unqualified extrapolation, not stale holds",
+  "mechanism": {
+    "lags": [
+      4,
+      2,
+      0
+    ],
+    "absent_warmup_zero": true,
+    "future_invariant": true,
+    "decision_reordering_invariant": true,
+    "oldest_waveform_sample_age_ms": 383
+  },
+  "endpoint_limit": "Runtime, uncertainty, warnings and independent validation not qualified"
+}

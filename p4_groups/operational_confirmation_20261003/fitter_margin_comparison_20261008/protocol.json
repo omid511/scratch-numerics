@@ -1,0 +1,75 @@
+{
+  "scope": "Exploratory same-observation fitter-plus-simple-calibration versus frozen learned margin/warning predictors; not promotion of unqualified fitter, original TRAIN designs only",
+  "inputs": {
+    "temporal_probe_20261007/data.npz": "6b976f6fdea6a5554eadaabc1d55af0ef2d4e74df06edfdd8ff048a694ffd9e4",
+    "temporal_probe_20261007/results.json": "0f2092d235919bf29d0e27fcde3aa88617f0b6a0e05f8592715be7bc2737de3c",
+    "temporal_convergence_20261007/predictions.npz": "9928a51102ae75dd7bf2cd06230ab936484219a0c07c2583ca8897b075cf2b78",
+    "temporal_convergence_20261007/results.json": "1f3cf8d1ba4027271334ff927858c28b12e86edb42c964b3ee54d069e8e7fd5f",
+    "temporal_convergence_20261007/framewise.pt": "ee30695a6aa63bccf1d30045e5fc9031e3773cce637773b667e5fba865f41370",
+    "temporal_convergence_20261007/gru.pt": "1c41338e908805b3a1b00bf5512806f85c1aac6a9caed91a7c40cfd18df4f795",
+    "temporal_convergence_20261007/time_only.pt": "3b760b3318e29ba2d65f968074754cbf0dcc582f6f3fad5b467fc68b389e89b8",
+    "time_varying_fit_20261007/protocol.json": "73dd214ea7460efdb99aec2bdfac176e69df9ec789ec7c09f5da35d91091f37f",
+    "remote_input.npz": "e374781c698b624283f1a00f9ffc16b4e6a2e3882c4f855d53ca6d346bca59f2",
+    "temporal_probe.py": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+    "temporal_convergence.py": "85f3947a790ab3199fd71157220cf527fbb0574b7daa8c5e60e210f581818d2f",
+    "diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "time_varying_modal_fit.py": "0f217da1409ab532c64006ffe1f2e5b1c8378f4e17a61c709e1a94291bbaf80b",
+    "cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331"
+  },
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "physical_acquisition": "Replay the same 48 physical schedules and initial conditions using unchanged temporal_probe.schedule/acquire; no new structural designs or speed sweeps. Original clean/iid1 features and gates must reproduce archived inputs. Cache raw waveforms for subsequent diagnostics.",
+  "noise": [
+    "clean",
+    "iid1",
+    "iid5",
+    "correlated1",
+    "correlated5"
+  ],
+  "noise_protocol": "diagnostic_matrix.noises, SeedSequence([20261010,design_integer,replicate,profile_index]); first51 physical aggregate centered RMS reference, fixed absolute floor, rho=.8 correlated draw with realized per-channel RMS matched to white. clean/iid1 reproduce original noise. No noise-percent oracle input.",
+  "observation": "Identical causal128-sample windows, stride64, original command-free/finite/unsaturated checks and original first64-to-next64 LS forecast skill >=.5 shared gate. No simulator poles, design identity, velocity, true margin, future waveform or commanded schedule in predictors.",
+  "fitter": "Unchanged waveform-only single-mode stationary warm-start plus varying fitter, unchanged settings. Fit shared-gate windows, availability requires both optimizer success and interior bounds; no truth-based pole selection or residual threshold. Every failure retained.",
+  "physical_features": [
+    "alpha_end",
+    "frequency_end",
+    "alpha_slope",
+    "frequency_slope",
+    "growth_damping_ratio=alpha_end/(2*pi*frequency_end)",
+    "relative_fit_error"
+  ],
+  "calibration": "Ridge degree1 and degree2 (PolynomialFeatures without bias), existing sum-squares convention/scaling and ALPHAS logspace(-6,6,25). Select degree/alpha by leave-one-design-out within the FOUR proper training designs, clean/iid1 only; fit final map on those observed rows. No validation/held/stress-noise fitting.",
+  "representation_control": "Additional linear ridge on original174 LS analytical features; same four-design clean/iid1 LODO alpha selection and hold-last gap convention, no neural architecture. Distinguishes a richer modal representation from a nonlinear/recurrent readout advantage. Evaluated with the same common-fresh denominators and warning calibration.",
+  "learned": "Frozen converged framewise, GRU and time-only checkpoints and original scaling; no neural retraining. Stress conditions use same feature extraction and inputs, including own original availability/age.",
+  "gaps": "Fitter margin holds last valid estimate causally; prior to first fit, no point estimate (NaN). Explicit stale output/age and missing counts. No population-mean fallback and no safe declaration from absence. Learned missing-input outputs remain labeled extrapolation.",
+  "evaluation": "Per noise/split/design: observed availability, fit failures, common-fresh MAE and paired design differences; available-output and common-all-output MAE; optimistic errors >.01/.03 on 0<m<.02, false stable on m<0, gap strata. Two previously inspected held designs are exploratory, not blind validation.",
+  "warning": {
+    "positive_margin_max": 0.02,
+    "false_warning_budgets": [
+      0.01,
+      0.05,
+      0.1
+    ],
+    "calibration": "Validation designs pooled clean/iid1 only; score -margin for fitter map/framewise/GRU/time-only and raw alpha_end for growth alarm. Fixed empirical strict-threshold rule with tie-safe <=budget; no stress retuning. This validation was previously used for neural checkpoint selection, so thresholds are exploratory, not independently calibrated guarantees.",
+    "unknown": "No fitter point before first observation; hold-last margin is stale. Raw-growth warning only on fresh valid fit. Unknown positive frames count as missed warnings; report abstention explicitly.",
+    "temporal": "Descriptive crossing lead/delay for cross schedules and false warning exposure; framewise empirical budgets are not episode/hour guarantees."
+  },
+  "limitations": [
+    "Shared original predictability gate can reject information a future fitter-specific gate might recover; this comparison tests readout value under common accepted observations, not optimum detector availability",
+    "Fitter did not pass previous all48 physical accuracy gate; comparison does not supersede or weaken that gate",
+    "Only8 original TRAIN designs, 2 held, one fixed trained neural initialization, paired noise draw per schedule; noise settings are sensitivities, not hardware specifications"
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "scope": "Warm serialized single-window sensor-to-output computation for frozen framewise temporal predictor; development replay only",
+  "candidate": "frozen_framewise_temporal_probe",
+  "split": "held",
+  "noise": [
+    "clean",
+    "iid1",
+    "correlated1",
+    "iid5",
+    "correlated5"
+  ],
+  "profiles": [
+    "cross",
+    "stable",
+    "retreat"
+  ],
+  "replicates": [
+    0,
+    1
+  ],
+  "window_samples": 128,
+  "prefix_samples": 64,
+  "dt_seconds": 0.001,
+  "warmup_decisions": 10,
+  "deadline_ms": 10,
+  "prediction_atol": 2e-06,
+  "scored_p95": "Worst noise-condition accepted-path p95; all-frame and rejected-path timings also reported",
+  "included": [
+    "window access",
+    "causal initial calibration on first decision",
+    "window normalization and cap",
+    "recorded command/finite/saturation checks",
+    "prefix modal extraction",
+    "forecast gate",
+    "full-window modal extraction",
+    "174 features",
+    "frozen scaling and availability/age",
+    "CUDA framewise forward and CPU result delivery",
+    "warning-score threshold and output status",
+    "CUDA synchronization"
+  ],
+  "excluded": [
+    "physical sampling time (128ms aperture separately reported)",
+    "noise injection and simulated propagation",
+    "disk IO",
+    "process/model/CUDA initialization",
+    "sensor transport and OS scheduling guarantees"
+  ],
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/raw_signals.npz": "1d99bdfea53b930206be2872e50d0664ac2ae59aa3ea267ddde6df94e93881c1",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/dataset.npz": "764d23be333c9de07d05e9e9dcc4eabd37327aeaf6c626f69d6a7888e202ec58",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/predictions.npz": "04a534a3ec589ccb46e63d9a6c7778f97f12fa2a081d064601ccd052d42c2471",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/protocol.json": "607ab868843c5a95834c7adb3abff578988c199d04808a2090f9b148e114bb23",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence_20261007/framewise.pt": "ee30695a6aa63bccf1d30045e5fc9031e3773cce637773b667e5fba865f41370",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence_20261007/predictions.npz": "9928a51102ae75dd7bf2cd06230ab936484219a0c07c2583ca8897b075cf2b78",
+    "p4_groups/operational_confirmation_20261003/remote_input.npz": "e374781c698b624283f1a00f9ffc16b4e6a2e3882c4f855d53ca6d346bca59f2",
+    "p4_groups/operational_confirmation_20261003/cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/pulse_aware_probe.py": "2ece34e0fd4a0cfe9950def5b23cd01e0cec4f71a551e4ebe736747ddb4b66f8",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence.py": "85f3947a790ab3199fd71157220cf527fbb0574b7daa8c5e60e210f581818d2f"
+  },
+  "version": 3,
+  "parity_revision": "Consumer decision parity uses unchanged margin tolerance2e-6, exact availability/warnings and age tolerance1e-12. Collect every decision and disclose mismatches; any consumer mismatch prevents timing credit. Raw/scaled intermediate differences remain diagnostics, not proof of identical numerical feature estimates."
+}

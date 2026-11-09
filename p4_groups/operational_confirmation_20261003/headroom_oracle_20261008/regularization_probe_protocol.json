@@ -1,0 +1,14 @@
+{
+  "scope": "Frontier-directed offline regularization discrimination on the existing full-support critical oracle C; not operational training or predictor promotion",
+  "base_protocol": "protocol.json",
+  "base_results": "results.json",
+  "base_verification": "verification.json",
+  "base_predictions": "predictions.npz",
+  "reference": "critical_contrast/C degree2 alpha3162.2776601683795",
+  "change": "Retain degree2 polynomial features, fold-local existing centering/scaling, unpenalized intercept and squared-error objective; replace ONLY alpha by zero using rank-aware minimum-norm least squares",
+  "selection": "No search or alternative candidate selection; proper four TRAIN designs, clean/IID1 only, identical critical_common rows",
+  "evaluations": "Proper TRAIN in-sample, proper leave-one-design-out with preprocessing fitted within each fold, and the unchanged inspected held TRAIN designs across clean/IID1/correlated1 and both 5% stress conditions",
+  "population": "All original decisions and gaps retained; scoring only original critical_common outputs, unchanged boundary and sign exclusion masks; no truth-based selection or stale output",
+  "priority_rule": "Only prioritize a calibration correction if signed MAE improves on BOTH held designs, clean-boundary error improves, and dangerous optimism and wrong-sign counts do not worsen across primary noise conditions; no eligible farther-stable/sign-exclusion rows remains unknown",
+  "limits": "Oracle diagnostic, four fitting designs, repeatedly inspected held designs, no measured-only gain, no progress credit or qualification claim"
+}

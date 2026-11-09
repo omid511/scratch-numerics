@@ -1,0 +1,19 @@
+{
+  "scope": "Post-hoc TRAIN-only mechanism diagnosis; no production cutover or reserved-split scoring",
+  "cases": [{"design": "D000042", "replicate": 2}, {"design": "D000053", "replicate": 0}],
+  "confirmation_designs": ["D000007", "D000033"],
+  "profiles": {"safe_dwell": 5.511, "fast_cross": 10.511},
+  "forcing": ["initial_only", "intermittent_physical_pulses"],
+  "apertures": [128, 256, 512],
+  "lag": 64,
+  "maximum_mode_pairs": [4, 8, 12],
+  "noise": ["clean", "iid1", "correlated1", "iid5", "correlated5"],
+  "noise_floor_levels": [0.0, 0.0001, 0.001, 0.01, 0.05],
+  "pulse_amplitudes": [0.1, 1.0, 10.0],
+  "fixed_ratios": [0.9, 0.99, 1.01],
+  "pole_recovery": "Closest estimated frequency within 5% of true critical frequency AND alpha error <= max(1/s, 10% of absolute true alpha); report continuous errors too. Truth is evaluation-only, evaluated at window end.",
+  "waveform_detector": "Causal 20-sample first-difference energy mean > 4 times immediately preceding 100-sample energy mean; rising edges with 100ms refractory interval; score against command onset with 0..50ms delay. Fixed rule, no label tuning.",
+  "frozen": "Cap 50, actual leading-prefix calibration, original predictors, policy thresholds, and original partitions unchanged. Changed-aperture features never enter the margin model. New estimator variants are diagnostic only; no latency qualification.",
+  "temporal_prerequisite": "Do not train schedule-confounded GRU on these eight traces. First require recoverable physical poles and nontrivial pre-crossing coverage under noise; then one design-grouped randomized-schedule matched framewise/GRU/time-only experiment.",
+  "limitations": "Synthetic noise levels, actuator log availability, physical harmful-amplitude threshold, sensor/communication latency, and deployment specifications are not measured here. Additional designs selected before results. No inference-time simulator truth."
+}

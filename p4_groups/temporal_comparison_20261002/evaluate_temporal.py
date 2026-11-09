@@ -14,16 +14,26 @@ def references(arm):
     return ['blend_frozen', 'blend_control'] if arm.startswith('learned_') else ['blend_frozen']
 
 
-def analyze(smoke=False):
-    prefix = 'smoke_' if smoke else ''
+def analyze(smoke=False, *, first_fold=False):
+    if smoke and first_fold:
+        raise ValueError('smoke and first-fold screening are distinct scopes')
+    prefix = 'screening_' if first_fold else ('smoke_' if smoke else '')
     with np.load(OUT / f'{prefix}predictions.npz') as z:
         p, thresholds, y, ids, folds = (z[k] for k in ('predictions', 'thresholds', 'y', 'ids', 'row_fold'))
         native = z['native_quantiles']
         names, arms, seeds = (z[k].tolist() for k in ('conditions', 'arms', 'seeds'))
         fingerprint = json.loads(str(z['fingerprint']))
+        source_indices = z['source_indices']
     d = T.setup()
     assert fingerprint == d['fingerprint'] and arms == T.ARMS
     assert np.isfinite(p).all() and np.isfinite(native).all()
+    if first_fold:
+        selected = np.flatnonzero(d['folds'] == 0)
+        assert seeds == [42]
+        np.testing.assert_array_equal(source_indices, d['rows'][selected])
+        np.testing.assert_array_equal(y, d['y'][selected])
+        np.testing.assert_array_equal(ids, d['ids'][selected])
+        np.testing.assert_array_equal(folds, d['folds'][selected])
     fits = json.loads((OUT / f'{prefix}fits.json').read_text())
     assert fits['fingerprint'] == fingerprint
     for fit in fits['fits']:
@@ -44,6 +54,11 @@ def analyze(smoke=False):
                       'all_calibration_budgets_respected': True, 'fit_records': len(fits['fits']),
                       'neural_fits': sum(not f.get('frozen_base', False) for f in fits['fits']),
                       'optimization_note': 'Finite gradients/losses and completed fixed protocol; not a claim of global optimizer convergence.'})
+    if first_fold:
+        assert result['verification']['neural_fits'] == 8
+        result['scope'] = dict(kind='first_fold_screening', seed=42, outer_fold=0,
+            training='Full epoch selection and refit, not two-epoch smoke',
+            limitation='One held-design group and one initialization; exploratory, not full design-generalization or seed confirmation.')
     for ci, name in enumerate(names):
         condition = A.describe(p[:, :, ci], thresholds, y, ids, folds, arms)
         condition['native_quantiles'] = {}
@@ -77,7 +92,9 @@ def analyze(smoke=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--smoke', action='store_true')
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument('--smoke', action='store_true')
+    scope.add_argument('--first-fold', action='store_true')
     args = parser.parse_args()
     with T.E.threadpool_limits(limits=1):
-        analyze(args.smoke)
+        analyze(args.smoke, first_fold=args.first_fold)

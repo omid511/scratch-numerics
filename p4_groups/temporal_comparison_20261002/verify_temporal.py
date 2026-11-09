@@ -18,7 +18,9 @@ def freeze_inputs():
     print('TEMPORAL_TABLES_FROZEN', len(sources), len(models['models']), flush=True)
 
 
-def verify(smoke=False):
+def verify(smoke=False, *, first_fold=False):
+    if smoke and first_fold:
+        raise ValueError('smoke and first-fold screening are distinct scopes')
     freeze_inputs()
     d = T.setup()
     torch.set_num_threads(1)
@@ -28,7 +30,7 @@ def verify(smoke=False):
     assert manifest['fingerprint'] == d['fingerprint']
     assert C.sha256(OUT / 'signals.npy') == manifest['signals_hash']
     assert C.sha256(OUT / 'lengths.npy') == manifest['lengths_hash']
-    prefix = 'smoke_' if smoke else ''
+    prefix = 'screening_' if first_fold else ('smoke_' if smoke else '')
     with np.load(OUT / f'{prefix}predictions.npz') as z:
         rows = z['source_indices']; y = z['y']; ids = z['ids']; folds = z['row_fold']
         names = z['conditions'].tolist(); seeds = z['seeds'].tolist()
@@ -38,7 +40,10 @@ def verify(smoke=False):
     np.testing.assert_array_equal(d['rows'][selected], rows)
     np.testing.assert_array_equal(d['y'][selected], y)
     np.testing.assert_array_equal(d['ids'][selected], ids)
-    if not smoke:
+    if first_fold:
+        np.testing.assert_array_equal(rows, d['rows'][d['folds'] == 0])
+        assert seeds == [42]
+    elif not smoke:
         assert len(y) == 4454 and len(np.unique(ids)) == 77 and seeds == C.SEEDS
     samples = []
     # Boundary failures plus a stable, an unstable and an ordinary sample.
@@ -50,7 +55,7 @@ def verify(smoke=False):
             continue
         k, local = int(selected[match[0]]), int(match[0])
         fold = int(folds[local]); seed = seeds[0]
-        path = OUT / f'{prefix}fold_seed{seed}_fold{fold}.npz'
+        path = OUT / f'{"smoke_" if smoke else ""}fold_seed{seed}_fold{fold}.npz'
         with np.load(path) as z:
             proper, cal, held = (z[v] for v in ('proper_rows', 'calibration_rows', 'held_rows'))
             heads = C.cloudpickle.loads(z['heads'].tobytes())
@@ -101,6 +106,9 @@ def verify(smoke=False):
         fixed_tables_hash=C.sha256(OUT / 'frozen_table_manifest.json'), predictions_hash=C.sha256(OUT / f'{prefix}predictions.npz'),
         source_hash=C.sha256(T.ROOT / 'src/mechanics/p4_margin_estimation/temporal.py'),
         limitation='Cached measured side features replayed; timings exclude modal/spatial extraction. Single-row/batch numerical tolerance explicitly checked.')
+    if first_fold:
+        proof['scope'] = dict(kind='first_fold_screening', seed=42, outer_fold=0,
+            physical_clips=len(y), designs=len(np.unique(ids)))
     C.save_json(OUT / f'{prefix}verification.json', proof)
     print('TEMPORAL_WAVEFORM_VERIFICATION_COMPLETE', proof['real_waveform_replays'], flush=True)
 
@@ -108,7 +116,9 @@ def verify(smoke=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--freeze-inputs', action='store_true')
-    parser.add_argument('--smoke', action='store_true')
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument('--smoke', action='store_true')
+    scope.add_argument('--first-fold', action='store_true')
     args = parser.parse_args()
     with T.E.threadpool_limits(limits=1):
-        freeze_inputs() if args.freeze_inputs else verify(args.smoke)
+        freeze_inputs() if args.freeze_inputs else verify(args.smoke, first_fold=args.first_fold)

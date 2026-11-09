@@ -1,0 +1,224 @@
+{
+  "scope": "Proper-training simulator-only feasibility acquisition, no fitting or model promotion",
+  "designs": [
+    "D000007",
+    "D000033",
+    "D000068",
+    "D000087"
+  ],
+  "training_parameters": [
+    {
+      "design": "D000007",
+      "ucrit": 1204.05900246827,
+      "c_air": 338.90405998565257,
+      "acquisition_supported": true,
+      "design_parameters": {
+        "design_id": "D000007",
+        "L1": 0.9439161133021117,
+        "L2": 0.9230618280889986,
+        "face_thickness": 0.0011327007025606034,
+        "core_thickness": 0.00574049298277514,
+        "face_E_mult": 0.9882077183574438,
+        "face_rho_mult": 1.010071707610041,
+        "core_G_mult": 0.8814938362687826,
+        "core_rho_mult": 0.9346331551671029,
+        "zeta": 0.0008521785540506244,
+        "rho_air": 1.1350982628762722,
+        "c_air": 338.90405998565257
+      }
+    },
+    {
+      "design": "D000033",
+      "ucrit": 1267.8663162633852,
+      "c_air": 335.893097743392,
+      "acquisition_supported": true,
+      "design_parameters": {
+        "design_id": "D000033",
+        "L1": 1.0415764722973109,
+        "L2": 0.8949597859292635,
+        "face_thickness": 0.001531057712108134,
+        "core_thickness": 0.005124937843920474,
+        "face_E_mult": 1.014050255343318,
+        "face_rho_mult": 1.008075138553977,
+        "core_G_mult": 1.15130450502038,
+        "core_rho_mult": 1.0492576122283936,
+        "zeta": 0.003003306780010462,
+        "rho_air": 1.157156912982464,
+        "c_air": 335.893097743392
+      }
+    },
+    {
+      "design": "D000068",
+      "ucrit": 2071.150566660385,
+      "c_air": 341.1352328862995,
+      "acquisition_supported": true,
+      "design_parameters": {
+        "design_id": "D000068",
+        "L1": 0.8072839189320803,
+        "L2": 0.9952790585384043,
+        "face_thickness": 0.0012243994608687379,
+        "core_thickness": 0.006014012401262261,
+        "face_E_mult": 1.0611975001171232,
+        "face_rho_mult": 1.0199223010800778,
+        "core_G_mult": 0.9345093537122011,
+        "core_rho_mult": 0.9922331396490336,
+        "zeta": 0.0034287029411643744,
+        "rho_air": 1.175558246485889,
+        "c_air": 341.1352328862995
+      }
+    },
+    {
+      "design": "D000087",
+      "ucrit": 1198.7414907088776,
+      "c_air": 344.89246322773397,
+      "acquisition_supported": true,
+      "design_parameters": {
+        "design_id": "D000087",
+        "L1": 0.9119633000344038,
+        "L2": 0.9260029981738296,
+        "face_thickness": 0.0008333102467661428,
+        "core_thickness": 0.006551686387466713,
+        "face_E_mult": 1.0517862819135189,
+        "face_rho_mult": 0.9654245166108012,
+        "core_G_mult": 0.8014238514006138,
+        "core_rho_mult": 1.0923532458022236,
+        "zeta": 0.0025146778766065836,
+        "rho_air": 1.1000943610444665,
+        "c_air": 344.89246322773397
+      }
+    }
+  ],
+  "endpoint_rule": "20m/s grid from ceil(max(.75*min(proper_train_ucrit),2*max(proper_train_sound_speed)+delta)/20)*20 to ceil(1.08*max(proper_train_ucrit)/20)*20; no evaluated-design input",
+  "endpoints_mps": [
+    900,
+    920,
+    940,
+    960,
+    980,
+    1000,
+    1020,
+    1040,
+    1060,
+    1080,
+    1100,
+    1120,
+    1140,
+    1160,
+    1180,
+    1200,
+    1220,
+    1240,
+    1260,
+    1280,
+    1300,
+    1320,
+    1340,
+    1360,
+    1380,
+    1400,
+    1420,
+    1440,
+    1460,
+    1480,
+    1500,
+    1520,
+    1540,
+    1560,
+    1580,
+    1600,
+    1620,
+    1640,
+    1660,
+    1680,
+    1700,
+    1720,
+    1740,
+    1760,
+    1780,
+    1800,
+    1820,
+    1840,
+    1860,
+    1880,
+    1900,
+    1920,
+    1940,
+    1960,
+    1980,
+    2000,
+    2020,
+    2040,
+    2060,
+    2080,
+    2100,
+    2120,
+    2140,
+    2160,
+    2180,
+    2200,
+    2220,
+    2240
+  ],
+  "delta_rule": "5*floor(.02*min(original_proper_train_ucrit)/5) m/s",
+  "delta_mps": 20,
+  "arms": [
+    "S",
+    "M",
+    "R"
+  ],
+  "replicates": [
+    0,
+    1
+  ],
+  "observed_samples": 448,
+  "sample_dt_seconds": 0.001,
+  "plateau_windows": [
+    [
+      0,
+      128
+    ],
+    [
+      160,
+      288
+    ],
+    [
+      320,
+      448
+    ]
+  ],
+  "transition_seconds": [
+    [
+      0.128,
+      0.16
+    ],
+    [
+      0.288,
+      0.32
+    ]
+  ],
+  "numerical_endpoints_mps": [
+    900,
+    1240,
+    2240
+  ],
+  "peak_rate_mps2": [
+    1875.0,
+    937.5
+  ],
+  "noise_views": [
+    "clean",
+    "iid1",
+    "correlated1",
+    "iid5",
+    "correlated5"
+  ],
+  "noise_pairing": "One absolute physical noise realization computed using S leading51-sample RMS, reused unchanged for M and R; correlated RMS matches each channel iid draw. Each arm retains its own existing measured51-sample channel calibration. Sensitivity setting, not instrument/deployment specification.",
+  "gate": "Unchanged cap50/nonfinite rejection, prefix64 modal fit predicting following64 samples with skill>=.5, finite174-coordinate modal row with nonempty modes; no heuristic SNR gate.",
+  "labels": "Computed offline after acquisition as1-Uend/ucrit; never schedule, gate or predictor inputs",
+  "source_initialization": "Existing8-mode initial physical state at.9*ucrit; paired exactly across arms; simulator-dependent preparation is disclosed, not independent physical excitation validation",
+  "physical_rate_validated": false,
+  "numerical_tolerance_relative_rms": 0.005,
+  "rom_tolerance_relative_rms": 0.02,
+  "source_direction": "p4_journal/review_20261009/frontier_research_direction.json",
+  "full_fits_authorized": false
+}

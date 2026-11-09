@@ -1,0 +1,64 @@
+{
+  "scope": "Cached128ms waveform-only modal-fit diagnostic; original TRAIN only; no warning policy or neural training",
+  "inputs": {
+    "protocol.json": "4de73b26bec5ed426e2adb8933cc60e24a43cac80a42401994eb2eec92424c4c",
+    "results.json": "987fe53b0b87b0c2ddfef413da61747e5a55a270363219b0f520948957855c35",
+    "analysis.json": "1061b9f2361108587bc7a91496a5ef65decb8c9698a5743edb4d7c5da95a4b0d",
+    "raw_controls.npz": "c6488a450461370b93a97101772f030192e3165eb5284400c1f8dcbeaf9886f0"
+  },
+  "selection": {
+    "samples": 128,
+    "initial_stage": "critical_only_oracle",
+    "ordinary_stage": "Only if all predeclared critical-stage checks pass"
+  },
+  "model": "Per-channel offset + exp(alpha_mid*tau +0.5*alpha_slope*tau^2)*(c*cos(2*pi*(frequency_mid*tau+0.5*frequency_slope*tau^2))+d*sin(...)); shared growth/frequency, channel-specific linear coefficients; tau centered on measured window",
+  "comparison": [
+    "Archived LS-ESPRIT nearest-end-frequency and full-bank matching evaluation",
+    "Single-mode stationary variable projection, alpha_slope=frequency_slope=0",
+    "Single-mode time-varying variable projection"
+  ],
+  "measurement": "Reuse all original leading51 calibration, cap50, fixed noise floor and recorded noise draws; only logical128 samples enter fits; Float32 calibrated measurements promoted to Float64 for fitting",
+  "initialization": "Measured aggregate Hann-windowed demeaned FFT power,16x zero padding, peak between1Hz and Nyquist-1Hz; zero initial growth; time-varying fit warm-starts from the stationary waveform fit with both slopes zero; no reference poles or labels in fitter arguments",
+  "solver": {
+    "method": "scipy.optimize.least_squares trf; exact per-iterate linear least squares, rank checked",
+    "jacobian": "3-point finite differences",
+    "maximum_evaluations": 300,
+    "ftol": 1e-12,
+    "xtol": 1e-12,
+    "gtol": 1e-10,
+    "mid_growth_bounds_per_second": [
+      -100,
+      100
+    ],
+    "growth_slope_bounds_per_second_squared": [
+      -1000,
+      1000
+    ],
+    "frequency_halfwidth_cycles": 2,
+    "frequency_slope_bounds_hz_per_second": [
+      -250,
+      250
+    ],
+    "frequency_limits_hz": "1 to Nyquist-1; slope bounds tightened to retain valid endpoint frequencies",
+    "sign": "Both positive and negative growth allowed; no stability clamp"
+  },
+  "pass_checks": {
+    "all48_critical_fits_successful_and_interior": true,
+    "all48_end_poles_match": "Frequency<=5% relative error; alpha absolute error<=max(1/s,10% abs(reference alpha))",
+    "all48_end_growth_signs_correct": true,
+    "clean_stationary_max_alpha_error_per_second": 0.001,
+    "noisy_stationary_median_alpha_error_allowance_over_esprit_per_second": 0.05,
+    "ramping_alpha_mae": "Lower than both stationary single-mode fit and archived nearest-frequency LS-ESPRIT separately for clean and iid1"
+  },
+  "hypotheses": [
+    "Stationarity mismatch: time-varying fit improves end-pole accuracy relative to both stationary comparators",
+    "Changing mode shapes/coupling: even a good single-mode chirp waveform fit can retain wrong physical end growth",
+    "Noise/derivative identifiability: slope parameters can degrade stationary/noisy accuracy despite better reconstruction"
+  ],
+  "limitations": [
+    "Four repeatedly inspected original TRAIN designs and one paired noise draw; not blind confirmation",
+    "Critical-only initialization is a diagnostic positive control, not a monitor input",
+    "Single-mode envelope growth need not equal instantaneous eigenvalue growth under changing modal shapes",
+    "No real-time deadline, gap confidence, noise-only availability or warning calibration claim"
+  ]
+}

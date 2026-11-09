@@ -1,0 +1,130 @@
+{
+  "scope": "Matched additive measured-feature ablation, not TRAIN-support expansion or blind qualification",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/dataset.npz": "764d23be333c9de07d05e9e9dcc4eabd37327aeaf6c626f69d6a7888e202ec58",
+    "p4_groups/operational_confirmation_20261003/fitter_margin_comparison_20261008/raw_signals.npz": "1d99bdfea53b930206be2872e50d0664ac2ae59aa3ea267ddde6df94e93881c1",
+    "p4_groups/operational_confirmation_20261003/temporal_probe_20261007/data.npz": "6b976f6fdea6a5554eadaabc1d55af0ef2d4e74df06edfdd8ff048a694ffd9e4",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence_20261007/protocol.json": "8f4f88870914c38ae959a51335203b83d96a104cd227201644fe394bde3f7a76",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence_20261007/framewise.pt": "ee30695a6aa63bccf1d30045e5fc9031e3773cce637773b667e5fba865f41370",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence_20261007/predictions.npz": "9928a51102ae75dd7bf2cd06230ab936484219a0c07c2583ca8897b075cf2b78",
+    "p4_groups/operational_confirmation_20261003/remote_input.npz": "e374781c698b624283f1a00f9ffc16b4e6a2e3882c4f855d53ca6d346bca59f2"
+  },
+  "helpers": {
+    "p4_groups/operational_confirmation_20261003/cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331",
+    "p4_groups/operational_confirmation_20261003/pulse_aware_probe.py": "2ece34e0fd4a0cfe9950def5b23cd01e0cec4f71a551e4ebe736747ddb4b66f8",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/temporal_probe.py": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+    "p4_groups/operational_confirmation_20261003/temporal_convergence.py": "85f3947a790ab3199fd71157220cf527fbb0574b7daa8c5e60e210f581818d2f",
+    "p4_groups/operational_confirmation_20261003/fitter_comparison_score.py": "154eebb4175cbb3d7b2d8a88262e3778a61e16b15d804e337b0788002626fccc",
+    "p4_groups/operational_confirmation_20261003/gpu_execution.py": "1190dbe05c1413a426711dec805119387fd239775669ff14f18b10993603dcf3",
+    "p4_groups/operational_confirmation_20261003/trajectory_runner.py": "c856f07663dd5cc3c367fc5f05aefe9b570df9a905ec84adc0b7d1a668e70dc3",
+    "p4_groups/two_mode_spatial_20260930/prepare_features.py": "dae1c2d34821c4d4085e2eea286fb33aee259dbdc01d2183a9f3a5007697da1e",
+    "src/mechanics/p4_margin_estimation/modal_features.py": "ba42ab8191d6ecd9feebb40b8c65ec1613c218ca49f3f5090d468c2abac28df3",
+    "src/mechanics/p4_margin_estimation/sidecar.py": "6ccf1783573c010f282c1c2d44024809ff220cca60f54cec0ee50b168e8bafc0",
+    "src/mechanics/p4_margin_estimation/baselines.py": "ae36a3e7be77cbe104b48a1ccb7b3ff9a6a968afc673d67983576ccb77a6db89"
+  },
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "physical_cases": "Same48 cached8s ordinary-mixture trajectories,2 schedule replicates and cross/stable/retreat profiles; no new simulation",
+  "samples": 128,
+  "dt": 0.001,
+  "stride": 64,
+  "gate": "Existing command-free finite unsaturated window and original64-to64 forecast skill >=.5; no new gate, truth routing, stale policy or row removal",
+  "base_features": "All174 retained. Canonical original clean/IID1 feature rows reused exactly for baseline reproducibility; other original views from source comparison; fresh views extracted once identically for all arms",
+  "append_definition": {
+    "demean": true,
+    "hann": "periodic",
+    "fft_length": 128,
+    "bins": [
+      1,
+      63
+    ],
+    "spectral": [
+      "normalized summed-sensor-power entropy",
+      "union neighborhood mass around existing top3 fitted-strength frequencies,nearest bin +/-1,lower tie,clipped1..63"
+    ],
+    "spatial": [
+      "broadband tr(S^2)/tr(S)^2, S=sum X[k]X[k]^H"
+    ],
+    "invalid": "NaN in stored descriptors plus explicit validity. Training-only mean imputation to standardized0 with validity flags; never invent measurement or drop a row",
+    "validity_encoding": "Raw binary flags, not variance scaled; invalid values standardized0; every unobserved row has zero appended inputs."
+  },
+  "arms": [
+    "baseline174",
+    "spectral_distribution",
+    "spatial_concentration",
+    "shuffled_spectral_control",
+    "shuffled_spatial_control"
+  ],
+  "negative_controls": "Shuffle appended values jointly across physical trajectories within each split, same permutation across paired acquisition views; preserve original row-validity flags. Fixed seed20261009; no labels used. Matched dimensions/learner capacity. Negative controls do not represent deployable models Permutation acts on training-mean-imputed standardized values; missing donors contribute standardized0, original target validity flags remain unshuffled. Original standardization is shared with the corresponding real family.",
+  "training": {
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "learner": "framewise32->16 ReLU; only input columns differ",
+    "optimizer": "Adam",
+    "lr": 0.003,
+    "weight_decay": 0.0001,
+    "maximum_epochs": 2000,
+    "patience": 100,
+    "loss": "Existing all-frame mean squared error on proper clean/IID1 trajectories, including original gap behavior",
+    "selection": "Original clean/IID1 validation all-frame MAE only; no fresh-noise/held selection"
+  },
+  "evaluation": {
+    "original_views": [
+      "clean",
+      "iid1",
+      "correlated1",
+      "iid5",
+      "correlated5"
+    ],
+    "fresh_draw_seeds": [
+      20261020,
+      20261021
+    ],
+    "fresh_views": [
+      "iid1",
+      "correlated1",
+      "iid5",
+      "correlated5"
+    ],
+    "fresh_population": "Same held physical trajectories only, no new designs or fitting on fresh noise",
+    "noise": "Existing original-eight aggregate causal prefixRMS sigma; same white draw for paired IID/correlated, rho=.8 and realized per-channel marginal RMS matched; never percent of decaying response"
+  },
+  "metrics": "Equal-design all-frame/current/gap MAE, exact -.02<m<.05 boundary, optimism>.02, sign errors by side on.01<=abs(m)<=.05, descriptive positive-on-m<0, m>=.10 farther-stable; counts/unknown explicit; perseed/perdesign/profile/rate/margin bands",
+  "rate_strata": {
+    "stationary_max": 1e-10,
+    "slow_max": 0.04,
+    "fast_min_exclusive": 0.04,
+    "units": "abs(dm/dt)/s from stored labels for scoring only"
+  },
+  "bin_transitions": "Consecutive original accepted windows; any existing top3 nearest-bin change. Report paired signed/magnitude errors and prediction-jump residuals; no smoothing/retuning",
+  "decision": "No adoption unless paired primary-condition overall/boundary gains on both held designs across seeds/freshdraws, dangerous errors and profile/rate/5%/farther-stable guardrails preserved; absence of coverage remains unresolved. Must outperform matched-size shuffled controls. No combination unless both individual families earn evidence",
+  "limits": [
+    "Only4 fitting,2 validation,2 repeatedly inspected held TRAIN designs; no blind confirmation",
+    "Unknown farther-stable/unstable-exclusion coverage prevents full qualification",
+    "No warning recalibration or supported safety claim",
+    "15 fixed model fits; no hyperparameter or feature search",
+    "Measured-feature findings do not alter pending controlled TRAIN-support expansion"
+  ],
+  "implementation": {
+    "p4_groups/operational_confirmation_20261003/spectral_features.py": "4a66e591978244c48461c909b3dfae9140b9c9b8f23fa445e979d458871a98d3",
+    "p4_groups/operational_confirmation_20261003/experiment_additive_spectral.py": "5e74a72ea7a321e0ea755206a7c9cb75558d360381d9d456d89ecd3db034501f"
+  }
+}

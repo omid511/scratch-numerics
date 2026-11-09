@@ -1,0 +1,71 @@
+{
+  "scope": "TRAIN-only cached temporal convergence diagnostic; no capacity sweep, production replacement or warning recalibration",
+  "base_protocol": {
+    "scope": "Small conditional TRAIN-only representation/memory comparison, not production replacement or deployment qualification",
+    "split": {
+      "train": [
+        "D000007",
+        "D000033",
+        "D000068",
+        "D000087"
+      ],
+      "validation": [
+        "D000042",
+        "D000045"
+      ],
+      "held": [
+        "D000053",
+        "D000126"
+      ]
+    },
+    "duration_seconds": 8,
+    "schedule_replicates": 2,
+    "profiles": [
+      "cross",
+      "stable",
+      "retreat"
+    ],
+    "noise": [
+      "clean",
+      "iid1"
+    ],
+    "samples": 128,
+    "stride_samples": 64,
+    "observability": "Command-free and unsaturated128ms measured windows; modes from first64ms forecast next64ms with centered explained energy >=0.5. No simulator poles, design identity, velocity, margin or future waveform in model inputs.",
+    "input": "174 analytical features from the complete accepted128ms window, availability flag and age since last accepted observation. Same inputs for framewise and GRU. Time-only GRU receives elapsed time alone.",
+    "architectures": {
+      "framewise": "176->32->16->1 ReLU",
+      "gru": "GRU(176,32)->16->1 ReLU",
+      "time_only": "GRU(1,32)->16->1 ReLU"
+    },
+    "training": {
+      "seed": 42,
+      "optimizer": "Adam",
+      "learning_rate": 0.003,
+      "weight_decay": 0.0001,
+      "maximum_epochs": 200,
+      "selection": "Lowest validation all-frame MAE, patience30",
+      "loss": "All-frame mean squared error, equal-size trajectories"
+    },
+    "randomization": "Seed20261009 per design/replicate/profile; independently random initial ratio, ramp timing, stable and retreat velocity knots, pulse onset timing and amplitudes. Noise seed20261010. All copies remain within one design partition.",
+    "frozen": "Original O1 models, partitions, thresholds and reserved dataset populations unchanged. New framewise/GRU models are explicitly trained on changed-aperture inputs. No calibrated warning policy claimed.",
+    "report": "All-frame and observed-frame MAE; conditional optimistic errors near flutter; time-only control; missing observations and age; design/profile/noise breakdown. Output during gaps is model extrapolation, not measured availability or certified safe state."
+  },
+  "inputs": {
+    "data.npz": "6b976f6fdea6a5554eadaabc1d55af0ef2d4e74df06edfdd8ff048a694ffd9e4",
+    "predictions.npz": "a19f63b309bed2b155f69b11d6cd85d8bbe0470c5372d823ad2807361fecab7b",
+    "results.json": "0f2092d235919bf29d0e27fcde3aa88617f0b6a0e05f8592715be7bc2737de3c"
+  },
+  "base_source_sha256": "5dcb49302f50840f6866684b316810534abad1acd2005db85d7384ad49227a90",
+  "training": {
+    "maximum_epochs": 2000,
+    "patience": 100,
+    "selection": "Lowest validation all-frame MAE; unchanged Adam/loss/seed; all other settings from base_protocol"
+  },
+  "verification": "First200 epochs reproduce original histories and selected predictions within numerical tolerance",
+  "limitations": [
+    "Repeated TRAIN-only exploration, two held designs, one initialization; not blind confirmation",
+    "Gap estimates remain extrapolation, not measured availability",
+    "No architecture sweep, new waveform acquisition, threshold change or reserved-design scoring"
+  ]
+}

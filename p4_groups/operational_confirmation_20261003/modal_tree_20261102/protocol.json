@@ -1,0 +1,99 @@
+{
+  "scope": "Modal-only limited-input development competitor; not matched-input waveform attribution",
+  "hypothesis": "Fixed nonlinear conversion of causal modal history may reduce signed-headroom error",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/dataset.npz": "170f5e783e2fbab6abefce7c4b0a18b54af4d36b345e546ab7c01dcb23154499",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/protocol.json": "786f301fd82c64e9541365efb28c771b549f0272be13eaa16f4330801b4a4129",
+    "p4_groups/operational_confirmation_20261003/raw_modal_data.py": "82fff8c7b35a03827e6e5fe4a5320526848657feb2c73fcafa8f5cee802e5424",
+    "p4_groups/operational_confirmation_20261003/experiment_raw_modal.py": "4814dd61423151e8a67bb5a64830aa25f993c55102bc0442f9c500bee8eb0fee",
+    "p4_groups/operational_confirmation_20261003/score_additive_spectral.py": "9baa0cb46fe558d1757e5245e132b18e3e4307bc22cbc80de22db5946330a19e",
+    "p4_groups/operational_confirmation_20261003/experiment_multivel_history.py": "9487232cb45784ab717fc9e2828ab4726673e1f655e6247106d98af17307e8ac",
+    "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py": "721a83d35bf68c9fb1011046e87b342d0e8170d4fd0f926e5ecabaf059ce5c6b",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/analyze_gate_bypass_receipt.py": "4a32b9ddeacae94db5c229c81ac2d2a97b08035ac2bc950e13c771f4307c2158",
+    "p4_groups/operational_confirmation_20261003/analyze_raw_modal.py": "351f899e532f26de6819779e62cc42b3f6ba127a1fbda93cdee63695b45ef512",
+    "p4_groups/operational_confirmation_20261003/raw_modal_20261010/results.json": "c78d57eca1d27793d69c4caa78568d86544197455439948cccb3c23306fbca01",
+    "p4_groups/operational_confirmation_20261003/raw_modal_20261010/protocol.json": "3ee8428e4beb47cefcfb1eb144a96899abe4ba0411b06601bea23fd4e3230f86",
+    "src/mechanics/p4_margin_estimation/baselines.py": "ae36a3e7be77cbe104b48a1ccb7b3ff9a6a968afc673d67983576ccb77a6db89",
+    "p4_groups/operational_confirmation_20261003/raw_tcn_grouped4_20261010/protocol.json": "4f7646a2cf3ac38a04cf2a3021272db58185ba20ec66ac006f848171249b53d4",
+    "p4_groups/operational_confirmation_20261003/experiment_modal_tree.py": "7e499042d4f00ee1ccb3fbdcd4bee92dc5b66b33a74f9a49c4d17ad79360d165",
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f"
+  },
+  "split": {
+    "train": [
+      "D000007",
+      "D000033",
+      "D000068",
+      "D000087"
+    ],
+    "validation": [
+      "D000042",
+      "D000045"
+    ],
+    "held": [
+      "D000053",
+      "D000126"
+    ]
+  },
+  "additional_designs": [
+    "D000062",
+    "D000152",
+    "D000008",
+    "D000146",
+    "D000144",
+    "D000029",
+    "D000020",
+    "D000120",
+    "D000129",
+    "D000114",
+    "D000158",
+    "D000115"
+  ],
+  "evaluation_folds": [
+    [
+      "D000062",
+      "D000152",
+      "D000008",
+      "D000146"
+    ],
+    [
+      "D000144",
+      "D000029",
+      "D000020",
+      "D000120"
+    ],
+    [
+      "D000129",
+      "D000114",
+      "D000158",
+      "D000115"
+    ]
+  ],
+  "primary_noise": [
+    "clean",
+    "iid1",
+    "correlated1",
+    "iid1_fresh20261020",
+    "correlated1_fresh20261020",
+    "iid1_fresh20261021",
+    "correlated1_fresh20261021"
+  ],
+  "independence_unit": "design",
+  "estimator": {
+    "loss": "squared_error",
+    "max_iter": 200,
+    "learning_rate": 0.05,
+    "max_leaf_nodes": 15,
+    "min_samples_leaf": 100,
+    "l2_regularization": 1,
+    "early_stopping": false,
+    "random_state": 42
+  },
+  "sklearn_version": "1.9.1",
+  "inputs_contract": "174 measured modal features, observation flag and age, lags 4/2/0, 528 flattened values; no hidden physical inputs",
+  "training": "One deterministic fit per fold, all 124 frames of proper clean and iid1 rows only; no validation selection",
+  "targets": "Equal-design all/boundary MAE <= .010/.005 clean and <= .015/.010 each 1% view",
+  "safeguards": "Boundary optimism >.02 <=5%; each eligible current sign side <=10%; retreat no regression and farther-stable MAE delta <=.005 versus frozen references",
+  "continuation": "Only consider as development reference if point targets and dangerous-error, retreat and farther-stable safeguards hold; otherwise partial/negative without tuning",
+  "limits": "One seed versus three-seed comparators; no search, promotion, operational or safety claim. Uncertainty, warning, blind 120 designs and independent physics remain required."
+}

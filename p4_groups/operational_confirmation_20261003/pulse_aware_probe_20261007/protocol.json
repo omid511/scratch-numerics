@@ -1,0 +1,22 @@
+{
+  "scope": "Post-hoc TRAIN-only diagnostic probe, not blind confirmation or production cutover",
+  "designs": [
+    {"design": "D000042", "replicate": 2},
+    {"design": "D000053", "replicate": 0}
+  ],
+  "profiles": {"safe_dwell": 5.511, "fast_cross": 10.511},
+  "forcing": ["initial_only", "intermittent_physical_pulses"],
+  "noise": ["clean", "iid1", "correlated5"],
+  "arms": ["baseline", "pulse_guard", "pulse_guard_predictive"],
+  "window_samples": 512,
+  "forecast_prefix_samples": [256, 384],
+  "forecast_samples": 128,
+  "minimum_forecast_skill": 0.5,
+  "forecast_skill": "1 - forecast SSE / suffix centered energy; both disjoint 128-sample suffixes must pass; prefixes use only earlier samples",
+  "pulse_guard": "Reject any trailing window overlapping nonzero commanded forcing or any original sensor cap hit; no change to the cap of 50",
+  "timing_assumption": "Commanded load activity is available as an actuator log; no inference from flutter labels, velocity, design identity, or solver poles. Conditional acquisition experiment, not a claim that deployment has this input.",
+  "frozen": "Archived baseline predictions, episode thresholds, delivery times and baseline availability are retained. Gate computational cost is not included: availability/episode results are paired counterfactual diagnostics, not latency qualification.",
+  "noise_replay": "Generate original-horizon RNG using the real leading 51 samples; selected noise families depend only on this prefix and array shape, never future physical response",
+  "negative_control": "Initial-only quiet trajectories; rejected or unobservable intervals remain unavailable, never safe",
+  "selection": "Two previously diagnosed designs, no threshold/parameter search and no reserved selection/calibration/test scoring"
+}

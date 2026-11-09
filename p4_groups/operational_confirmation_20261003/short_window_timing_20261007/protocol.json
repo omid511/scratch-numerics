@@ -1,0 +1,16 @@
+{
+  "scope": "TRAIN-only pole-time diagnostic; no model training, warning recalibration or reserved-design evaluation",
+  "cases": [{"design": "D000042", "replicate": 2}, {"design": "D000053", "replicate": 0}, {"design": "D000007", "replicate": 0}, {"design": "D000033", "replicate": 0}],
+  "samples": [128, 256],
+  "dt_seconds": 0.001,
+  "end_ratios": [0.99, 1.005],
+  "ratio_rates_per_second": [0.0, 0.04, 0.15625],
+  "excitation": ["ordinary", "critical_only_oracle"],
+  "noise": ["clean", "iid1"],
+  "noise_reference": "Fixed initial ordinary-response sensor RMS within each design; paired Gaussian draw seed20261012+design_integer+replicate, independent channels. Never percent of shrinking instantaneous response.",
+  "window_contract": "N samples span (N-1)*dt; ratio(t)=end_ratio-rate*(end_time-t). Fixed and ramping controls share end ratio, ordinary initial state, zero input, noise draw and absolute noise floor. Critical-only initialization uses the physical critical eigenvector at the starting ratio, matched initial sensor RMS; diagnostic positive control only.",
+  "estimator": "Existing LS-ESPRIT, lag64, up to8 mode pairs, same leading51 measured calibration samples, cap50 before estimation. Record saturation and usable fraction; retain failed identification.",
+  "report": "Select one estimated pole nearest end-reference frequency; compare that SAME pole to start/midpoint/end references. Report signed alpha and relative frequency errors, near-frequency retention, reference-frequency continuity, paired ramp-minus-fixed alpha estimates and availability. No model point estimate is changed.",
+  "hypotheses": ["Residual128ms ramp bias: clean critical-only estimates differ from matched-end stationary estimates and fit earlier-time references better", "Mode-mixture error: stationary ordinary estimates fail where stationary critical-only controls recover", "Noise-limited identification: clean recovery degrades at the fixed1% noise floor, independently of ramp rate"],
+  "limitations": ["Four previously inspected original TRAIN designs and one paired noise draw; not blind confirmation", "Critical-only excitation and reference poles are simulator diagnostics, never deployed predictor inputs", "128ms is sample count; actual first-to-last span is127ms", "Synthetic noise and ratio-rate settings are sensitivity controls, not deployment specifications"]
+}

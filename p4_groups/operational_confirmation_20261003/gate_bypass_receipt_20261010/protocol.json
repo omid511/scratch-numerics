@@ -1,0 +1,36 @@
+{
+  "scope": "Population-wide measured-only auxiliary extraction receipt; no fits",
+  "eligibility": "Combined finite-failure/prefix-no-mode/undefined-variance eligibility fixed before truth scoring; command-free finite cap-free genuine nonempty finite full128 modes and174 row; unexpected solver/numerical failures excluded",
+  "preserved": "Cached accepted features, observed, age, calibration, sensors, all frames, folds, protected evaluation, progress ledger",
+  "inputs": {
+    "p4_groups/operational_confirmation_20261003/extract_gate_bypass_receipt.py": "f349066169d4f8d40eb2600b29fca964d96b0112e1522fbf743e9ed1fd5d8c9d",
+    "p4_groups/operational_confirmation_20261003/cuda_backend.py": "387f9fabc49fafc447b06d37bfc1de08e35aece71736043a8859aa5184499331",
+    "p4_groups/operational_confirmation_20261003/experiment_support_modal_v2.py": "721a83d35bf68c9fb1011046e87b342d0e8170d4fd0f926e5ecabaf059ce5c6b",
+    "p4_groups/operational_confirmation_20261003/diagnostic_matrix.py": "7383d83c241d3134e0dfd7cd87b7000a241f75895e9651bb8f91030b0e146644",
+    "p4_groups/operational_confirmation_20261003/pulse_aware_probe.py": "2ece34e0fd4a0cfe9950def5b23cd01e0cec4f71a551e4ebe736747ddb4b66f8",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/protocol.json": "786f301fd82c64e9541365efb28c771b549f0272be13eaa16f4330801b4a4129",
+    "p4_groups/operational_confirmation_20261003/support_modal_20261009_v2/dataset.npz": "170f5e783e2fbab6abefce7c4b0a18b54af4d36b345e546ab7c01dcb23154499",
+    "p4_journal/review_20261009/gate_erasure_target_direction.json": "ad68113d0c29b2c81bc952950b5404e05fb9545afbaa2914551a262d69dd777e",
+    "p4_journal/review_20261009/gate_bypass_provenance_amendment.json": "43036ce499088b5ee2997821f46a6289fcf6d043a636f939d99501f07880b7c6",
+    "p4_journal/review_20261009/gate_bypass_smoke_frontier_review.json": "996941d6dbc746095c553b0b3b8fcabad9ca41b51f7200bc37051f1d696541a5",
+    "p4_journal/review_20261009/gate_bypass_undefined_forecast_direction.json": "da522920d8eb6b8b67c7865eae66c8b8e6ebda9fa44d73ea9e0cab1f4a81f801",
+    "P4_PROGRESS.json": "ae7d58419fd25e3013568aaeb9f42e9fa2946fd6e7fe8af7ccd074cc835db69f"
+  },
+  "history_lags": [
+    4,
+    2,
+    0
+  ],
+  "primary_noise": [
+    "clean",
+    "iid1",
+    "correlated1",
+    "iid1_fresh20261020",
+    "correlated1_fresh20261020",
+    "iid1_fresh20261021",
+    "correlated1_fresh20261021"
+  ],
+  "inventory_designs": 20,
+  "evaluation_designs": 12,
+  "fitting_authorized": false
+}
